@@ -1,3 +1,18 @@
+/****************************************************************************
+ *
+ * MODULE:       r.futures
+ * AUTHOR(S):
+ *
+ * PURPOSE:
+ *
+ * COPYRIGHT:    (C) 2013-2014 by
+ *
+ *               This program is free software under the GNU General Public
+ *               License (>=v2). Read the file COPYING that comes with GRASS
+ *               for details.
+ *
+ *****************************************************************************/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -5,10 +20,15 @@
 #include <sys/time.h>
 #include <iostream>
 #include <fstream>
+
+extern "C" {
+#include <grass/gis.h>
+#include <grass/raster.h>
+#include <grass/glocale.h>
+}
+
 #include "cfgutils.h"
 //#include "distance.h"
-
-#pragma warning(disable : 4996)					/* stop Visual C++ 2008 from warning about C++ and thread safety when asked to compile idiomatic ANSI */
 
 #define	_CELL_OUT_OF_RANGE			-2			/* used to flag cells that are off the lattice */
 #define	_CELL_OUT_OF_COUNTY			-1			/* used to flag cells that are not in this county */
@@ -168,9 +188,6 @@ void findAndSortProbsAll(t_Landscape *pLandscape, t_Params *pParams,int step);
 void updateMap1(t_Landscape *pLandscape, t_Params *pParams, int step, int regionID);
 int getUnDevIndex1(t_Landscape *pLandscape,int regionID);
 void export2ASC1(t_Landscape *pLandscape, t_Params *pParams, int regionID,char* fn);
-
-int main(int argc, char **argv);
-
 
 char* addPath(char*str1,char* pathStr){
 	//add directory name directly here to use absolute path // by Wenwu Tang
@@ -1564,7 +1581,7 @@ int convertCells(t_Landscape *pLandscape, t_Params *pParams, int nThisID, int nS
 		/* in here goes code to fill up list of neighbours */
 		if(pParams->nAlgorithm == _N_ALGORITHM_STOCHASTIC_II)
 		{
-			nToConvert = newPatchFinder(nThisID,pLandscape,pParams,anToConvert, nWantToConvert);
+        nToConvert = newPatchFinder(nThisID,pLandscape,pParams,anToConvert, nWantToConvert);
 		}
 		else
 		{
@@ -2094,6 +2111,106 @@ int readParcelSizes(t_Landscape *pLandscape, t_Params *pParams)
 */
 int main(int argc, char **argv)
 {
+
+    struct
+    {
+        struct Option
+            *xSize, *ySize, *aspect, *pcurv, *tcurv,
+            *zfactor, *min_slp_allowed, *out_precision,
+            *dx, *dy, *dxx, *dyy, *dxy;
+    } opt;
+    struct
+    {
+        struct Flag *a;
+    } flag;
+
+    G_gisinit(argv[0]);
+
+    struct GModule *module = G_define_module();
+    G_add_keyword(_("raster"));
+    G_add_keyword(_("patch growing"));
+    G_add_keyword(_("urban"));
+    G_add_keyword(_("landscape"));
+    G_add_keyword(_("modeling"));
+    module->label = _("FUTURES");
+    module->description = _("...");
+
+    opt.xSize = G_define_option();
+    opt.xSize->key = "xsize";
+    opt.xSize->type = TYPE_INTEGER;
+    opt.xSize->required = YES;
+    opt.xSize->description = _("Size of the grids");
+    opt.xSize->guisection = _("Not needed");
+
+    opt.ySize = G_define_option();
+    opt.ySize->key = "ysize";
+    opt.ySize->type = TYPE_INTEGER;
+    opt.ySize->required = YES;
+    opt.ySize->description = _("Size of the grids");
+    opt.ySize->guisection = _("Not needed");
+
+    opt.controlFile = G_define_standard_option(G_OPT_F_INPUT);
+    opt.controlFile->key = "control_file";
+    opt.controlFile->type = TYPE_INTEGER;
+    opt.controlFile->required = YES;
+    opt.controlFile->description = _("File containing information on how many cells to transition and when");
+    opt.controlFile->guisection = _("Files");
+
+    opt.employAttractionFile = G_define_standard_option(G_OPT_F_INPUT);
+    opt.employAttractionFile->key = "control_file";
+    opt.employAttractionFile->type = TYPE_INTEGER;
+    opt.employAttractionFile->required = YES;
+    opt.employAttractionFile->description = _("Files containing the information to read in");
+    opt.employAttractionFile->guisection = _("Files");
+
+    opt.interchangeDistanceFile = G_define_standard_option(G_OPT_F_INPUT);
+    opt.interchangeDistanceFile->key = "control_file";
+    opt.interchangeDistanceFile->type = TYPE_INTEGER;
+    opt.interchangeDistanceFile->required = YES;
+    opt.interchangeDistanceFile->description = _("Files containing the information to read in");
+    opt.interchangeDistanceFile->guisection = _("Files");
+
+    opt.roadDensityFile = G_define_standard_option(G_OPT_F_INPUT);
+    opt.roadDensityFile->key = "control_file";
+    opt.roadDensityFile->type = TYPE_INTEGER;
+    opt.roadDensityFile->required = YES;
+    opt.roadDensityFile->description = _("Files containing the information to read in");
+    opt.roadDensityFile->guisection = _("Files");
+
+    opt. = G_define_standard_option(G_OPT_F_INPUT);
+    opt.->key = "control_file";
+    opt.->type = TYPE_INTEGER;
+    opt.->required = YES;
+    opt.->description = _("Files containing the information to read in");
+    opt.->guisection = _("Files");
+
+    opt. = G_define_standard_option(G_OPT_F_INPUT);
+    opt.->key = "control_file";
+    opt.->type = TYPE_INTEGER;
+    opt.->required = YES;
+    opt.->description = _("Files containing the information to read in");
+    opt.->guisection = _("Files");
+
+    opt. = G_define_standard_option(G_OPT_F_INPUT);
+    opt.->key = "control_file";
+    opt.->type = TYPE_INTEGER;
+    opt.->required = YES;
+    opt.->description = _("Files containing the information to read in");
+    opt.->guisection = _("Files");
+
+    opt. = G_define_standard_option(G_OPT_F_INPUT);
+    opt.->key = "control_file";
+    opt.->type = TYPE_INTEGER;
+    opt.->required = YES;
+    opt.->description = _("Files containing the information to read in");
+    opt.->guisection = _("Files");
+
+     File
+            undevelopedFiledevPressureFileconsWeightFile
+
+    if (G_parser(argc, argv))
+        exit(EXIT_FAILURE);
+
 	struct timeval ttime;
 	gettimeofday(&ttime,NULL);
 

@@ -1,9 +1,6 @@
 #ifndef _CFGUTILS_H_
 #define _CFGUTILS_H_
 
-#pragma warning(disable : 4996)					/* stop Visual C++ 2008 from warning about C++ and thread safety when asked to compile idiomatic ANSI */
-
-
 #define		N_MAXFNAMELEN			256				/* Maximum length of a filename */
 #define		N_MAXSTRLEN				1024			/* Maximum length of a string */
 #define		N_LINEBLOCKSIZE			256				/* How many lines to allocate at once */

@@ -1,4 +1,16 @@
-model:
-	g++ -g -Wall preprocessGISData.cpp cfgutils.cpp -o urbanModel
-run:
-	./urbanModel
+MODULE_TOPDIR = ../..
+
+PGM = r.futures
+
+LIBES = $(RASTERLIB) $(GISLIB) $(MATHLIB)
+DEPENDENCIES = $(RASTERDEP) $(GISDEP)
+
+include $(MODULE_TOPDIR)/include/Make/Module.make
+
+EXTRA_CFLAGS = -Wall
+
+LINK = $(CXX)
+
+ifneq ($(strip $(CXX)),)
+default: cmd
+endif
