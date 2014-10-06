@@ -2115,9 +2115,9 @@ int main(int argc, char **argv)
     struct
     {
         struct Option
-            *xSize, *ySize, *aspect, *pcurv, *tcurv,
-            *zfactor, *min_slp_allowed, *out_precision,
-            *dx, *dy, *dxx, *dyy, *dxy;
+            *xSize, *ySize,
+            *controlFile, *employAttractionFile, *interchangeDistanceFile,
+            *roadDensityFile, *undevelopedFile, *devPressureFile, *consWeightFile;
     } opt;
     struct
     {
@@ -2140,73 +2140,54 @@ int main(int argc, char **argv)
     opt.xSize->type = TYPE_INTEGER;
     opt.xSize->required = YES;
     opt.xSize->description = _("Size of the grids");
-    opt.xSize->guisection = _("Not needed");
 
     opt.ySize = G_define_option();
     opt.ySize->key = "ysize";
     opt.ySize->type = TYPE_INTEGER;
     opt.ySize->required = YES;
     opt.ySize->description = _("Size of the grids");
-    opt.ySize->guisection = _("Not needed");
 
     opt.controlFile = G_define_standard_option(G_OPT_F_INPUT);
     opt.controlFile->key = "control_file";
     opt.controlFile->type = TYPE_INTEGER;
     opt.controlFile->required = YES;
     opt.controlFile->description = _("File containing information on how many cells to transition and when");
-    opt.controlFile->guisection = _("Files");
 
     opt.employAttractionFile = G_define_standard_option(G_OPT_F_INPUT);
-    opt.employAttractionFile->key = "control_file";
+    opt.employAttractionFile->key = "employ_attraction";
     opt.employAttractionFile->type = TYPE_INTEGER;
     opt.employAttractionFile->required = YES;
     opt.employAttractionFile->description = _("Files containing the information to read in");
-    opt.employAttractionFile->guisection = _("Files");
 
     opt.interchangeDistanceFile = G_define_standard_option(G_OPT_F_INPUT);
-    opt.interchangeDistanceFile->key = "control_file";
+    opt.interchangeDistanceFile->key = "interchange_distance";
     opt.interchangeDistanceFile->type = TYPE_INTEGER;
     opt.interchangeDistanceFile->required = YES;
     opt.interchangeDistanceFile->description = _("Files containing the information to read in");
-    opt.interchangeDistanceFile->guisection = _("Files");
 
     opt.roadDensityFile = G_define_standard_option(G_OPT_F_INPUT);
-    opt.roadDensityFile->key = "control_file";
+    opt.roadDensityFile->key = "road_density";
     opt.roadDensityFile->type = TYPE_INTEGER;
     opt.roadDensityFile->required = YES;
     opt.roadDensityFile->description = _("Files containing the information to read in");
-    opt.roadDensityFile->guisection = _("Files");
 
-    opt. = G_define_standard_option(G_OPT_F_INPUT);
-    opt.->key = "control_file";
-    opt.->type = TYPE_INTEGER;
-    opt.->required = YES;
-    opt.->description = _("Files containing the information to read in");
-    opt.->guisection = _("Files");
+    opt.undevelopedFile = G_define_standard_option(G_OPT_F_INPUT);
+    opt.undevelopedFile->key = "undeveloped";
+    opt.undevelopedFile->type = TYPE_INTEGER;
+    opt.undevelopedFile->required = YES;
+    opt.undevelopedFile->description = _("Files containing the information to read in");
 
-    opt. = G_define_standard_option(G_OPT_F_INPUT);
-    opt.->key = "control_file";
-    opt.->type = TYPE_INTEGER;
-    opt.->required = YES;
-    opt.->description = _("Files containing the information to read in");
-    opt.->guisection = _("Files");
+    opt.devPressureFile = G_define_standard_option(G_OPT_F_INPUT);
+    opt.devPressureFile->key = "development_pressure";
+    opt.devPressureFile->type = TYPE_INTEGER;
+    opt.devPressureFile->required = YES;
+    opt.devPressureFile->description = _("Files containing the information to read in");
 
-    opt. = G_define_standard_option(G_OPT_F_INPUT);
-    opt.->key = "control_file";
-    opt.->type = TYPE_INTEGER;
-    opt.->required = YES;
-    opt.->description = _("Files containing the information to read in");
-    opt.->guisection = _("Files");
-
-    opt. = G_define_standard_option(G_OPT_F_INPUT);
-    opt.->key = "control_file";
-    opt.->type = TYPE_INTEGER;
-    opt.->required = YES;
-    opt.->description = _("Files containing the information to read in");
-    opt.->guisection = _("Files");
-
-     File
-            undevelopedFiledevPressureFileconsWeightFile
+    opt.consWeightFile = G_define_standard_option(G_OPT_F_INPUT);
+    opt.consWeightFile->key = "cons_weight";
+    opt.consWeightFile->type = TYPE_INTEGER;
+    opt.consWeightFile->required = YES;
+    opt.consWeightFile->description = _("Files containing the information to read in");
 
     if (G_parser(argc, argv))
         exit(EXIT_FAILURE);
