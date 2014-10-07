@@ -110,15 +110,15 @@ typedef struct
 	int			xSize;											/* 7312 */
 	int			ySize;											/* 5571 */
 	/* file containing information on how many cells to transition and when */
-	char		controlFile[_N_MAX_FILENAME_LEN];
+    char*		controlFile;
 	/* files containing the information to read in */
-	char		employAttractionFile[_N_MAX_FILENAME_LEN];		/* atr1500clip */
-	char		interchangeDistanceFile[_N_MAX_FILENAME_LEN];	/* d2interclip */
-	char		roadDensityFile[_N_MAX_FILENAME_LEN];			/* psden1000clip */
-	char		undevelopedFile[_N_MAX_FILENAME_LEN];			/* cab_undv_msk */
-	char		devPressureFile[_N_MAX_FILENAME_LEN];			/* devp500clip */
-	char		consWeightFile[_N_MAX_FILENAME_LEN];			/* consweight */
-	char		probLookupFile[_N_MAX_FILENAME_LEN];
+    char*		employAttractionFile;		/* atr1500clip */
+    char*		interchangeDistanceFile;	/* d2interclip */
+    char*		roadDensityFile;			/* psden1000clip */
+    char*		undevelopedFile;			/* cab_undv_msk */
+    char*		devPressureFile;			/* devp500clip */
+    char*		consWeightFile;			/* consweight */
+    char*		probLookupFile;
 	int			nProbLookup;
 	double		*adProbLookup;
 	/* parameters that go into regression formula */
@@ -130,7 +130,7 @@ typedef struct
 	/* size of square used to recalculate development pressure */
 	int			nDevNeighbourhood;								/* 8 (i.e. 8 in each direction, leading to 17 x 17 = 289 in total) */
 	/* used in writing rasters */
-	char		dumpFile[_N_MAX_FILENAME_LEN];
+    char*		dumpFile;
 	/* 1 deterministic, 2 old stochastic, 3 new stochastic */
 	int			nAlgorithm;
 	/* use this to downweight probabilities */
@@ -138,7 +138,7 @@ typedef struct
 	/* and this to downweight old dev pressure */
 	double		dDevPersistence;
 	/* file containing parcel size information */
-	char		parcelSizeFile[_N_MAX_FILENAME_LEN];
+    char*		parcelSizeFile;
        double        discountFactor;//for calibrate patch size
 	/* give up spiralling around when examined this number of times too many cells */
 	double		giveUpRatio;
@@ -151,7 +151,7 @@ typedef struct
 	int         seedSearch; //1: uniform distribution 2: based on dev. proba.
 	int         numAddVariables;
 	double      addParameters[maxNumAddVariables][MAXNUM_COUNTY]; /* parameters for additional variables*/
-    char        addVariableFile[maxNumAddVariables][_N_MAX_FILENAME_LEN];
+    char *       addVariableFile[maxNumAddVariables];
     int         devPressureApproach; //1: #occurrence; 2: gravity (need to define alpha and scaling factor); 3: kernel, need to define alpha and scaling factor
                                      // for 2: formula-> scalingFactor/power(dist,alpha)
                                      // for 3: formula-> scalingFactor*exp(-2*dist/alpha)
@@ -204,8 +204,7 @@ char* addPath(char*str1,char* pathStr){
 int setParams(t_Params *pParams, char *szCfgFile)
 {
 	fprintf(stdout, "entered readParams()\n");
-	/* blank everything out */
-	memset(pParams,0,sizeof(t_Params));
+
 
 	/* size of the grids (could be worked out, but easier this way) */
 	if(!readIntFromCfg(szCfgFile, "xSize", &pParams->xSize))
@@ -265,31 +264,13 @@ int setParams(t_Params *pParams, char *szCfgFile)
 	addPath(pParams->consWeightFile,dirName);
 
 	/* parameters that go into regression formula */
+    /* not used
 	if(!readDoubleFromCfg(szCfgFile, "dIntercept", &pParams->dIntercept))
-	{
-		fprintf(stderr, "error reading dIntercept...exiting\n");
-		return 0;
-	}
 	if(!readDoubleFromCfg(szCfgFile, "dEmployAttraction", &pParams->dEmployAttraction))
-	{
-		fprintf(stderr, "error reading dEmployAttraction...exiting\n");
-		return 0;
-	}
 	if(!readDoubleFromCfg(szCfgFile, "dInterchangeDistance", &pParams->dInterchangeDistance))
-	{
-		fprintf(stderr, "error reading dInterchangeDistance...exiting\n");
-		return 0;
-	}
 	if(!readDoubleFromCfg(szCfgFile, "dRoadDensity", &pParams->dRoadDensity))
-	{
-		fprintf(stderr, "error reading dRoadDensity...exiting\n");
-		return 0;
-	}
 	if(!readDoubleFromCfg(szCfgFile, "dDevPressure", &pParams->dDevPressure))
-	{
-		fprintf(stderr, "error reading dDevPressure...exiting\n");
-		return 0;
-	}
+    */
     /*Wenwu add additional variables*/
     if(!readIntFromCfg(szCfgFile, "numAddVariables", &pParams->numAddVariables))
 	{
@@ -335,12 +316,12 @@ int setParams(t_Params *pParams, char *szCfgFile)
 	}
     addPath(pParams->dumpFile,dirName);
 	/* parameters controlling the algorithm to use */
-	if(!readIntFromCfg(szCfgFile, "nAlgorithm", &pParams->nAlgorithm))
+    if(!readIntFromCfg(szCfgFile, "nAlgorithm", &pParams->nAlgorithm))
 	{
 		fprintf(stderr, "error reading nAlgorithm...exiting\n");
 		return 0;
 	}
-	if(!readDoubleFromCfg(szCfgFile, "dProbWeight", &pParams->dProbWeight))
+    if(!readDoubleFromCfg(szCfgFile, "dProbWeight", &pParams->dProbWeight))
 	{
 		fprintf(stderr, "error reading dProbWeight...exiting\n");
 		return 0;
@@ -2115,9 +2096,12 @@ int main(int argc, char **argv)
     struct
     {
         struct Option
-            *xSize, *ySize,
-            *controlFile, *employAttractionFile, *interchangeDistanceFile,
-            *roadDensityFile, *undevelopedFile, *devPressureFile, *consWeightFile;
+                *xSize, *ySize,
+                *controlFile, *employAttractionFile, *interchangeDistanceFile,
+                *roadDensityFile, *undevelopedFile, *devPressureFile, *consWeightFile,
+                *addVariableFiles, *nDevNeighbourhood, *dumpFile, *algorithm, *dProbWeight,
+                *dDevPersistence, *parcelSizeFile, *discountFactor, *giveUpRatio;
+
     } opt;
     struct
     {
@@ -2155,39 +2139,87 @@ int main(int argc, char **argv)
 
     opt.employAttractionFile = G_define_standard_option(G_OPT_F_INPUT);
     opt.employAttractionFile->key = "employ_attraction";
-    opt.employAttractionFile->type = TYPE_INTEGER;
     opt.employAttractionFile->required = YES;
     opt.employAttractionFile->description = _("Files containing the information to read in");
 
     opt.interchangeDistanceFile = G_define_standard_option(G_OPT_F_INPUT);
     opt.interchangeDistanceFile->key = "interchange_distance";
-    opt.interchangeDistanceFile->type = TYPE_INTEGER;
     opt.interchangeDistanceFile->required = YES;
     opt.interchangeDistanceFile->description = _("Files containing the information to read in");
 
     opt.roadDensityFile = G_define_standard_option(G_OPT_F_INPUT);
     opt.roadDensityFile->key = "road_density";
-    opt.roadDensityFile->type = TYPE_INTEGER;
     opt.roadDensityFile->required = YES;
     opt.roadDensityFile->description = _("Files containing the information to read in");
 
     opt.undevelopedFile = G_define_standard_option(G_OPT_F_INPUT);
     opt.undevelopedFile->key = "undeveloped";
-    opt.undevelopedFile->type = TYPE_INTEGER;
     opt.undevelopedFile->required = YES;
     opt.undevelopedFile->description = _("Files containing the information to read in");
 
     opt.devPressureFile = G_define_standard_option(G_OPT_F_INPUT);
     opt.devPressureFile->key = "development_pressure";
-    opt.devPressureFile->type = TYPE_INTEGER;
     opt.devPressureFile->required = YES;
     opt.devPressureFile->description = _("Files containing the information to read in");
 
     opt.consWeightFile = G_define_standard_option(G_OPT_F_INPUT);
     opt.consWeightFile->key = "cons_weight";
-    opt.consWeightFile->type = TYPE_INTEGER;
     opt.consWeightFile->required = YES;
     opt.consWeightFile->description = _("Files containing the information to read in");
+
+    opt.addVariableFiles = G_define_standard_option(G_OPT_F_INPUT);
+    opt.addVariableFiles->key = "additional_variable_files";
+    opt.addVariableFiles->required = YES;
+    opt.addVariableFiles->multiple = YES;
+    opt.addVariableFiles->description = _("additional variables");
+
+    opt.nDevNeighbourhood = G_define_option();
+    opt.nDevNeighbourhood->key = "nDevNeighbourhood";
+    opt.nDevNeighbourhood->type = TYPE_INTEGER;
+    opt.nDevNeighbourhood->required = YES;
+    opt.nDevNeighbourhood->description = _("Size of square used to recalculate development pressure");
+
+    opt.dumpFile = G_define_standard_option(G_OPT_F_OUTPUT);
+    opt.dumpFile->key = "dump_file";
+    opt.dumpFile->required = YES;
+    opt.dumpFile->description = _("Used in writing rasters");
+
+    opt.algorithm = G_define_option();
+    opt.algorithm->key = "algorithm";
+    opt.algorithm->type = TYPE_STRING;
+    opt.algorithm->required = YES;
+    opt.algorithm->options = "deterministic,stochastic1,stochastic2";
+    opt.algorithm->description = _("Parameters controlling the algorithm to use");
+
+    opt.dProbWeight = G_define_option();
+    opt.dProbWeight->key = "prob_weight";
+    opt.dProbWeight->type = TYPE_DOUBLE;
+    opt.dProbWeight->required = YES;
+    opt.dProbWeight->description = _("Parameters controlling the algorithm to use");
+
+    opt.dDevPersistence = G_define_option();
+    opt.dDevPersistence->key = "dev_neighbourhood";
+    opt.dDevPersistence->type = TYPE_DOUBLE;
+    opt.dDevPersistence->required = YES;
+    opt.dDevPersistence->description = _("Parameters controlling the algorithm to use");
+
+    opt.parcelSizeFile = G_define_standard_option(G_OPT_F_INPUT);
+    opt.parcelSizeFile->key = "parcel_size_file";
+    opt.parcelSizeFile->type = TYPE_DOUBLE;
+    opt.parcelSizeFile->required = YES;
+    opt.parcelSizeFile->description = _("File containing information on the parcel size to use");
+
+    opt.discountFactor = G_define_option();
+    opt.discountFactor->key = "discount_factor";
+    opt.discountFactor->type = TYPE_DOUBLE;
+    opt.discountFactor->required = YES;
+    opt.discountFactor->description = _("discount factor of patch size");
+
+    opt.giveUpRatio = G_define_option();
+    opt.giveUpRatio->key = "give_up_ratio";
+    opt.giveUpRatio->type = TYPE_DOUBLE;
+    opt.giveUpRatio->required = YES;
+    opt.giveUpRatio->description = _("Give up ratio");
 
     if (G_parser(argc, argv))
         exit(EXIT_FAILURE);
@@ -2195,22 +2227,55 @@ int main(int argc, char **argv)
 	struct timeval ttime;
 	gettimeofday(&ttime,NULL);
 
-	// move this to be global variables
+    // TODO: move this back to local variables
 	//t_Params	sParams;
 	//t_Landscape	sLandscape;
-	char		szCfgFile[_N_MAX_FILENAME_LEN];
 
-	seedRandom(ttime);
-	//if(getCfgFileName(argv[0], szCfgFile))
-	//{
+    seedRandom(ttime);
 
-	strcpy(dirName,"./");
-	strcpy(szCfgFile,dirName);
-    strcat(szCfgFile, "urbanModel.cfg");
+    /* blank everything out */
+    memset(&sParams,0,sizeof(t_Params));
 
-		/* set up parameters */
-		if(setParams(&sParams, szCfgFile))
-		{
+    /* set up parameters */
+    sParams.xSize = atoi(opt.xSize->answer);
+    sParams.ySize = atoi(opt.ySize->answer);
+    sParams.controlFile = opt.controlFile->answer;
+    sParams.employAttractionFile = opt.employAttractionFile->answer;
+    sParams.interchangeDistanceFile = opt.interchangeDistanceFile->answer;
+    sParams.roadDensityFile = opt.roadDensityFile->answer;
+    sParams.undevelopedFile = opt.undevelopedFile->answer;
+    sParams.devPressureFile = opt.devPressureFile->answer;
+    sParams.consWeightFile = opt.consWeightFile->answer;
+    sParams.numAddVariables = 0;
+    char** answer = opt.addVariableFiles->answers;
+    while (answer) {
+        sParams.addVariableFile[sParams.numAddVariables] = *answer;
+        sParams.numAddVariables += 1;
+        // TODO: dyn allocate file list
+        ++answer;
+    }
+    sParams.nDevNeighbourhood = atof(opt.nDevNeighbourhood->answer);
+    sParams.dumpFile = opt.dumpFile->answer;
+    if (!strcmp(opt.algorithm->answer, "deterministic,stochastic1,stochastic2"))
+        sParams.nAlgorithm = _N_ALGORITHM_DETERMINISTIC;
+    else if (!strcmp(opt.algorithm->answer, "stochastic1"))
+        sParams.nAlgorithm = _N_ALGORITHM_STOCHASTIC_I;
+    else if (!strcmp(opt.algorithm->answer, "stochastic2"))
+        sParams.nAlgorithm = _N_ALGORITHM_STOCHASTIC_II;
+
+    sParams.dProbWeight = atof(opt.dProbWeight->answer);
+    sParams.dDevPersistence = atof(opt.dDevPersistence->answer);
+
+    sParams.parcelSizeFile = opt.parcelSizeFile->answer;
+
+    sParams.discountFactor = atof(opt.discountFactor->answer);
+    sParams.giveUpRatio = atof(opt.giveUpRatio->answer);
+
+    // TODO: always the same?
+    pParams->sortProbs = 1;
+
+    // TODO: _N_ALGORITHM_STOCHASTIC_II
+
 			readDevDemand(&sParams);
 			/* allocate memory */
 			if(buildLandscape(&sLandscape, &sParams))
@@ -2245,11 +2310,6 @@ int main(int argc, char **argv)
 			{
 				fprintf(stderr, "error in buildLandscape()\n");
 			}
-		}
-		else
-		{
-			fprintf(stderr, "error in setParams()\n");
-		}
 	//}//disable this when debuging
 
 	//else
