@@ -2194,14 +2194,22 @@ int main(int argc, char **argv)
     opt.dProbWeight = G_define_option();
     opt.dProbWeight->key = "prob_weight";
     opt.dProbWeight->type = TYPE_DOUBLE;
-    opt.dProbWeight->required = YES;
-    opt.dProbWeight->description = _("Parameters controlling the algorithm to use");
+    opt.dProbWeight->required = NO;
+    opt.dProbWeight->label = _("Parameters controlling the algorithm to use");
+    opt.dProbWeight->description = _("(only relevant if nAlgorithm=2)"
+        " the probabilities are multiplied"
+        " by this factor before comparing with random numbers...increases randomness"
+        " of the simulation as with probs like 0.95 is more or less deterministic");
 
     opt.dDevPersistence = G_define_option();
     opt.dDevPersistence->key = "dev_neighbourhood";
     opt.dDevPersistence->type = TYPE_DOUBLE;
-    opt.dDevPersistence->required = YES;
-    opt.dDevPersistence->description = _("Parameters controlling the algorithm to use");
+    opt.dDevPersistence->required = NO;
+    opt.dDevPersistence->label = _("Parameters controlling the algorithm to use");
+    opt.dProbWeight->description = _("(only relevant if nAlgorithm=2) the devPressures"
+        " are multiplied by this factor on each timestep, meaning older development is"
+        " downweighted and more recent development most important...should lead"
+        " to clustering of new development");
 
     opt.parcelSizeFile = G_define_standard_option(G_OPT_F_INPUT);
     opt.parcelSizeFile->key = "parcel_size_file";
@@ -2218,8 +2226,31 @@ int main(int argc, char **argv)
     opt.giveUpRatio = G_define_option();
     opt.giveUpRatio->key = "give_up_ratio";
     opt.giveUpRatio->type = TYPE_DOUBLE;
-    opt.giveUpRatio->required = YES;
-    opt.giveUpRatio->description = _("Give up ratio");
+    opt.giveUpRatio->required = NO;
+    opt.giveUpRatio->label = _("Give up ratio");
+    opt.giveUpRatio->description = _("(only relevant if nAlgorithm=2) give up"
+         " spiralling around when examined this factor of sites too many");
+
+    /* stochastic 2 algorithm */
+
+    opt.probLookupFile = G_define_standard_option(G_OPT_F_INPUT);
+    opt.probLookupFile->key = "probability_lookup_file";
+    opt.probLookupFile->type = TYPE_DOUBLE;
+    opt.probLookupFile->required = YES;
+    opt.probLookupFile->label = _("File containing lookup table for probabilities");
+    opt.probLookupFile->description = _("Format is tightly constrained. See documentation.");
+
+    opt.indexFile = G_define_standard_option(G_OPT_F_INPUT);
+    opt.indexFile->key = "index_file";
+    opt.indexFile->type = TYPE_DOUBLE;
+    opt.indexFile->required = YES;
+    opt.indexFile->description = _("File for index of sub-regions");
+
+    opt.controlFileAll = G_define_standard_option(G_OPT_F_INPUT);
+    opt.controlFileAll->key = "control_file_all";
+    opt.controlFileAll->type = TYPE_DOUBLE;
+    opt.controlFileAll->required = YES;
+    opt.controlFileAll->description = _("Control file with number of cells to convert");
 
     if (G_parser(argc, argv))
         exit(EXIT_FAILURE);
@@ -2256,20 +2287,25 @@ int main(int argc, char **argv)
     }
     sParams.nDevNeighbourhood = atof(opt.nDevNeighbourhood->answer);
     sParams.dumpFile = opt.dumpFile->answer;
-    if (!strcmp(opt.algorithm->answer, "deterministic,stochastic1,stochastic2"))
+    if (!strcmp(opt.algorithm->answer, "deterministic"))
         sParams.nAlgorithm = _N_ALGORITHM_DETERMINISTIC;
     else if (!strcmp(opt.algorithm->answer, "stochastic1"))
         sParams.nAlgorithm = _N_ALGORITHM_STOCHASTIC_I;
     else if (!strcmp(opt.algorithm->answer, "stochastic2"))
         sParams.nAlgorithm = _N_ALGORITHM_STOCHASTIC_II;
 
-    sParams.dProbWeight = atof(opt.dProbWeight->answer);
-    sParams.dDevPersistence = atof(opt.dDevPersistence->answer);
+    if (sParams.nAlgorithm == _N_ALGORITHM_STOCHASTIC_I) {
+        // TODO: add check of filled answer
+        sParams.dProbWeight = atof(opt.dProbWeight->answer);
+        sParams.dDevPersistence = atof(opt.dDevPersistence->answer);
+
+        sParams.giveUpRatio = atof(opt.giveUpRatio->answer);
+    }
 
     sParams.parcelSizeFile = opt.parcelSizeFile->answer;
 
     sParams.discountFactor = atof(opt.discountFactor->answer);
-    sParams.giveUpRatio = atof(opt.giveUpRatio->answer);
+
 
     // TODO: always the same?
     sParams.sortProbs = 1;
