@@ -2174,7 +2174,7 @@ int main(int argc, char **argv)
     opt.addVariableFiles->description = _("additional variables");
 
     opt.nDevNeighbourhood = G_define_option();
-    opt.nDevNeighbourhood->key = "nDevNeighbourhood";
+    opt.nDevNeighbourhood->key = "n_dev_neighbourhood";
     opt.nDevNeighbourhood->type = TYPE_INTEGER;
     opt.nDevNeighbourhood->required = YES;
     opt.nDevNeighbourhood->description = _("Size of square used to recalculate development pressure");
@@ -2272,7 +2272,7 @@ int main(int argc, char **argv)
     sParams.giveUpRatio = atof(opt.giveUpRatio->answer);
 
     // TODO: always the same?
-    pParams->sortProbs = 1;
+    sParams.sortProbs = 1;
 
     // TODO: _N_ALGORITHM_STOCHASTIC_II
 
