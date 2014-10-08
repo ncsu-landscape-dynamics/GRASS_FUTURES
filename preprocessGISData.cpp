@@ -20,6 +20,7 @@
 #include <sys/time.h>
 #include <iostream>
 #include <fstream>
+#include <vector>
 
 extern "C" {
 #include <grass/gis.h>
@@ -100,7 +101,7 @@ typedef struct
 	int			undevSites;						/* number of cells which have not yet converted */
 	int			*aParcelSizes;					/* posterior sample from parcel size distribution */
 	int			parcelSizes;					/* number in that sample */
-    t_Undev     **asUndevs;                     //WT
+    std::vector<std::vector<t_Undev> > asUndevs;                     //WT
     int         num_undevSites[MAXNUM_COUNTY];  //WT
 } t_Landscape;
 
@@ -1816,19 +1817,14 @@ void readDevDemand(t_Params *pParams){
 }
 void initializeUnDev(t_Landscape *pLandscape, t_Params *pParams){
     int i;
-    pLandscape->asUndevs=new t_Undev*[pParams->num_Regions];
+    pLandscape->asUndevs.clear();
+    pLandscape->asUndevs.resize(pParams->num_Regions, std::vector<t_Undev>(MAX_UNDEV_SIZE));
     for(i=0;i<pParams->num_Regions;i++){
-        pLandscape->asUndevs[i]=new t_Undev[MAX_UNDEV_SIZE];
         pLandscape->num_undevSites[i]=0;
     }
 }
 void finalizeUnDev(t_Landscape *pLandscape, t_Params *pParams){
-    int i;
 
-    for(i=0;i<pParams->num_Regions;i++){
-        delete [] pLandscape->asUndevs[i];
-    }
-    delete [] pLandscape->asUndevs;
 }
 /*
 	main routine to run models on multiple regions //WTang
