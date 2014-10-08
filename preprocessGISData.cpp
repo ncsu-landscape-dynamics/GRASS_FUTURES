@@ -605,15 +605,31 @@ void readData4AdditionalVariables(t_Landscape* pLandscape, t_Params *pParams){
     for(i=0;i<pParams->numAddVariables;i++){
         f.open(pParams->addVariableFile[i]);
         cout<<"reading additional variables File: "<<pParams->addVariableFile[i]<<"...";
-        for(j=0;j<6;j++) f.getline(str,50);
-        for(ii=0;ii<pParams->xSize*pParams->ySize;ii++){
-            f>>val;
-            if(pLandscape->asCells[ii].nCellType == _CELL_VALID){
-                pLandscape->asCells[ii].additionVariable[i]=val;
-            }
-            else pLandscape->asCells[ii].additionVariable[i]=0.0;
+
+        /* open raster map */
+        int fd = Rast_open_old(pParams->addVariableFile[i], "");
+        if (!fd)
+        {
+            // TODO: fatal
         }
-        f.close();
+        RASTER_MAP_TYPE data_type = Rast_get_map_type(fd);
+        void* buffer = Rast_allocate_buf(data_type);
+
+        for (int row = 0; row < pParams->xSize; row++)
+        {
+            Rast_get_row(fd, buffer, pParams->ySize, data_type);
+            void* ptr = buffer;
+            for (int col = 0; col < pParams->ySize; col++,
+                     ptr = G_incr_void_ptr(ptr, Rast_cell_size(data_type)))
+            {
+                val = *(DCELL *) ptr;
+                if(pLandscape->asCells[ii].nCellType == _CELL_VALID)
+                    pLandscape->asCells[ii].additionVariable[i] = val;
+                else
+                    pLandscape->asCells[ii].additionVariable[i] = 0.0;
+            }
+        }
+        Rast_close(fd);
         cout<<"done"<<endl;
     }
 }
@@ -678,49 +694,28 @@ int	readData(t_Landscape *pLandscape, t_Params *pParams)
 				break;
 			}
 			fprintf(stdout, "\t%s...", szFName);
-			fIn = fopen(szFName,"rb");
-			if(fIn)
-			{
-				/* strip GIS header */
-				headerCount = 0;
-				while(headerCount < _GIS_HEADER_LENGTH && fgets(szBuff, _N_MAX_DYNAMIC_BUFF_LEN, fIn))
-				{
-					headerCount++;
-				}
+            /* open raster map */
+            int fd = Rast_open_old("lc96", "");
 				i = 0;
-				y = 0;
+
+                x = 0;
 				bRet = 1;	/* can only get worse from here on in */
-				while(bRet && fgets(szBuff, _N_MAX_DYNAMIC_BUFF_LEN, fIn)) 	/* will fail on long lines */
+                RASTER_MAP_TYPE data_type = Rast_get_map_type(fd);
+                void* buffer = Rast_allocate_buf(data_type);
+                for (int row = 0; row < pParams->xSize; row++)
 				{
-					if(y >=	pLandscape->maxY)
+                    y = 0;
+                    Rast_get_row(fd, buffer, pParams->ySize, data_type);
+                    void* ptr = buffer;
+                    for (int col = 0; col < pParams->ySize; col++,
+                             ptr = G_incr_void_ptr(ptr, Rast_cell_size(data_type)))
 					{
-						if(bRet)
-						{
-							fprintf(stderr, "readData(): y too large\n");
-							bRet = 0;
-						}
-					}
-					pPtr = strpbrk(szBuff, "\r\n");
-					if(pPtr)
-					{
-						pPtr[0] = '\0';
-					}
-					else
-					{
-						fprintf(stderr, "readData(): line too long\n");
-						bRet=0;				/* no CR or NL means line not read in fully */
-					}
-					pPtr = strtok(szBuff, " \t");
-					x = 0;
-					while(bRet && pPtr)
-					{
-						dVal = atof(pPtr);
-						if(x < pLandscape->maxX)
-						{
+                        dVal = *(DCELL *) ptr;
+                        CELL iVal = *(CELL *) ptr;  // integer value for some rasters
 							if(j == 0)	/* check for NO_DATA */
 							{
-								if(strcmp(pPtr, _GIS_NO_DATA_STRING)==0)
-								{
+                                if (!Rast_is_null_value(ptr, data_type))
+                                {
 									pLandscape->asCells[i].nCellType = _CELL_OUT_OF_COUNTY;
 								}
 								else
@@ -735,17 +730,18 @@ int	readData(t_Landscape *pLandscape, t_Params *pParams)
 							}
 							else
 							{
-								if(strcmp(pPtr, _GIS_NO_DATA_STRING)==0)	/* clean up missing data */
+								if (!Rast_is_null_value(ptr, data_type))  /* clean up missing data */
 								{
 									dVal = 0.0;
 								}
 							}
+                            // TODO: how do we know that this is set?
 							if(pLandscape->asCells[i].nCellType == _CELL_VALID)
 							{
 								switch(j)	/* put in correct place */
 								{
 								case 0:
-									pLandscape->asCells[i].bUndeveloped = atoi(pPtr);
+									pLandscape->asCells[i].bUndeveloped = iVal;
 									pLandscape->asCells[i].bUntouched = 1;
 									if(pLandscape->asCells[i].bUndeveloped == 1)
 									{
@@ -776,19 +772,15 @@ int	readData(t_Landscape *pLandscape, t_Params *pParams)
 									break;
 								}
 							}
+                           y++;
+                           i++;
 						}
-						else
-						{
-							bRet = 0;
-							fprintf(stderr, "readData(): x too large\n"); /* too large in x direction */
-						}
-						i++;
+
 						x++;
-						pPtr = strtok(NULL, " \t");
 					}
 					if(x==pLandscape->maxX)
 					{
-						y++;
+
 					}
 					else
 					{
@@ -798,11 +790,14 @@ int	readData(t_Landscape *pLandscape, t_Params *pParams)
 							bRet = 0;
 						}
 					}
-				}
+
 				if(y!=pLandscape->maxY)
 				{
 					if(bRet)
 					{
+                        G_message(_("x=%d y=%d"), x, y);
+                        G_message(_(" xSize=%d ySize=%d"), pParams->xSize, pParams->ySize);
+                        G_message(_(" maxX=%d minX=%d"), pLandscape->maxX, pLandscape->maxY);
 						fprintf(stderr, "readData(): y too small\n");
 						bRet = 0;
 					}
@@ -815,22 +810,24 @@ int	readData(t_Landscape *pLandscape, t_Params *pParams)
 					}
 					else
 					{
+
 						if(bRet)
 						{
+                            G_message(_("x=%d y=%d"), x, y);
+                            G_message(_(" xSize=%d ySize=%d"), pParams->xSize, pParams->ySize);
+                            G_message(_(" maxX=%d minX=%d"), pLandscape->maxX, pLandscape->maxY);
 							fprintf(stderr, "readData(): not read in enough points\n");
 							bRet = 0;
 						}
+
 					}
 				}
-				fclose(fIn);
-			}
-			else
-			{
-				fprintf(stderr, "readData(): couldn't open %s\n", szFName);
-			}
-		}
-		free(szBuff);
-	}
+				Rast_close(fd);
+
+        }
+        free(szBuff);
+    }
+
 	return bRet;
 }
 
@@ -2114,54 +2111,42 @@ int main(int argc, char **argv)
     module->label = _("FUTURES");
     module->description = _("...");
 
-    opt.xSize = G_define_option();
-    opt.xSize->key = "xsize";
-    opt.xSize->type = TYPE_INTEGER;
-    opt.xSize->required = YES;
-    opt.xSize->description = _("Size of the grids");
-
-    opt.ySize = G_define_option();
-    opt.ySize->key = "ysize";
-    opt.ySize->type = TYPE_INTEGER;
-    opt.ySize->required = YES;
-    opt.ySize->description = _("Size of the grids");
-
     opt.controlFile = G_define_standard_option(G_OPT_F_INPUT);
     opt.controlFile->key = "control_file";
     opt.controlFile->required = YES;
     opt.controlFile->description = _("File containing information on how many cells to transition and when");
 
-    opt.undevelopedFile = G_define_standard_option(G_OPT_F_INPUT);
+    opt.undevelopedFile = G_define_standard_option(G_OPT_R_INPUT);
     opt.undevelopedFile->key = "undeveloped";
     opt.undevelopedFile->required = YES;
     opt.undevelopedFile->description = _("Files containing the information to read in");
 
-    opt.employAttractionFile = G_define_standard_option(G_OPT_F_INPUT);
+    opt.employAttractionFile = G_define_standard_option(G_OPT_R_INPUT);
     opt.employAttractionFile->key = "employ_attraction";
     opt.employAttractionFile->required = YES;
     opt.employAttractionFile->description = _("Files containing the information to read in");
 
-    opt.interchangeDistanceFile = G_define_standard_option(G_OPT_F_INPUT);
+    opt.interchangeDistanceFile = G_define_standard_option(G_OPT_R_INPUT);
     opt.interchangeDistanceFile->key = "interchange_distance";
     opt.interchangeDistanceFile->required = YES;
     opt.interchangeDistanceFile->description = _("Files containing the information to read in");
 
-    opt.roadDensityFile = G_define_standard_option(G_OPT_F_INPUT);
+    opt.roadDensityFile = G_define_standard_option(G_OPT_R_INPUT);
     opt.roadDensityFile->key = "road_density";
     opt.roadDensityFile->required = YES;
     opt.roadDensityFile->description = _("Files containing the information to read in");
 
-    opt.devPressureFile = G_define_standard_option(G_OPT_F_INPUT);
+    opt.devPressureFile = G_define_standard_option(G_OPT_R_INPUT);
     opt.devPressureFile->key = "development_pressure";
     opt.devPressureFile->required = YES;
     opt.devPressureFile->description = _("Files containing the information to read in");
 
-    opt.consWeightFile = G_define_standard_option(G_OPT_F_INPUT);
+    opt.consWeightFile = G_define_standard_option(G_OPT_R_INPUT);
     opt.consWeightFile->key = "cons_weight";
     opt.consWeightFile->required = YES;
     opt.consWeightFile->description = _("Files containing the information to read in");
 
-    opt.addVariableFiles = G_define_standard_option(G_OPT_F_INPUT);
+    opt.addVariableFiles = G_define_standard_option(G_OPT_R_INPUT);
     opt.addVariableFiles->key = "additional_variable_files";
     opt.addVariableFiles->required = YES;
     opt.addVariableFiles->multiple = YES;
@@ -2337,14 +2322,16 @@ int main(int argc, char **argv)
     /* blank everything out */
     memset(&sParams,0,sizeof(t_Params));
 
+    /* parameters dependednt on region */
+    sParams.xSize = Rast_window_rows();
+    sParams.ySize = Rast_window_cols();
+
     /* set up parameters */
-    sParams.xSize = atoi(opt.xSize->answer);
-    sParams.ySize = atoi(opt.ySize->answer);
     sParams.controlFile = opt.controlFile->answer;
+    sParams.undevelopedFile = opt.undevelopedFile->answer;
     sParams.employAttractionFile = opt.employAttractionFile->answer;
     sParams.interchangeDistanceFile = opt.interchangeDistanceFile->answer;
     sParams.roadDensityFile = opt.roadDensityFile->answer;
-    sParams.undevelopedFile = opt.undevelopedFile->answer;
     sParams.devPressureFile = opt.devPressureFile->answer;
     sParams.consWeightFile = opt.consWeightFile->answer;
     sParams.numAddVariables = 0;
