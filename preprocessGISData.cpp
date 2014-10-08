@@ -2106,10 +2106,6 @@ int main(int argc, char **argv)
                 *num_Regions, *indexFile, *controlFileAll;
 
     } opt;
-    struct
-    {
-        struct Flag *a;
-    } flag;
 
     G_gisinit(argv[0]);
 
