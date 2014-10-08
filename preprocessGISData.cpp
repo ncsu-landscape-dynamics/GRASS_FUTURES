@@ -165,9 +165,9 @@ typedef struct
 	double		dV3[MAXNUM_COUNTY];									/* 0.00065813 */
 	double		dV4[MAXNUM_COUNTY];
     int         num_Regions;
-    char		indexFile[_N_MAX_FILENAME_LEN];	/* index file to run multiple regions */
+    char*		indexFile;	/* index file to run multiple regions */
     /*control files for all regions*/
-    char		controlFileAll[_N_MAX_FILENAME_LEN]; //development demand for multiple regions
+    char*		controlFileAll; //development demand for multiple regions
     int         devDemand[MAX_YEARS];
     int         devDemands[MAXNUM_COUNTY][MAX_YEARS];
     int         nSteps; //#simulation steps
@@ -2100,7 +2100,10 @@ int main(int argc, char **argv)
                 *controlFile, *employAttractionFile, *interchangeDistanceFile,
                 *roadDensityFile, *undevelopedFile, *devPressureFile, *consWeightFile,
                 *addVariableFiles, *nDevNeighbourhood, *dumpFile, *algorithm, *dProbWeight,
-                *dDevPersistence, *parcelSizeFile, *discountFactor, *giveUpRatio;
+                *dDevPersistence, *parcelSizeFile, *discountFactor, *giveUpRatio,
+                *probLookupFile, *sortProbs, *patchFactor, *patchMean, *patchRange,
+                *numNeighbors, *seedSearch, *devPressureApproach, *alpha, *scalingFactor,
+                *num_Regions, *indexFile, *controlFileAll;
 
     } opt;
     struct
@@ -2133,9 +2136,13 @@ int main(int argc, char **argv)
 
     opt.controlFile = G_define_standard_option(G_OPT_F_INPUT);
     opt.controlFile->key = "control_file";
-    opt.controlFile->type = TYPE_INTEGER;
     opt.controlFile->required = YES;
     opt.controlFile->description = _("File containing information on how many cells to transition and when");
+
+    opt.undevelopedFile = G_define_standard_option(G_OPT_F_INPUT);
+    opt.undevelopedFile->key = "undeveloped";
+    opt.undevelopedFile->required = YES;
+    opt.undevelopedFile->description = _("Files containing the information to read in");
 
     opt.employAttractionFile = G_define_standard_option(G_OPT_F_INPUT);
     opt.employAttractionFile->key = "employ_attraction";
@@ -2151,11 +2158,6 @@ int main(int argc, char **argv)
     opt.roadDensityFile->key = "road_density";
     opt.roadDensityFile->required = YES;
     opt.roadDensityFile->description = _("Files containing the information to read in");
-
-    opt.undevelopedFile = G_define_standard_option(G_OPT_F_INPUT);
-    opt.undevelopedFile->key = "undeveloped";
-    opt.undevelopedFile->required = YES;
-    opt.undevelopedFile->description = _("Files containing the information to read in");
 
     opt.devPressureFile = G_define_standard_option(G_OPT_F_INPUT);
     opt.devPressureFile->key = "development_pressure";
@@ -2200,20 +2202,21 @@ int main(int argc, char **argv)
         " the probabilities are multiplied"
         " by this factor before comparing with random numbers...increases randomness"
         " of the simulation as with probs like 0.95 is more or less deterministic");
+    opt.dProbWeight->guisection = _("Stochastic 1");
 
     opt.dDevPersistence = G_define_option();
     opt.dDevPersistence->key = "dev_neighbourhood";
     opt.dDevPersistence->type = TYPE_DOUBLE;
     opt.dDevPersistence->required = NO;
     opt.dDevPersistence->label = _("Parameters controlling the algorithm to use");
-    opt.dProbWeight->description = _("(only relevant if nAlgorithm=2) the devPressures"
+    opt.dDevPersistence->description = _("(only relevant if nAlgorithm=2) the devPressures"
         " are multiplied by this factor on each timestep, meaning older development is"
         " downweighted and more recent development most important...should lead"
         " to clustering of new development");
+    opt.dDevPersistence->guisection = _("Stochastic 1");
 
     opt.parcelSizeFile = G_define_standard_option(G_OPT_F_INPUT);
     opt.parcelSizeFile->key = "parcel_size_file";
-    opt.parcelSizeFile->type = TYPE_DOUBLE;
     opt.parcelSizeFile->required = YES;
     opt.parcelSizeFile->description = _("File containing information on the parcel size to use");
 
@@ -2230,27 +2233,102 @@ int main(int argc, char **argv)
     opt.giveUpRatio->label = _("Give up ratio");
     opt.giveUpRatio->description = _("(only relevant if nAlgorithm=2) give up"
          " spiralling around when examined this factor of sites too many");
+    opt.giveUpRatio->guisection = _("Stochastic 1");
 
     /* stochastic 2 algorithm */
 
     opt.probLookupFile = G_define_standard_option(G_OPT_F_INPUT);
     opt.probLookupFile->key = "probability_lookup_file";
-    opt.probLookupFile->type = TYPE_DOUBLE;
-    opt.probLookupFile->required = YES;
+    opt.probLookupFile->required = NO;
     opt.probLookupFile->label = _("File containing lookup table for probabilities");
     opt.probLookupFile->description = _("Format is tightly constrained. See documentation.");
+    opt.probLookupFile->guisection = _("Stochastic 2");
+
+    opt.sortProbs = G_define_option();
+    opt.sortProbs->key = "sort_probs";
+    opt.sortProbs->type = TYPE_INTEGER;
+    opt.sortProbs->required = NO;
+    opt.sortProbs->description = _("Whether or not to sort the list of undeveloped cells before choosing patch seeds");
+    opt.sortProbs->guisection = _("Stochastic 2");
+
+    opt.patchFactor = G_define_option();
+    opt.patchFactor->key = "patch_factor";
+    opt.patchFactor->type = TYPE_DOUBLE;
+    opt.patchFactor->required = NO;
+    opt.patchFactor->description = _("when building patches, multiply all probabilities by this"
+         " factor (will controls shape of patches to some extent, with higher"
+         " numbers more circular and lower numbers more linear)");
+    opt.patchFactor->guisection = _("Stochastic 2");
+
+    opt.patchMean = G_define_option();
+    opt.patchMean->key = "patch_mean";
+    opt.patchMean->type = TYPE_DOUBLE;
+    opt.patchMean->required = NO;
+    opt.patchMean->description = _("patch_mean and patch_range are now used to control patch shape");
+    opt.patchMean->guisection = _("Stochastic 2");
+
+    opt.patchRange = G_define_option();
+    opt.patchRange->key = "patch_range";
+    opt.patchRange->type = TYPE_DOUBLE;
+    opt.patchRange->required = NO;
+    opt.patchRange->description = _("patch_mean and patch_range are now used to control patch shape");
+    opt.patchRange->guisection = _("Stochastic 2");
+
+    opt.numNeighbors = G_define_option();
+    opt.numNeighbors->key = "num_neighbors";
+    opt.numNeighbors->type = TYPE_INTEGER;
+    opt.numNeighbors->required = NO;
+    opt.numNeighbors->options = "4,8";
+    opt.numNeighbors->description = _("The number of neighbors to be used for patch generation (4 or 8)");
+    opt.numNeighbors->guisection = _("Stochastic 2");
+
+    opt.seedSearch = G_define_option();
+    opt.seedSearch->key = "seed_search";
+    opt.seedSearch->type = TYPE_INTEGER;
+    opt.seedSearch->required = NO;
+    opt.seedSearch->description = _("The way that the locaiton of a seed is determined");
+    opt.seedSearch->guisection = _("Stochastic 2");
+
+    opt.devPressureApproach = G_define_option();
+    opt.devPressureApproach->key = "development_pressure_approach";
+    opt.devPressureApproach->type = TYPE_INTEGER;
+    opt.devPressureApproach->required = NO;
+    opt.devPressureApproach->options = "1,2,3";
+    opt.devPressureApproach->description = _("approaches to derive development pressure");
+    opt.devPressureApproach->guisection = _("Stochastic 2");
+
+    opt.alpha = G_define_option();
+    opt.alpha->key = "alpha";
+    opt.alpha->type = TYPE_DOUBLE;
+    opt.alpha->required = NO;
+    opt.alpha->description = _("Required for development_pressure_approach 1 and 2");
+    opt.alpha->guisection = _("Stochastic 2");
+
+    opt.scalingFactor = G_define_option();
+    opt.scalingFactor->key = "scaling_factor";
+    opt.scalingFactor->type = TYPE_DOUBLE;
+    opt.scalingFactor->required = NO;
+    opt.scalingFactor->description = _("Required for development_pressure_approach 2 and 3");
+    opt.scalingFactor->guisection = _("Stochastic 2");
+
+    opt.num_Regions = G_define_option();
+    opt.num_Regions->key = "num_regions";
+    opt.num_Regions->type = TYPE_INTEGER;
+    opt.num_Regions->required = NO;
+    opt.num_Regions->description = _("Number of sub-regions (e.g., counties) to be simulated");
+    opt.num_Regions->guisection = _("Stochastic 2");
 
     opt.indexFile = G_define_standard_option(G_OPT_F_INPUT);
     opt.indexFile->key = "index_file";
-    opt.indexFile->type = TYPE_DOUBLE;
-    opt.indexFile->required = YES;
+    opt.indexFile->required = NO;
     opt.indexFile->description = _("File for index of sub-regions");
+    opt.indexFile->guisection = _("Stochastic 2");
 
     opt.controlFileAll = G_define_standard_option(G_OPT_F_INPUT);
     opt.controlFileAll->key = "control_file_all";
-    opt.controlFileAll->type = TYPE_DOUBLE;
-    opt.controlFileAll->required = YES;
+    opt.controlFileAll->required = NO;
     opt.controlFileAll->description = _("Control file with number of cells to convert");
+    opt.controlFileAll->guisection = _("Stochastic 2");
 
     if (G_parser(argc, argv))
         exit(EXIT_FAILURE);
@@ -2279,14 +2357,24 @@ int main(int argc, char **argv)
     sParams.consWeightFile = opt.consWeightFile->answer;
     sParams.numAddVariables = 0;
     char** answer = opt.addVariableFiles->answers;
-    while (answer) {
-        sParams.addVariableFile[sParams.numAddVariables] = *answer;
-        sParams.numAddVariables += 1;
-        // TODO: dyn allocate file list
-        ++answer;
+    size_t num_answers = 0;
+    while (opt.addVariableFiles->answers[num_answers]) {
+        sParams.addVariableFile[num_answers] = *answer;
+        num_answers++;
     }
+    sParams.numAddVariables = num_answers - 1;
+    // TODO: dyn allocate file list
     sParams.nDevNeighbourhood = atof(opt.nDevNeighbourhood->answer);
+
     sParams.dumpFile = opt.dumpFile->answer;
+
+    sParams.parcelSizeFile = opt.parcelSizeFile->answer;
+
+    sParams.discountFactor = atof(opt.discountFactor->answer);
+
+    // always 1 if not stochastic 2
+    sParams.sortProbs = 1;
+
     if (!strcmp(opt.algorithm->answer, "deterministic"))
         sParams.nAlgorithm = _N_ALGORITHM_DETERMINISTIC;
     else if (!strcmp(opt.algorithm->answer, "stochastic1"))
@@ -2300,17 +2388,80 @@ int main(int argc, char **argv)
         sParams.dDevPersistence = atof(opt.dDevPersistence->answer);
 
         sParams.giveUpRatio = atof(opt.giveUpRatio->answer);
+    } else if (sParams.nAlgorithm == _N_ALGORITHM_STOCHASTIC_II) {
+
+        int	 parsedOK,i;
+        FILE *fp;
+        char inBuff[N_MAXREADINLEN];
+        char *pPtr;
+
+        fprintf(stdout, "reading probability lookup\n");
+        sParams.probLookupFile = opt.probLookupFile->answer;
+
+        fp = fopen(sParams.probLookupFile,"rb");
+        if(fp)
+        {
+            parsedOK = 0;
+            if(fgets(inBuff,N_MAXREADINLEN,fp))
+            {
+                if(inBuff[0] == ',')
+                {
+                    sParams.nProbLookup = atoi(inBuff+1);
+                    if(sParams.nProbLookup > 0)
+                    {
+                        sParams.adProbLookup = (double*)malloc(sizeof(double)*sParams.nProbLookup);
+                        if(sParams.adProbLookup)
+                        {
+                            parsedOK = 1;
+                            i=0;
+                            while(parsedOK && i < sParams.nProbLookup)
+                            {
+                                parsedOK = 0;
+                                if(fgets(inBuff,N_MAXREADINLEN,fp))
+                                {
+                                    if(pPtr = strchr(inBuff, ','))
+                                    {
+                                        parsedOK=1;
+                                        sParams.adProbLookup[i] = atof(pPtr + 1);
+                                        /* fprintf(stdout, "\t%d %f->%f\n", i, (double)i*1.0/(pParams->nProbLookup-1), pParams->adProbLookup[i]); */
+                                    }
+                                }
+                                i++;
+                            }
+                        }
+                    }
+                }
+            }
+            if(!parsedOK)
+            {
+                fprintf(stderr, "error parsing probLookup file '%s'...exiting\n", sParams.probLookupFile);
+                return 0;
+            }
+            fclose(fp);
+        }
+        else
+        {
+            perror("The following error occurred");
+            fprintf(stderr, "error opening probLookup file '%s'...exiting\n", sParams.probLookupFile);
+            return 0;
+        }
+
+        sParams.sortProbs = atoi(opt.sortProbs->answer);
+        sParams.patchFactor = atof(opt.patchFactor->answer);
+        sParams.patchMean = atof(opt.patchMean->answer);
+        sParams.patchRange = atof(opt.patchRange->answer);
+        sParams.numNeighbors = atoi(opt.numNeighbors->answer);
+        sParams.seedSearch = atoi(opt.seedSearch->answer);
+        sParams.devPressureApproach = atof(opt.devPressureApproach->answer);
+        if (sParams.devPressureApproach != 1){
+            sParams.alpha = atof(opt.alpha->answer);
+            sParams.scalingFactor = atof(opt.scalingFactor->answer);
+        }
+
+        sParams.num_Regions = atoi(opt.num_Regions->answer);
+        sParams.indexFile = opt.indexFile->answer;
+        sParams.controlFileAll = opt.controlFileAll->answer;
     }
-
-    sParams.parcelSizeFile = opt.parcelSizeFile->answer;
-
-    sParams.discountFactor = atof(opt.discountFactor->answer);
-
-
-    // TODO: always the same?
-    sParams.sortProbs = 1;
-
-    // TODO: _N_ALGORITHM_STOCHASTIC_II
 
 			readDevDemand(&sParams);
 			/* allocate memory */
