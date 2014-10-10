@@ -600,21 +600,16 @@ int buildLandscape(t_Landscape *pLandscape, t_Params *pParams)
 
 void readData4AdditionalVariables(t_Landscape* pLandscape, t_Params *pParams){
     int i,j; char str[50];
-    ifstream f;
     int ii,jj; double val;
     for(i=0;i<pParams->numAddVariables;i++){
-        f.open(pParams->addVariableFile[i]);
         cout<<"reading additional variables File: "<<pParams->addVariableFile[i]<<"...";
 
         /* open raster map */
         int fd = Rast_open_old(pParams->addVariableFile[i], "");
-        if (!fd)
-        {
-            // TODO: fatal
-        }
         RASTER_MAP_TYPE data_type = Rast_get_map_type(fd);
         void* buffer = Rast_allocate_buf(data_type);
 
+        ii = 0;
         for (int row = 0; row < pParams->xSize; row++)
         {
             Rast_get_row(fd, buffer, pParams->ySize, data_type);
@@ -627,6 +622,7 @@ void readData4AdditionalVariables(t_Landscape* pLandscape, t_Params *pParams){
                     pLandscape->asCells[ii].additionVariable[i] = val;
                 else
                     pLandscape->asCells[ii].additionVariable[i] = 0.0;
+                ii++;
             }
         }
         Rast_close(fd);
@@ -635,21 +631,34 @@ void readData4AdditionalVariables(t_Landscape* pLandscape, t_Params *pParams){
 }
 void readIndexData(t_Landscape* pLandscape, t_Params *pParams){
     int i,j; char str[50];
-    ifstream f;
     int ii,jj; int val;
-    f.open(pParams->indexFile);
+    ii = 0;
+    int fd = Rast_open_old(pParams->indexFile, "");
+    RASTER_MAP_TYPE data_type = Rast_get_map_type(fd);
+    void* buffer = Rast_allocate_buf(data_type);
+
     cout<<"reading index File: "<<pParams->indexFile<<"...";
-    for(j=0;j<6;j++) f.getline(str,50);
-    for(ii=0;ii<pParams->xSize*pParams->ySize;ii++){
-        f>>val;
+    for (int row = 0; row < pParams->xSize; row++)
+    {
+        Rast_get_row(fd, buffer, pParams->ySize, data_type);
+        void* ptr = buffer;
+        for (int col = 0; col < pParams->ySize; col++,
+                 ptr = G_incr_void_ptr(ptr, Rast_cell_size(data_type)))
+        {
+            if (Rast_is_null_value(ptr, data_type))
+                val = _GIS_NO_DATA_INT;  // assign FUTURES representation of NULL value
+            else
+                val = *(DCELL *) ptr;
+            if (val > pParams->num_Regions)
+                G_fatal_error(_("Region number (%d) inconsistent with number of regions (%d) in map <%s>"), val, pParams->num_Regions, pParams->indexFile);
+
         pLandscape->asCells[ii].index_region=val;
         if(val==3)
             int stop=1;
-
+        ii++;
+        }
     }
-    f.close();
     cout<<"done"<<endl;
-
 }
 /*
 	unavoidably unpleasant routine to read data from GIS rasters and put in correct places in memory
