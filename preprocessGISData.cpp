@@ -612,7 +612,7 @@ void readData4AdditionalVariables(t_Landscape* pLandscape, t_Params *pParams){
         ii = 0;
         for (int row = 0; row < pParams->xSize; row++)
         {
-            Rast_get_row(fd, buffer, pParams->ySize, data_type);
+            Rast_get_row(fd, buffer, row, data_type);
             void* ptr = buffer;
             for (int col = 0; col < pParams->ySize; col++,
                      ptr = G_incr_void_ptr(ptr, Rast_cell_size(data_type)))
@@ -634,23 +634,27 @@ void readIndexData(t_Landscape* pLandscape, t_Params *pParams){
     int ii,jj; int val;
     ii = 0;
     int fd = Rast_open_old(pParams->indexFile, "");
+    /* data type should always be CELL */
     RASTER_MAP_TYPE data_type = Rast_get_map_type(fd);
     void* buffer = Rast_allocate_buf(data_type);
 
     cout<<"reading index File: "<<pParams->indexFile<<"...";
     for (int row = 0; row < pParams->xSize; row++)
     {
-        Rast_get_row(fd, buffer, pParams->ySize, data_type);
+        Rast_get_row(fd, buffer, row, data_type);
         void* ptr = buffer;
         for (int col = 0; col < pParams->ySize; col++,
                  ptr = G_incr_void_ptr(ptr, Rast_cell_size(data_type)))
         {
             if (Rast_is_null_value(ptr, data_type))
                 val = _GIS_NO_DATA_INT;  // assign FUTURES representation of NULL value
-            else
-                val = *(DCELL *) ptr;
-            if (val > pParams->num_Regions)
-                G_fatal_error(_("Region number (%d) inconsistent with number of regions (%d) in map <%s>"), val, pParams->num_Regions, pParams->indexFile);
+            else {
+                val = *(CELL *) ptr;
+                if (val > pParams->num_Regions)
+                    G_fatal_error(_("Region ID (%d) inconsistent with number of regions (%d) in map <%s>"), val, pParams->num_Regions, pParams->indexFile);
+                if (val < 1)
+                    G_fatal_error(_("Region ID (%d) is smaller then 1 in map <%s>"), val, pParams->indexFile);
+            }
 
         pLandscape->asCells[ii].index_region=val;
         if(val==3)
@@ -704,7 +708,7 @@ int	readData(t_Landscape *pLandscape, t_Params *pParams)
 			}
 			fprintf(stdout, "\t%s...", szFName);
             /* open raster map */
-            int fd = Rast_open_old("lc96", "");
+            int fd = Rast_open_old(szFName, "");
 				i = 0;
 
                 x = 0;
@@ -714,7 +718,7 @@ int	readData(t_Landscape *pLandscape, t_Params *pParams)
                 for (int row = 0; row < pParams->xSize; row++)
 				{
                     y = 0;
-                    Rast_get_row(fd, buffer, pParams->ySize, data_type);
+                    Rast_get_row(fd, buffer, row, data_type);
                     void* ptr = buffer;
                     for (int col = 0; col < pParams->ySize; col++,
                              ptr = G_incr_void_ptr(ptr, Rast_cell_size(data_type)))
@@ -723,7 +727,7 @@ int	readData(t_Landscape *pLandscape, t_Params *pParams)
                         CELL iVal = *(CELL *) ptr;  // integer value for some rasters
 							if(j == 0)	/* check for NO_DATA */
 							{
-                                if (!Rast_is_null_value(ptr, data_type))
+                                if (Rast_is_null_value(ptr, data_type))
                                 {
 									pLandscape->asCells[i].nCellType = _CELL_OUT_OF_COUNTY;
 								}
@@ -739,7 +743,7 @@ int	readData(t_Landscape *pLandscape, t_Params *pParams)
 							}
 							else
 							{
-								if (!Rast_is_null_value(ptr, data_type))  /* clean up missing data */
+								if (Rast_is_null_value(ptr, data_type))  /* clean up missing data */
 								{
 									dVal = 0.0;
 								}
@@ -879,28 +883,16 @@ void dumpDevRaster(t_Landscape *pLandscape, t_Params *pParams, char *szFile)
 	FILE	*fIn,*fOut;
 	char	*szBuff,*pPtr;
 	int		x,y,cellID,toPrint,bVal;
+    int out_fd;
+    CELL* out_row;
 
-	fIn = fopen(pParams->employAttractionFile, "rb");
-	if(fIn)
-	{
 		fOut = fopen(szFile, "wb");
-		if(fOut)
-		{
-			szBuff = (char*) malloc(_N_MAX_DYNAMIC_BUFF_LEN*sizeof(char));
-			if(szBuff)
-			{
-				/* copy header across from one of the inputs */
+
+            out_fd = Rast_open_new(szFile, CELL_TYPE);
+            out_row = Rast_allocate_c_buf();
+            Rast_set_c_null_value(out_row, pLandscape->maxX);
+
 				y=0;
-				while(y<_GIS_HEADER_LENGTH && fgets(szBuff, _N_MAX_DYNAMIC_BUFF_LEN, fIn))
-				{
-					pPtr = strpbrk(szBuff, "\r\n");
-					if(pPtr)
-					{
-						pPtr[0] = '\0';
-					}
-					fprintf(fOut, "%s\n", szBuff);
-					y++;
-				}
 				/* now dump actual information */
 				for(y=0;y<pLandscape->maxY;y++)
 				{
@@ -909,35 +901,32 @@ void dumpDevRaster(t_Landscape *pLandscape, t_Params *pParams, char *szFile)
 						toPrint = _GIS_NO_DATA_INT;
 						bVal = 0;
 						cellID = posFromXY(x, y, pLandscape);
+                        G_message("cellID=%d", cellID);
 						if(cellID != _CELL_OUT_OF_RANGE)	/* should never happen */
 						{
 							if(pLandscape->asCells[cellID].nCellType == _CELL_VALID)
 							{
-								toPrint = pLandscape->asCells[cellID].tDeveloped;
+								toPrint = pLandscape->asCells[cellID].index_region;
 								bVal = 1;
 							}
 						}
 						if(x)
 						{
-							fprintf(fOut, " ");
+
 						}
 						if(bVal)
 						{
-							fprintf(fOut, "%d", toPrint);
+							out_row[x] == toPrint;
 						}
 						else
 						{
-							fprintf(fOut, "%s", _GIS_NO_DATA_STRING);
+							// NULL set by default
 						}
 					}
-					fprintf(fOut, "\n");
+					Rast_put_c_row(out_fd, out_row);
 				}
-				free(szBuff);
-			}
-			fclose(fOut);
-		}
-		fclose(fIn);
-	}
+
+			Rast_close(out_fd);
 }
 
 /*
@@ -2167,7 +2156,7 @@ int main(int argc, char **argv)
     opt.nDevNeighbourhood->required = YES;
     opt.nDevNeighbourhood->description = _("Size of square used to recalculate development pressure");
 
-    opt.dumpFile = G_define_standard_option(G_OPT_F_OUTPUT);
+    opt.dumpFile = G_define_standard_option(G_OPT_R_OUTPUT);
     opt.dumpFile->key = "dump_file";
     opt.dumpFile->required = YES;
     opt.dumpFile->description = _("Used in writing rasters");
@@ -2304,7 +2293,7 @@ int main(int argc, char **argv)
     opt.num_Regions->description = _("Number of sub-regions (e.g., counties) to be simulated");
     opt.num_Regions->guisection = _("Stochastic 2");
 
-    opt.indexFile = G_define_standard_option(G_OPT_F_INPUT);
+    opt.indexFile = G_define_standard_option(G_OPT_R_INPUT);
     opt.indexFile->key = "index_file";
     opt.indexFile->required = NO;
     opt.indexFile->description = _("File for index of sub-regions");
