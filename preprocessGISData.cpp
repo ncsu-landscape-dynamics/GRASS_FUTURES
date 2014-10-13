@@ -723,7 +723,10 @@ int	readData(t_Landscape *pLandscape, t_Params *pParams)
                     for (int col = 0; col < pParams->ySize; col++,
                              ptr = G_incr_void_ptr(ptr, Rast_cell_size(data_type)))
 					{
-                        dVal = *(DCELL *) ptr;
+                        if (data_type == DCELL_TYPE)
+                            dVal = *(DCELL *) ptr;
+                        else
+                            dVal = *(FCELL *) ptr;
                         CELL iVal = *(CELL *) ptr;  // integer value for some rasters
 							if(j == 0)	/* check for NO_DATA */
 							{
@@ -973,7 +976,8 @@ calculate probability
 */
 
 double getDevProbability(t_Cell	*pThis, t_Params *pParams){
-    float probAdd; int i;
+    double probAdd;
+    int i;
     int id=pThis->index_region;
     if(id==-9999)
         return 0;
@@ -1002,7 +1006,6 @@ double getDevProbability(t_Cell	*pThis, t_Params *pParams){
 //cout<<"additionVariable: "<<i<<"\t"<<pThis->additionVariable[i]<<endl;
 //cout<<"additionVariable: "<<i<<"\t"<<pParams->addParameters[i][id] * pThis->additionVariable[i]<<endl;
     }
-	
     probAdd = 1.0 / (1.0 + exp(-probAdd));
 //cout<<"The probability:";
 //cout<<probAdd<<endl;
@@ -1944,6 +1947,7 @@ void updateMap1(t_Landscape *pLandscape, t_Params *pParams, int step, int region
                             i = (int)(uniformRandom()*pLandscape->num_undevSites[regionID]);
 							//pick one according to their probability
                         else
+                            G_message("nDone=%d, toConvert=%d", nDone, nToConvert);
                             i=getUnDevIndex1(pLandscape,regionID);
                     }
 					pThis = &(pLandscape->asCells[pLandscape->asUndevs[regionID][i].cellID]);
@@ -2323,6 +2327,7 @@ int main(int argc, char **argv)
     /* parameters dependednt on region */
     sParams.xSize = Rast_window_rows();
     sParams.ySize = Rast_window_cols();
+    G_message(_("Running on %d rows and %d columns (%d cells)"), sParams.xSize, sParams.ySize, sParams.xSize * sParams.ySize);
 
     /* set up parameters */
     sParams.controlFile = opt.controlFile->answer;
@@ -2440,6 +2445,9 @@ int main(int argc, char **argv)
         sParams.controlFileAll = opt.controlFileAll->answer;
     }
 
+    if(sParams.num_Regions > 1)
+        readDevPotParams(&sParams,"./devpotParams.cfg");
+
 			readDevDemand(&sParams);
 			/* allocate memory */
 			if(buildLandscape(&sLandscape, &sParams))
@@ -2496,10 +2504,12 @@ int getUnDevIndex(t_Landscape *pLandscape){
 }
 int getUnDevIndex1(t_Landscape *pLandscape,int regionID){
         float p=rand()/(double)RAND_MAX;
+        G_message(_("getUnDevIndex1: regionID=%d, num_undevSites=%d, p=%f"), regionID, pLandscape->num_undevSites[regionID], p);
         int i;
         for(i=0;i<pLandscape->num_undevSites[regionID];i++){
             if(p<pLandscape->asUndevs[regionID][i].cumulProb){
             	//cout<< "i "<< i<<" R "<<p<<", l "<<pLandscape->asUndevs[regionID][i].cumulProb<<endl;
+                G_message(_("getUnDevIndex1: cumulProb=%f"), pLandscape->asUndevs[regionID][i].cumulProb);
                 return i;
             }
         }
@@ -2546,11 +2556,14 @@ void findAndSortProbsAll(t_Landscape *pLandscape, t_Params *pParams,int step)
 					pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].cellID = i;
 				val=getDevProbability(pThis,pParams);	
 				pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].logitVal=val;
+                G_message("logit value %d", val);
 					pThis->devProba=val;
 					if(pParams->nAlgorithm == _N_ALGORITHM_STOCHASTIC_II)	/* lookup table of probabilities is applied before consWeight */
 					{
 						/* replace with value from lookup table */
 						lookupPos = (int)(pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].logitVal * (pParams->nProbLookup - 1));
+                        if (lookupPos >= pParams->nProbLookup || lookupPos < 0)
+                            G_fatal_error("lookup position (%d) out of range [0, %d]", lookupPos, pParams->nProbLookup - 1);
 						pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].logitVal = pParams->adProbLookup[lookupPos];
 //						fprintf(stdout, "%f %d %f\n", pLandscape->asUndev[pLandscape->undevSites].logitVal, lookupPos, pParams->adProbLookup[lookupPos]);
 					}
