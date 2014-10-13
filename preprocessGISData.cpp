@@ -487,9 +487,12 @@ void readDevPotParams(t_Params *pParams,char*fn){
     int i,j;
     ifstream f;
     f.open(fn);
+    if (!f.is_open())
+        G_fatal_error(_("Cannot open development potential parameters file <%s>"), fn);
+
     f.getline(str,200);
     for(i=0;i<pParams->num_Regions;i++){
-        f>>id>>di>>d1>>d2>>d3>>d4;
+        f>>id>>di>>d1>>d2>>d3>>d4>>d5;
 cout<<id<<"\t"<<di<<"\t"<<d1<<"\t"<<d2<<"\t"<<d3<<"\t"<<d4<<endl;
 
         pParams->dIntercepts[i]=di;
@@ -1947,7 +1950,7 @@ void updateMap1(t_Landscape *pLandscape, t_Params *pParams, int step, int region
                             i = (int)(uniformRandom()*pLandscape->num_undevSites[regionID]);
 							//pick one according to their probability
                         else
-                            G_message("nDone=%d, toConvert=%d", nDone, nToConvert);
+                            G_verbose_message("nDone=%d, toConvert=%d", nDone, nToConvert);
                             i=getUnDevIndex1(pLandscape,regionID);
                     }
 					pThis = &(pLandscape->asCells[pLandscape->asUndevs[regionID][i].cellID]);
@@ -2094,7 +2097,8 @@ int main(int argc, char **argv)
                 *xSize, *ySize,
                 *controlFile, *employAttractionFile, *interchangeDistanceFile,
                 *roadDensityFile, *undevelopedFile, *devPressureFile, *consWeightFile,
-                *addVariableFiles, *nDevNeighbourhood, *dumpFile, *algorithm, *dProbWeight,
+                *addVariableFiles, *nDevNeighbourhood, *devpotParamsFile,
+                *dumpFile, *algorithm, *dProbWeight,
                 *dDevPersistence, *parcelSizeFile, *discountFactor, *giveUpRatio,
                 *probLookupFile, *sortProbs, *patchFactor, *patchMean, *patchRange,
                 *numNeighbors, *seedSearch, *devPressureApproach, *alpha, *scalingFactor,
@@ -2159,6 +2163,14 @@ int main(int argc, char **argv)
     opt.nDevNeighbourhood->type = TYPE_INTEGER;
     opt.nDevNeighbourhood->required = YES;
     opt.nDevNeighbourhood->description = _("Size of square used to recalculate development pressure");
+
+    opt.devpotParamsFile = G_define_standard_option(G_OPT_F_INPUT);
+    opt.devpotParamsFile->key = "devpot_params";
+    opt.devpotParamsFile->required = YES;
+    opt.devpotParamsFile->label = _("Development potential parameters for each region");
+    opt.devpotParamsFile->description = _("Each line should contain region ID followed"
+        " by parameters. Values are separated by whitespace (spaces or tabs)."
+        " First line is ignored, so it can be used for header");
 
     opt.dumpFile = G_define_standard_option(G_OPT_R_OUTPUT);
     opt.dumpFile->key = "dump_file";
@@ -2446,7 +2458,7 @@ int main(int argc, char **argv)
     }
 
     if(sParams.num_Regions > 1)
-        readDevPotParams(&sParams,"./devpotParams.cfg");
+        readDevPotParams(&sParams, opt.devpotParamsFile->answer);
 
 			readDevDemand(&sParams);
 			/* allocate memory */
@@ -2504,12 +2516,12 @@ int getUnDevIndex(t_Landscape *pLandscape){
 }
 int getUnDevIndex1(t_Landscape *pLandscape,int regionID){
         float p=rand()/(double)RAND_MAX;
-        G_message(_("getUnDevIndex1: regionID=%d, num_undevSites=%d, p=%f"), regionID, pLandscape->num_undevSites[regionID], p);
+        G_verbose_message(_("getUnDevIndex1: regionID=%d, num_undevSites=%d, p=%f"), regionID, pLandscape->num_undevSites[regionID], p);
         int i;
         for(i=0;i<pLandscape->num_undevSites[regionID];i++){
             if(p<pLandscape->asUndevs[regionID][i].cumulProb){
             	//cout<< "i "<< i<<" R "<<p<<", l "<<pLandscape->asUndevs[regionID][i].cumulProb<<endl;
-                G_message(_("getUnDevIndex1: cumulProb=%f"), pLandscape->asUndevs[regionID][i].cumulProb);
+                G_verbose_message(_("getUnDevIndex1: cumulProb=%f"), pLandscape->asUndevs[regionID][i].cumulProb);
                 return i;
             }
         }
@@ -2556,7 +2568,7 @@ void findAndSortProbsAll(t_Landscape *pLandscape, t_Params *pParams,int step)
 					pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].cellID = i;
 				val=getDevProbability(pThis,pParams);	
 				pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].logitVal=val;
-                G_message("logit value %d", val);
+                G_verbose_message("logit value %d", val);
 					pThis->devProba=val;
 					if(pParams->nAlgorithm == _N_ALGORITHM_STOCHASTIC_II)	/* lookup table of probabilities is applied before consWeight */
 					{
