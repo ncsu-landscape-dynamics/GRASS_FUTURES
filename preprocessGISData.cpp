@@ -74,6 +74,7 @@ typedef struct
 	int			thisX;							/* x position on the lattice; static */
 	int			thisY;							/* y position on the lattice; static */
 	int			bUndeveloped;					/* whether this site is still undeveloped; varies.  Note if bUndeveloped = 0 the values of employAttraction etc. are not to be trusted */
+    // TODO: is the following int or double (defined as double but usually casting to int in assignment, was as int in some print)
 	double		devPressure;					/* development pressure; varies */
 	int			bUntouched;						/* stores whether this site has been considered for development, to handle "protection" */
 	int			tDeveloped;						/* timestep on which developed (0 for developed at start, _N_NOT_YET_DEVELOPED for not developed yet ) */
@@ -319,8 +320,8 @@ int buildLandscape(t_Landscape *pLandscape, t_Params *pParams)
 }
 
 void readData4AdditionalVariables(t_Landscape* pLandscape, t_Params *pParams){
-    int i,j; char str[50];
-    int ii,jj; double val;
+    int i;
+    int ii; double val;
     for(i=0;i<pParams->numAddVariables;i++){
         cout<<"reading additional variables File: "<<pParams->addVariableFile[i]<<"...";
 
@@ -356,8 +357,7 @@ void readData4AdditionalVariables(t_Landscape* pLandscape, t_Params *pParams){
     }
 }
 void readIndexData(t_Landscape* pLandscape, t_Params *pParams){
-    int i,j; char str[50];
-    int ii,jj; int val;
+    int ii; int val;
     ii = 0;
     int fd = Rast_open_old(pParams->indexFile, "");
     /* TODO: data type should always be CELL */
@@ -383,8 +383,6 @@ void readIndexData(t_Landscape* pLandscape, t_Params *pParams){
             }
 
         pLandscape->asCells[ii].index_region=val;
-        if(val==3)
-            int stop=1;
         ii++;
         }
     }
@@ -396,10 +394,9 @@ void readIndexData(t_Landscape* pLandscape, t_Params *pParams){
 int	readData(t_Landscape *pLandscape, t_Params *pParams)
 {
     // TODO: fix null handling somewhere
-	FILE 	*fIn;
-	char	*szBuff,*pPtr;
+	char	*szBuff;
 	char	szFName[_N_MAX_FILENAME_LEN];
-	int		bRet,x,y,i,j,headerCount;
+	int		bRet,x,y,i,j;
 	double	dVal;
 
 	fprintf(stdout, "entered readData()\n");
@@ -614,8 +611,6 @@ static int undevCmpReverse(const void *a, const void *b)
 */
 void dumpDevRaster(t_Landscape *pLandscape, t_Params *pParams, char *szFile)
 {
-	FILE	*fIn,*fOut;
-	char	*szBuff,*pPtr;
 	int		x,y,cellID,toPrint,bVal;
     int out_fd;
     CELL* out_row;
@@ -1137,8 +1132,7 @@ void findNeighbours(int nThisID, t_Landscape *pLandscape, t_neighbourList *pNeig
 {
 	t_Cell	*pThis;
 	int		listChanged=0;
-    int     idmat[4]; idmat[0]=0;idmat[1]=1;idmat[2]=2;idmat[3]=3;
-    int     i;
+    // int     idmat[4]; idmat[0]=0;idmat[1]=1;idmat[2]=2;idmat[3]=3;
 	/* try to add the neighbours of this one */
 	pThis = &(pLandscape->asCells[nThisID]);
     //note: if sorted, then shuffle is no need
@@ -1197,8 +1191,6 @@ int newPatchFinder(int nThisID, t_Landscape *pLandscape, t_Params *pParams, int 
 	pLandscape->asCells[nThisID].bUntouched = 0;
 	pLandscape->asCells[nThisID].bUndeveloped = 0;
 	nFound=1;
-	if(pLandscape->asCells[nThisID].index_region==2)
-        int stop=1;
 	findNeighbours(nThisID,pLandscape,&sNeighbours,pParams);
 	for(i=0;i<sNeighbours.nCandidates;i++){
         sNeighbours.aCandidates[i].distance=getDistance(nThisID,sNeighbours.aCandidates[i].cellID,pLandscape);
@@ -1513,7 +1505,7 @@ void updateMap(t_Landscape *pLandscape, t_Params *pParams)
 
 void readDevDemand(t_Params *pParams){
     ifstream f1;//this one may be deleted
-/* 
+/*
    f1.open(pParams->controlFile);
     int counter=0;
     int val1,val2;
@@ -1524,17 +1516,17 @@ void readDevDemand(t_Params *pParams){
     }
     pParams->nSteps=counter;
     f1.close();
-*/  
+*/
   //read land demand for each region
     int i;
-    int val1,val2,counter;
+    int val1;
 	char str[200];
     f1.open(pParams->controlFileAll);
     f1>>str>>val1;
     pParams->nSteps=val1;
     f1.getline(str,200);
     f1.getline(str,200); //skip the header
-    counter=0; int ii;
+    int ii;
     for(ii=0;ii<pParams->nSteps;ii++){
         f1>>val1;
         for(i=0;i<pParams->num_Regions;i++){
@@ -1569,8 +1561,6 @@ void updateMapAll(t_Landscape *pLandscape, t_Params *pParams){
     //iterate each step (year)
     for(i=0;i<pParams->nSteps;i++){
         cout<<i<<"\t"<<pParams->nSteps<<endl;
-        if(i==10)
-            int stop=1;
         findAndSortProbsAll(pLandscape, pParams,i);//for each sub-region, find and update conversion probability (conservation weight applied)
         for(j=0;j<pParams->num_Regions;j++)
 	//j=1;
@@ -1740,7 +1730,7 @@ void	testDevPressure(t_Landscape *pLandscape, t_Params *pParams)
 					{
 						if(pLandscape->asCells[cellID].devPressure)
 						{
-							fprintf(stdout, "(x,y)=(%d,%d) cellType=%d bUndev=%d devPress=%d\n", x, y, pLandscape->asCells[cellID].nCellType, pLandscape->asCells[cellID].bUndeveloped, pLandscape->asCells[cellID].devPressure);
+							fprintf(stdout, "(x,y)=(%d,%d) cellType=%d bUndev=%d devPress=%f\n", x, y, pLandscape->asCells[cellID].nCellType, pLandscape->asCells[cellID].bUndeveloped, pLandscape->asCells[cellID].devPressure);
 							testPressure = 0;
 							for(xN = x - pParams->nDevNeighbourhood;xN <= x + pParams->nDevNeighbourhood; xN++)
 							{
@@ -2235,6 +2225,8 @@ int getUnDevIndex(t_Landscape *pLandscape){
                 return i;
             }
         }
+        // TODO: returning at least something but should be something more meaningful
+        return 0;
 }
 int getUnDevIndex1(t_Landscape *pLandscape,int regionID){
         float p=rand()/(double)RAND_MAX;
@@ -2246,6 +2238,7 @@ int getUnDevIndex1(t_Landscape *pLandscape,int regionID){
                 return i;
             }
         }
+        // TODO: returning at least something but should be something more meaningful
         return 0;
 }
 
@@ -2277,7 +2270,7 @@ void findAndSortProbsAll(t_Landscape *pLandscape, t_Params *pParams,int step)
 					pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].cellID = i;
 				val=getDevProbability(pThis,pParams);	
 				pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].logitVal=val;
-                G_verbose_message("logit value %d", val);
+                G_verbose_message("logit value %f", val);
 					pThis->devProba=val;
 					if(pParams->nAlgorithm == _N_ALGORITHM_STOCHASTIC_II)	/* lookup table of probabilities is applied before consWeight */
 					{
