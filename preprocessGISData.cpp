@@ -191,7 +191,7 @@ int getUnDevIndex1(t_Landscape *pLandscape,int regionID);
 
 
 void readDevPotParams(t_Params *pParams,char*fn){
-    char str[200]; int id; double di,d1,d2,d3,d4,d5,d6,val;
+    char str[200]; int id; double di,d1,d2,d3,d4,val;
     // TODO: d5 is in file but unused
     int i,j;
     ifstream f;
@@ -201,8 +201,9 @@ void readDevPotParams(t_Params *pParams,char*fn){
 
     f.getline(str,200);
     for(i=0;i<pParams->num_Regions;i++){
-        f>>id>>di>>d1>>d2>>d3>>d4>>d5;
-cout<<id<<"\t"<<di<<"\t"<<d1<<"\t"<<d2<<"\t"<<d3<<"\t"<<d4<<endl;
+        // TODO: read by lines to count the variables
+        f >> id >> di >> d1 >> d2 >> d3 >> d4;
+        cout << id << "\t" << di << "\t" << d1 << "\t" << d2 << "\t" << d3 << "\t" << d4;
 
         pParams->dIntercepts[i]=di;
         pParams->dV1[i]=d1;
@@ -211,8 +212,10 @@ cout<<id<<"\t"<<di<<"\t"<<d1<<"\t"<<d2<<"\t"<<d3<<"\t"<<d4<<endl;
         pParams->dV4[i]=d4;
         for(j=0;j<pParams->numAddVariables;j++){
             f>>val;
+            cout << "\t" << val;
             pParams->addParameters[j][i]=val;
         }
+        cout << endl;
     }
     f.close();
 }
@@ -392,6 +395,7 @@ void readIndexData(t_Landscape* pLandscape, t_Params *pParams){
 */
 int	readData(t_Landscape *pLandscape, t_Params *pParams)
 {
+    // TODO: fix null handling somewhere
 	FILE 	*fIn;
 	char	*szBuff,*pPtr;
 	char	szFName[_N_MAX_FILENAME_LEN];
@@ -2079,8 +2083,7 @@ int main(int argc, char **argv)
         sParams.addVariableFile[num_answers] = *answer;
         num_answers++;
     }
-    // TODO: fix counting
-    sParams.numAddVariables = num_answers - 1;
+    sParams.numAddVariables = num_answers;
     // TODO: dyn allocate file list
     sParams.nDevNeighbourhood = atoi(opt.nDevNeighbourhood->answer);
 
