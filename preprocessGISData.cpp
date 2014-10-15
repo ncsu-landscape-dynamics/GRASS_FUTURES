@@ -2536,18 +2536,13 @@ int getUnDevIndex1(t_Landscape *pLandscape,int regionID){
         float p=rand()/(double)RAND_MAX;
         G_verbose_message(_("getUnDevIndex1: regionID=%d, num_undevSites=%d, p=%f"), regionID, pLandscape->num_undevSites[regionID], p);
         int i;
-        //while (true) {
-            for(i=0;i<pLandscape->num_undevSites[regionID];i++){
-                if(p<pLandscape->asUndevs[regionID][i].cumulProb){
-                    //cout<< "i "<< i<<" R "<<p<<", l "<<pLandscape->asUndevs[regionID][i].cumulProb<<endl;
-                    G_verbose_message(_("getUnDevIndex1: cumulProb=%f"), pLandscape->asUndevs[regionID][i].cumulProb);
-                    return i;
-                }
+        for(i=0;i<pLandscape->num_undevSites[regionID];i++){
+            if(p<pLandscape->asUndevs[regionID][i].cumulProb){
+                G_verbose_message(_("getUnDevIndex1: cumulProb=%f"), pLandscape->asUndevs[regionID][i].cumulProb);
+                return i;
             }
-            p=rand()/(double)RAND_MAX;
-        //}
-            return 0;
-        //return -1;
+        }
+        return 0;
 }
 
 void print2ASC(t_Landscape*pLandscape,char* fn){
@@ -2600,12 +2595,8 @@ void findAndSortProbsAll(t_Landscape *pLandscape, t_Params *pParams,int step)
                         if (lookupPos >= pParams->nProbLookup || lookupPos < 0)
                             G_fatal_error("lookup position (%d) out of range [0, %d]", lookupPos, pParams->nProbLookup - 1);
 						pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].logitVal = pParams->adProbLookup[lookupPos];
-                        double problookup = pParams->adProbLookup[lookupPos];
-                        //G_message("asUndev index=%d, logitVal=%f", pLandscape->num_undevSites[id], pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].logitVal);
-						//fprintf(stdout, "%f %d %f\n", pLandscape->asUndev[pLandscape->num_undevSites[id]].logitVal, lookupPos, pParams->adProbLookup[lookupPos]);
 					}
 					pThis->devProba=pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].logitVal;
-                    double weight = pThis->consWeight;
 					pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].logitVal *= pThis->consWeight;//discount by a conservation factor
 					pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].bUntouched = pThis->bUntouched;	/* need to store this to put correct elements near top of list */
 					if(pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].logitVal > 0.0)
