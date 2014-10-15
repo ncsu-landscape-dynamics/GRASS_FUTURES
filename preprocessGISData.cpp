@@ -484,6 +484,7 @@ int setParams(t_Params *pParams, char *szCfgFile)
 }
 void readDevPotParams(t_Params *pParams,char*fn){
     char str[200]; int id; double di,d1,d2,d3,d4,d5,d6,val;
+    // TODO: d5 is in file but unused
     int i,j;
     ifstream f;
     f.open(fn);
@@ -563,7 +564,7 @@ int	posFromXY(int nX, int nY, t_Landscape *pLandscape)
 	nPos = _CELL_OUT_OF_RANGE;
 	if(nX >= 0 && nX < pLandscape->maxX && nY >= 0 && nY < pLandscape->maxY)
 	{
-		nPos = nX + nY * pLandscape->maxX;
+        nPos = nX * pLandscape->maxY + nY;
 	}
 	return nPos;
 }
@@ -578,17 +579,22 @@ int buildLandscape(t_Landscape *pLandscape, t_Params *pParams)
 	/* blank everything out */
 	fprintf(stdout, "entered buildLandscape()\n");
 	bRet = 0;
-	memset(pLandscape,0,sizeof(t_Landscape));
+
+    pLandscape->asCells = NULL;
+    pLandscape->asUndev = NULL;
+    pLandscape->undevSites = 0;
+    pLandscape->aParcelSizes = NULL;
+    pLandscape->parcelSizes = 0;
 
 	/* set initial values across the landscape */
-	pLandscape->undevSites = 0;
+
 	pLandscape->maxX = pParams->xSize;
 	pLandscape->maxY = pParams->ySize;
 	pLandscape->totalCells = pLandscape->maxX * pLandscape->maxY;
 	pLandscape->asCells = (t_Cell*)malloc(sizeof(t_Cell) * pLandscape->totalCells);
 	if(pLandscape->asCells)
 	{
-	    if(pParams->num_Regions==1){
+	    if(pParams->num_Regions > 1){
             pLandscape->asUndev = (t_Undev*)malloc(sizeof(t_Undev) * pLandscape->totalCells);	/* just allocate enough space for every cell to be undev */
             if(pLandscape->asUndev)
             {
@@ -620,7 +626,13 @@ void readData4AdditionalVariables(t_Landscape* pLandscape, t_Params *pParams){
             for (int col = 0; col < pParams->ySize; col++,
                      ptr = G_incr_void_ptr(ptr, Rast_cell_size(data_type)))
             {
-                val = *(DCELL *) ptr;
+                if (data_type == DCELL_TYPE)
+                    val = *(DCELL *) ptr;
+                else if (data_type == FCELL_TYPE)
+                    val = *(FCELL *) ptr;
+                else {
+                    val = *(CELL *) ptr;
+                }
                 if(pLandscape->asCells[ii].nCellType == _CELL_VALID)
                     pLandscape->asCells[ii].additionVariable[i] = val;
                 else
@@ -637,7 +649,7 @@ void readIndexData(t_Landscape* pLandscape, t_Params *pParams){
     int ii,jj; int val;
     ii = 0;
     int fd = Rast_open_old(pParams->indexFile, "");
-    /* data type should always be CELL */
+    /* TODO: data type should always be CELL */
     RASTER_MAP_TYPE data_type = Rast_get_map_type(fd);
     void* buffer = Rast_allocate_buf(data_type);
 
@@ -726,11 +738,15 @@ int	readData(t_Landscape *pLandscape, t_Params *pParams)
                     for (int col = 0; col < pParams->ySize; col++,
                              ptr = G_incr_void_ptr(ptr, Rast_cell_size(data_type)))
 					{
+                        CELL iVal;
                         if (data_type == DCELL_TYPE)
                             dVal = *(DCELL *) ptr;
-                        else
+                        else if (data_type == FCELL_TYPE)
                             dVal = *(FCELL *) ptr;
-                        CELL iVal = *(CELL *) ptr;  // integer value for some rasters
+                        else {
+                            iVal = *(CELL *) ptr;  // integer value for some rasters
+                            dVal = iVal;
+                        }
 							if(j == 0)	/* check for NO_DATA */
 							{
                                 if (Rast_is_null_value(ptr, data_type))
@@ -892,37 +908,38 @@ void dumpDevRaster(t_Landscape *pLandscape, t_Params *pParams, char *szFile)
     int out_fd;
     CELL* out_row;
 
-		fOut = fopen(szFile, "wb");
-
             out_fd = Rast_open_new(szFile, CELL_TYPE);
             out_row = Rast_allocate_c_buf();
             Rast_set_c_null_value(out_row, pLandscape->maxX);
 
-				y=0;
 				/* now dump actual information */
-				for(y=0;y<pLandscape->maxY;y++)
+				for(x=0;x<pLandscape->maxX;x++)
 				{
-					for(x=0;x<pLandscape->maxX;x++)
+					for(y=0;y<pLandscape->maxY;y++)
 					{
 						toPrint = _GIS_NO_DATA_INT;
 						bVal = 0;
 						cellID = posFromXY(x, y, pLandscape);
-                        G_message("cellID=%d", cellID);
 						if(cellID != _CELL_OUT_OF_RANGE)	/* should never happen */
 						{
 							if(pLandscape->asCells[cellID].nCellType == _CELL_VALID)
 							{
-								toPrint = pLandscape->asCells[cellID].index_region;
+								toPrint = pLandscape->asCells[cellID].tDeveloped;
+
 								bVal = 1;
 							}
-						}
+						} else {
+                            G_fatal_error(_("Coordinates in raster not correct,"
+                                            " x=%d, max x=%d, y=%d, max y=%d"),
+                                            x, pLandscape->maxX, y, pLandscape->maxY);
+                        }
 						if(x)
 						{
 
 						}
 						if(bVal)
 						{
-							out_row[x] == toPrint;
+							out_row[y] = toPrint;
 						}
 						else
 						{
@@ -933,6 +950,7 @@ void dumpDevRaster(t_Landscape *pLandscape, t_Params *pParams, char *szFile)
 				}
 
 			Rast_close(out_fd);
+            G_message(_("Writing map <%s> finished"), szFile);
 }
 
 /*
@@ -2392,7 +2410,7 @@ int main(int argc, char **argv)
         fprintf(stdout, "reading probability lookup\n");
         sParams.probLookupFile = opt.probLookupFile->answer;
 
-        fp = fopen(sParams.probLookupFile,"rb");
+        fp = fopen(sParams.probLookupFile,"r");
         if(fp)
         {
             parsedOK = 0;
@@ -2417,7 +2435,7 @@ int main(int argc, char **argv)
                                     {
                                         parsedOK=1;
                                         sParams.adProbLookup[i] = atof(pPtr + 1);
-                                        /* fprintf(stdout, "\t%d %f->%f\n", i, (double)i*1.0/(pParams->nProbLookup-1), pParams->adProbLookup[i]); */
+                                        G_debug(3, "probability lookup table: i=%d, i/(n-1)=%f, result=%f", i, i*1.0/(sParams.nProbLookup-1), sParams.adProbLookup[i]);
                                     }
                                 }
                                 i++;
@@ -2518,13 +2536,18 @@ int getUnDevIndex1(t_Landscape *pLandscape,int regionID){
         float p=rand()/(double)RAND_MAX;
         G_verbose_message(_("getUnDevIndex1: regionID=%d, num_undevSites=%d, p=%f"), regionID, pLandscape->num_undevSites[regionID], p);
         int i;
-        for(i=0;i<pLandscape->num_undevSites[regionID];i++){
-            if(p<pLandscape->asUndevs[regionID][i].cumulProb){
-            	//cout<< "i "<< i<<" R "<<p<<", l "<<pLandscape->asUndevs[regionID][i].cumulProb<<endl;
-                G_verbose_message(_("getUnDevIndex1: cumulProb=%f"), pLandscape->asUndevs[regionID][i].cumulProb);
-                return i;
+        //while (true) {
+            for(i=0;i<pLandscape->num_undevSites[regionID];i++){
+                if(p<pLandscape->asUndevs[regionID][i].cumulProb){
+                    //cout<< "i "<< i<<" R "<<p<<", l "<<pLandscape->asUndevs[regionID][i].cumulProb<<endl;
+                    G_verbose_message(_("getUnDevIndex1: cumulProb=%f"), pLandscape->asUndevs[regionID][i].cumulProb);
+                    return i;
+                }
             }
-        }
+            p=rand()/(double)RAND_MAX;
+        //}
+            return 0;
+        //return -1;
 }
 
 void print2ASC(t_Landscape*pLandscape,char* fn){
@@ -2577,9 +2600,12 @@ void findAndSortProbsAll(t_Landscape *pLandscape, t_Params *pParams,int step)
                         if (lookupPos >= pParams->nProbLookup || lookupPos < 0)
                             G_fatal_error("lookup position (%d) out of range [0, %d]", lookupPos, pParams->nProbLookup - 1);
 						pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].logitVal = pParams->adProbLookup[lookupPos];
-//						fprintf(stdout, "%f %d %f\n", pLandscape->asUndev[pLandscape->undevSites].logitVal, lookupPos, pParams->adProbLookup[lookupPos]);
+                        double problookup = pParams->adProbLookup[lookupPos];
+                        //G_message("asUndev index=%d, logitVal=%f", pLandscape->num_undevSites[id], pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].logitVal);
+						//fprintf(stdout, "%f %d %f\n", pLandscape->asUndev[pLandscape->num_undevSites[id]].logitVal, lookupPos, pParams->adProbLookup[lookupPos]);
 					}
 					pThis->devProba=pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].logitVal;
+                    double weight = pThis->consWeight;
 					pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].logitVal *= pThis->consWeight;//discount by a conservation factor
 					pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].bUntouched = pThis->bUntouched;	/* need to store this to put correct elements near top of list */
 					if(pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].logitVal > 0.0)
