@@ -28,7 +28,6 @@ extern "C" {
 #include <grass/glocale.h>
 }
 
-#include "cfgutils.h"
 //#include "distance.h"
 
 #define	_CELL_OUT_OF_RANGE			-2			/* used to flag cells that are off the lattice */
@@ -37,6 +36,7 @@ extern "C" {
 
 #define _N_MAX_DYNAMIC_BUFF_LEN		(1024*1024)	/* need to dynamically allocate this as putting all on stack will crash most compilers */
 #define _N_MAX_FILENAME_LEN			1024
+#define N_MAXREADINLEN				8192		/* Max length of input line */
 
 #define	_GIS_HEADER_LENGTH			6			/* for working out where to start reading data */
 
@@ -122,12 +122,13 @@ typedef struct
     char*		probLookupFile;
 	int			nProbLookup;
 	double		*adProbLookup;
-	/* parameters that go into regression formula */
-	double		dIntercept;										/* 0.038884 */
-	double		dEmployAttraction;								/* -0.0000091946 */
-	double		dInterchangeDistance;							/* 0.000042021 */
-	double		dRoadDensity;									/* 0.00065813 */
-	double		dDevPressure;									/* -0.026190 */
+    // parameters provided in other ways
+//	/* parameters that go into regression formula */
+//	double		dIntercept;										/* 0.038884 */
+//	double		dEmployAttraction;								/* -0.0000091946 */
+//	double		dInterchangeDistance;							/* 0.000042021 */
+//	double		dRoadDensity;									/* 0.00065813 */
+//	double		dDevPressure;									/* -0.026190 */
 	/* size of square used to recalculate development pressure */
 	int			nDevNeighbourhood;								/* 8 (i.e. 8 in each direction, leading to 17 x 17 = 289 in total) */
 	/* used in writing rasters */
@@ -181,307 +182,14 @@ t_Landscape	sLandscape;
 
 int getUnDevIndex(t_Landscape *pLandscape);
 void Shuffle4(int*mat);
-void print2ASC(t_Landscape*pLandscape,char* fn);
 double getDistance1(double x1,double y1,double x2,double y2);
 void readDevPotParams(t_Params *pParams,char*fn);
 void readIndexData(t_Landscape* pLandscape, t_Params *pParams);
 void findAndSortProbsAll(t_Landscape *pLandscape, t_Params *pParams,int step);
 void updateMap1(t_Landscape *pLandscape, t_Params *pParams, int step, int regionID);
 int getUnDevIndex1(t_Landscape *pLandscape,int regionID);
-void export2ASC1(t_Landscape *pLandscape, t_Params *pParams, int regionID,char* fn);
-
-char* addPath(char*str1,char* pathStr){
-	//add directory name directly here to use absolute path // by Wenwu Tang
-    char tempS[100];
-    strcpy(tempS,str1);
-    strcpy(str1,pathStr);
-    strcat(str1,tempS);
-    return str1;
-}
-
-/*
-	read in parameters from specified config file
-*/
-int setParams(t_Params *pParams, char *szCfgFile)
-{
-	fprintf(stdout, "entered readParams()\n");
 
 
-	/* size of the grids (could be worked out, but easier this way) */
-	if(!readIntFromCfg(szCfgFile, "xSize", &pParams->xSize))
-	{
-		fprintf(stderr, "error reading xSize...exiting\n");
-		return 0;
-	}
-	if(!readIntFromCfg(szCfgFile, "ySize", &pParams->ySize))
-	{
-		fprintf(stderr, "error reading ySize...exiting\n");
-		return 0;
-	}
-
-	/* file containing information on how many cells to transition and when */
-	if(!readStringFromCfg(szCfgFile, "controlFile", pParams->controlFile))
-	{
-		fprintf(stderr, "error reading controlFile...exiting\n");
-		return 0;
-	}
-    addPath(pParams->controlFile,dirName);
-	/* files containing the information to read in */
-	if(!readStringFromCfg(szCfgFile, "employAttractionFile", pParams->employAttractionFile))
-	{
-		fprintf(stderr, "error reading employAttractionFile...exiting\n");
-		return 0;
-	}
-	addPath(pParams->employAttractionFile,dirName);
-	if(!readStringFromCfg(szCfgFile, "interchangeDistanceFile", pParams->interchangeDistanceFile))
-	{
-		fprintf(stderr, "error reading interchangeDistanceFile...exiting\n");
-		return 0;
-	}
-	addPath(pParams->interchangeDistanceFile,dirName);
-	if(!readStringFromCfg(szCfgFile, "roadDensityFile", pParams->roadDensityFile))
-	{
-		fprintf(stderr, "error reading roadDensityFile...exiting\n");
-		return 0;
-	}
-	addPath(pParams->roadDensityFile,dirName);
-	if(!readStringFromCfg(szCfgFile, "undevelopedFile", pParams->undevelopedFile))
-	{
-		fprintf(stderr, "error reading undevelopedFile...exiting\n");
-		return 0;
-	}
-	addPath(pParams->undevelopedFile,dirName);
-	if(!readStringFromCfg(szCfgFile, "devPressureFile", pParams->devPressureFile))
-	{
-		fprintf(stderr, "error reading devPressureFile...exiting\n");
-		return 0;
-	}
-	addPath(pParams->devPressureFile,dirName);
-	if(!readStringFromCfg(szCfgFile, "consWeightFile", pParams->consWeightFile))
-	{
-		fprintf(stderr, "error reading consWeightFile...exiting\n");
-		return 0;
-	}
-	addPath(pParams->consWeightFile,dirName);
-
-	/* parameters that go into regression formula */
-    /* not used
-	if(!readDoubleFromCfg(szCfgFile, "dIntercept", &pParams->dIntercept))
-	if(!readDoubleFromCfg(szCfgFile, "dEmployAttraction", &pParams->dEmployAttraction))
-	if(!readDoubleFromCfg(szCfgFile, "dInterchangeDistance", &pParams->dInterchangeDistance))
-	if(!readDoubleFromCfg(szCfgFile, "dRoadDensity", &pParams->dRoadDensity))
-	if(!readDoubleFromCfg(szCfgFile, "dDevPressure", &pParams->dDevPressure))
-    */
-    /*Wenwu add additional variables*/
-    if(!readIntFromCfg(szCfgFile, "numAddVariables", &pParams->numAddVariables))
-	{
-		fprintf(stderr, "error reading numAdditionalVariables...exiting\n");
-		return 0;
-	}
-	char str[50],tempStr[20]; int i;
-    for(i=0;i<pParams->numAddVariables;i++){
-        //read parameters
-        strcpy(str,"parameterLogistic");
-        sprintf(tempStr,"%d",i+1);
-        strcat(str,tempStr);
-        /*
-        if(!readDoubleFromCfg(szCfgFile, str, &pParams->addParameters[i]))
-        {
-            fprintf(stderr, "error reading additionalParameters...exiting\n");
-            return 0;
-        }
-        */
-        //read file names
-        strcpy(str,"variableFile");
-        strcat(str,tempStr);
-        if(!readStringFromCfg(szCfgFile, str, pParams->addVariableFile[i]))
-        {
-            fprintf(stderr, "error reading additionalVariableFile...exiting\n");
-            return 0;
-        }
-        addPath(pParams->addVariableFile[i],dirName);
-    }
-
-	/* size of square used to recalculate development pressure */
-	if(!readIntFromCfg(szCfgFile, "nDevNeighbourhood", &pParams->nDevNeighbourhood))
-	{
-		fprintf(stderr, "error reading nDevNeighbourhood...exiting\n");
-		return 0;
-	}
-
-	/* used in writing rasters */
-	if(!readStringFromCfg(szCfgFile, "dumpFile", pParams->dumpFile))
-	{
-		fprintf(stderr, "error reading dumpFile...exiting\n");
-		return 0;
-	}
-    addPath(pParams->dumpFile,dirName);
-	/* parameters controlling the algorithm to use */
-    if(!readIntFromCfg(szCfgFile, "nAlgorithm", &pParams->nAlgorithm))
-	{
-		fprintf(stderr, "error reading nAlgorithm...exiting\n");
-		return 0;
-	}
-    if(!readDoubleFromCfg(szCfgFile, "dProbWeight", &pParams->dProbWeight))
-	{
-		fprintf(stderr, "error reading dProbWeight...exiting\n");
-		return 0;
-	}
-	if(!readDoubleFromCfg(szCfgFile, "dDevPersistence", &pParams->dDevPersistence))
-	{
-		fprintf(stderr, "error reading dDevPersistence...exiting\n");
-		return 0;
-	}
-
-	/* file containing information on the parcel size to use */
-	if(!readStringFromCfg(szCfgFile, "parcelSizeFile", pParams->parcelSizeFile))
-	{
-		fprintf(stderr, "error reading parcelSizeFile...exiting\n");
-		return 0;
-	}
-	addPath(pParams->parcelSizeFile,dirName);
-       if(!readDoubleFromCfg(szCfgFile, "discountFactor", &pParams->discountFactor))
-	{
-		fprintf(stderr, "error reading discountFactor of patch size...exiting\n");
-		return 0;
-	}    
-	if(!readDoubleFromCfg(szCfgFile, "giveUpRatio", &pParams->giveUpRatio))
-	{
-		fprintf(stderr, "error reading giveUpRatio...exiting\n");
-		return 0;
-	}
-	pParams->sortProbs = 1;
-	if(pParams->nAlgorithm == _N_ALGORITHM_STOCHASTIC_II)
-	{
-		int	 parsedOK,i;
-		FILE *fp;
-		char inBuff[N_MAXREADINLEN];
-		char *pPtr;
-
-		fprintf(stdout, "reading probability lookup\n");
-		if(!readStringFromCfg(szCfgFile, "probLookup", pParams->probLookupFile))
-		{
-			fprintf(stderr, "error reading probLookup...exiting\n");
-			return 0;
-		}
-        addPath(pParams->probLookupFile,dirName);
-
-		fp = fopen(pParams->probLookupFile,"rb");
-		if(fp)
-		{
-			parsedOK = 0;
-			if(fgets(inBuff,N_MAXREADINLEN,fp))
-			{
-				if(inBuff[0] == ',')
-				{
-					pParams->nProbLookup = atoi(inBuff+1);
-					if(pParams->nProbLookup > 0)
-					{
-						pParams->adProbLookup = (double*)malloc(sizeof(double)*pParams->nProbLookup);
-						if(pParams->adProbLookup)
-						{
-							parsedOK = 1;
-							i=0;
-							while(parsedOK && i < pParams->nProbLookup)
-							{
-								parsedOK = 0;
-								if(fgets(inBuff,N_MAXREADINLEN,fp))
-								{
-									if(pPtr = strchr(inBuff, ','))
-									{
-										parsedOK=1;
-										pParams->adProbLookup[i] = atof(pPtr + 1);
-/*										fprintf(stdout, "\t%d %f->%f\n", i, (double)i*1.0/(pParams->nProbLookup-1), pParams->adProbLookup[i]); */
-									}
-								}
-								i++;
-							}
-						}
-					}
-				}
-			}
-			if(!parsedOK)
-			{
-				fprintf(stderr, "error parsing probLookup file '%s'...exiting\n", pParams->probLookupFile);
-				return 0;
-			}
-			fclose(fp);
-		}
-		else
-		{
-			fprintf(stderr, "error opening probLookup file '%s'...exiting\n", pParams->probLookupFile);
-			return 0;
-		}
-		/* parameters controlling the newer algorithm */
-		if(!readIntFromCfg(szCfgFile, "sortProbs", &pParams->sortProbs))
-		{
-			fprintf(stderr, "error reading sortProbs...exiting\n");
-			return 0;
-		}
-		if(!readDoubleFromCfg(szCfgFile, "patchFactor", &pParams->patchFactor))
-		{
-			fprintf(stderr, "error reading patchFactor...exiting\n");
-			return 0;
-		}
-		if(!readDoubleFromCfg(szCfgFile, "patchMean", &pParams->patchMean))
-		{
-			fprintf(stderr, "error reading patchMean...exiting\n");
-			return 0;
-		}
-		if(!readDoubleFromCfg(szCfgFile, "patchRange", &pParams->patchRange))
-		{
-			fprintf(stderr, "error reading patchRange...exiting\n");
-			return 0;
-		}
-        if(!readIntFromCfg(szCfgFile, "numNeighbors", &pParams->numNeighbors))
-		{
-			fprintf(stderr, "error reading numNeighbors...exiting\n");
-			return 0;
-		}
-        if(!readIntFromCfg(szCfgFile, "seedSearch", &pParams->seedSearch))
-		{
-			fprintf(stderr, "error reading seedSearch...exiting\n");
-			return 0;
-		}
-        if(!readIntFromCfg(szCfgFile, "devPressureApproach", &pParams->devPressureApproach))
-        {
-            fprintf(stderr, "error reading devPressureApproach...exiting\n");
-            return 0;
-        }
-        if(pParams->devPressureApproach!=1){
-        if(!readDoubleFromCfg(szCfgFile, "alpha", &pParams->alpha))
-        {
-            fprintf(stderr, "error reading alpha...exiting\n");
-            return 0;
-        }
-        if(!readDoubleFromCfg(szCfgFile, "scalingFactor", &pParams->scalingFactor))
-        {
-            fprintf(stderr, "error reading scalingFactor...exiting\n");
-            return 0;
-        }
-        }
-        if(!readIntFromCfg(szCfgFile, "num_regions", &pParams->num_Regions))
-        {
-            fprintf(stderr, "error reading devPressureApproach...exiting\n");
-            return 0;
-        }
-        if(pParams->num_Regions>1)
-            readDevPotParams(pParams,"./devpotParams.cfg");
-        if(!readStringFromCfg(szCfgFile, "indexFile", pParams->indexFile))
-        {
-            fprintf(stderr, "error reading indexFile...exiting\n");
-            return 0;
-        }
-        addPath(pParams->indexFile,dirName);
-        if(!readStringFromCfg(szCfgFile, "controlFileAll", pParams->controlFileAll))
-        {
-            fprintf(stderr, "error reading control File All...exiting\n");
-            return 0;
-        }
-        addPath(pParams->controlFileAll,dirName);
-	}
-	return 1;
-}
 void readDevPotParams(t_Params *pParams,char*fn){
     char str[200]; int id; double di,d1,d2,d3,d4,d5,d6,val;
     // TODO: d5 is in file but unused
@@ -1491,7 +1199,7 @@ int newPatchFinder(int nThisID, t_Landscape *pLandscape, t_Params *pParams, int 
 	for(i=0;i<sNeighbours.nCandidates;i++){
         sNeighbours.aCandidates[i].distance=getDistance(nThisID,sNeighbours.aCandidates[i].cellID,pLandscape);
 	}
-	//print2ASC(pLandscape,"./test.txt");
+
 	while(nFound < nWantToConvert && sNeighbours.nCandidates > 0)
 	{
 		i=0;
@@ -1755,7 +1463,7 @@ void updateMap(t_Landscape *pLandscape, t_Params *pParams)
 
 								}
 								pThis = &(pLandscape->asCells[pLandscape->asUndev[i].cellID]);
-								//print2ASC(pLandscape,"./test.txt");
+
 								if(pThis->bUndeveloped)		/* need to check is still undeveloped */
 								{
 									if(bAllowTouched || pThis->bUntouched)
@@ -1972,7 +1680,7 @@ void updateMap1(t_Landscape *pLandscape, t_Params *pParams, int step, int region
                             i=getUnDevIndex1(pLandscape,regionID);
                     }
 					pThis = &(pLandscape->asCells[pLandscape->asUndevs[regionID][i].cellID]);
-					//print2ASC(pLandscape,"./test.txt");
+
 					if(pThis->bUndeveloped)		/* need to check is still undeveloped */
 					{
                         if(bAllowTouched || pThis->bUntouched)
@@ -2101,11 +1809,6 @@ int readParcelSizes(t_Landscape *pLandscape, t_Params *pParams)
 	return pLandscape->parcelSizes;
 }
 
-/*
-	main code.
-
-	no command line args, but need argv for getCfgFileName()
-*/
 int main(int argc, char **argv)
 {
 
@@ -2137,8 +1840,9 @@ int main(int argc, char **argv)
 
     opt.controlFile = G_define_standard_option(G_OPT_F_INPUT);
     opt.controlFile->key = "control_file";
-    opt.controlFile->required = YES;
-    opt.controlFile->description = _("File containing information on how many cells to transition and when");
+    opt.controlFile->required = NO;
+    opt.controlFile->label = _("File containing information on how many cells to transition and when");
+    opt.controlFile->description = _("Needed only for single region/zone run");
 
     opt.undevelopedFile = G_define_standard_option(G_OPT_R_INPUT);
     opt.undevelopedFile->key = "undeveloped";
@@ -2295,7 +1999,8 @@ int main(int argc, char **argv)
     opt.seedSearch->key = "seed_search";
     opt.seedSearch->type = TYPE_INTEGER;
     opt.seedSearch->required = NO;
-    opt.seedSearch->description = _("The way that the locaiton of a seed is determined");
+    opt.seedSearch->options = "1,2";
+    opt.seedSearch->description = _("The way that the location of a seed is determined");
     opt.seedSearch->guisection = _("Stochastic 2");
 
     opt.devPressureApproach = G_define_option();
@@ -2374,9 +2079,10 @@ int main(int argc, char **argv)
         sParams.addVariableFile[num_answers] = *answer;
         num_answers++;
     }
+    // TODO: fix counting
     sParams.numAddVariables = num_answers - 1;
     // TODO: dyn allocate file list
-    sParams.nDevNeighbourhood = atof(opt.nDevNeighbourhood->answer);
+    sParams.nDevNeighbourhood = atoi(opt.nDevNeighbourhood->answer);
 
     sParams.dumpFile = opt.dumpFile->answer;
 
@@ -2387,6 +2093,7 @@ int main(int argc, char **argv)
     // always 1 if not stochastic 2
     sParams.sortProbs = 1;
 
+    // TODO: implement real switching of algorithm
     if (!strcmp(opt.algorithm->answer, "deterministic"))
         sParams.nAlgorithm = _N_ALGORITHM_DETERMINISTIC;
     else if (!strcmp(opt.algorithm->answer, "stochastic1"))
@@ -2463,8 +2170,9 @@ int main(int argc, char **argv)
         sParams.patchMean = atof(opt.patchMean->answer);
         sParams.patchRange = atof(opt.patchRange->answer);
         sParams.numNeighbors = atoi(opt.numNeighbors->answer);
+        // TODO: convert to options or flag: 1: uniform distribution 2: based on dev. proba.
         sParams.seedSearch = atoi(opt.seedSearch->answer);
-        sParams.devPressureApproach = atof(opt.devPressureApproach->answer);
+        sParams.devPressureApproach = atoi(opt.devPressureApproach->answer);
         if (sParams.devPressureApproach != 1){
             sParams.alpha = atof(opt.alpha->answer);
             sParams.scalingFactor = atof(opt.scalingFactor->answer);
@@ -2512,13 +2220,6 @@ int main(int argc, char **argv)
 			{
 				fprintf(stderr, "error in buildLandscape()\n");
 			}
-	//}//disable this when debuging
-
-	//else
-	//{
-	//	fprintf(stderr, "error in getCfgFileName()...expecting file %s\n",szCfgFile);
-	//}
-
 
 	return EXIT_SUCCESS;
 }
@@ -2543,19 +2244,6 @@ int getUnDevIndex1(t_Landscape *pLandscape,int regionID){
             }
         }
         return 0;
-}
-
-void print2ASC(t_Landscape*pLandscape,char* fn){
-    ofstream f;
-    f.open(fn);
-    int i;
-
-    for(i=0;i<pLandscape->maxX*pLandscape->maxY;i++){
-        f<<pLandscape->asCells[i].bUndeveloped<<"\t";
-        if(i%pLandscape->maxX==pLandscape->maxX-1)
-            f<<endl;
-    }
-    f.close();
 }
 
 void findAndSortProbsAll(t_Landscape *pLandscape, t_Params *pParams,int step)
@@ -2651,38 +2339,4 @@ void findAndSortProbsAll(t_Landscape *pLandscape, t_Params *pParams,int step)
             pLandscape->asUndevs[j][i].cumulProb=pLandscape->asUndevs[j][i].cumulProb/sum;
         }
     }
-    char fn[200],str[20];
-    strcpy(fn,"./proba");
-    sprintf(str,"%d",step+1);
-    strcat(fn,str); strcat(fn,".asc");
-    //export2ASC1(pLandscape,pParams,0, fn);
-}
-
-void export2ASC1(t_Landscape *pLandscape, t_Params *pParams, int regionID,char* fn){
-	int i,j;
-	ofstream f;
-	f.open(fn);
-//	if(headflag==1){
-
-	f<<"ncols	4008"<<endl;
-	f<<"nrows	4678"<<endl;
-//	f<<"xllcorner	516805"<<endl;
-//	f<<"yllcorner	4945476"<<endl;
-//	f<<"cellsize	100"<<endl;
-	f<<"xllcorner	447482.1782041"<<endl;
-	f<<"yllcorner	117225.9427485"<<endl;
-	f<<"cellsize	30"<<endl;
-	f<<"NODATA_value	-9999"<<endl;
-
-//}
-	t_Cell		*pThis;
-    float val;
-    int nc=pParams->xSize;
-	for(i=0;i<pLandscape->totalCells;i++){
-	    pThis = &(pLandscape->asCells[i]);
-        val=pThis->devProba;
-		f<<int(val*1000)<<"\t";
-        if(i%nc==nc-1) f<<endl;
-	}
-	f.close();
 }
