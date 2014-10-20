@@ -1829,8 +1829,9 @@ int main(int argc, char **argv)
     G_add_keyword(_("urban"));
     G_add_keyword(_("landscape"));
     G_add_keyword(_("modeling"));
-    module->label = _("FUTURES");
-    module->description = _("...");
+    module->label = _("FUTure Urban-Regional Environment Simulation (FUTURES)");
+    module->description = _("Module uses Patch-Growing Algorithm (PGA) to"
+        " simulate urban-rural landscape structure development");
 
     opt.controlFile = G_define_standard_option(G_OPT_F_INPUT);
     opt.controlFile->key = "control_file";
