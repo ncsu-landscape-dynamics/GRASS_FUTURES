@@ -617,11 +617,11 @@ void dumpDevRaster(t_Landscape *pLandscape, t_Params *pParams, char *szFile)
 
             out_fd = Rast_open_new(szFile, CELL_TYPE);
             out_row = Rast_allocate_c_buf();
-            Rast_set_c_null_value(out_row, pLandscape->maxX);
 
 				/* now dump actual information */
 				for(x=0;x<pLandscape->maxX;x++)
 				{
+                    Rast_set_c_null_value(out_row, pLandscape->maxY);
 					for(y=0;y<pLandscape->maxY;y++)
 					{
 						toPrint = _GIS_NO_DATA_INT;
