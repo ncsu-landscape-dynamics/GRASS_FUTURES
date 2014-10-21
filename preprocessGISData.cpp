@@ -2264,10 +2264,15 @@ void findAndSortProbsAll(t_Landscape *pLandscape, t_Params *pParams,int step)
 				if(pThis->consWeight > 0.0)
 				{
                     id=pThis->index_region-1;
-                    //if(id>10)
-                      //  int stop=1;
                     if(pThis->index_region==-9999) continue;
 					/* note that are no longer just storing the logit value, but instead the probability (allows consWeight to affect sort order) */
+
+                    if (id < 0 || id >= pParams->num_Regions)
+                        G_fatal_error(_("Index of region %d is out of range [0, %d] (region is %d)"), id, pParams->num_Regions - 1, pThis->index_region);
+
+                    if (pLandscape->num_undevSites[id] >= pLandscape->asUndevs[id].size())
+                        pLandscape->asUndevs[id].resize(pLandscape->asUndevs[id].size() * 2);
+
 					pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].cellID = i;
 				val=getDevProbability(pThis,pParams);	
 				pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].logitVal=val;
