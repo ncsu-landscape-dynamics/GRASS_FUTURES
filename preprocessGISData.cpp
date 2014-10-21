@@ -657,7 +657,29 @@ void dumpDevRaster(t_Landscape *pLandscape, t_Params *pParams, char *szFile)
 				}
 
 			Rast_close(out_fd);
-            G_message(_("Writing map <%s> finished"), szFile);
+
+            struct Colors colors;
+            Rast_init_colors(&colors);
+            CELL val1 = 0;
+            CELL val2 = pParams->nSteps;  // TODO: the map max is 36 for 36 steps, it is correct?
+            Rast_add_c_color_rule(&val1, 255, 100, 50, &val2, 255, 255, 0, &colors);
+            val1 = -1;
+            val2 = -1;
+            Rast_add_c_color_rule(&val1, 100, 255, 100, &val2, 100, 255, 100, &colors);
+
+            const char *mapset = G_find_file("cell", szFile, "");
+            if (mapset == NULL)
+                G_fatal_error(_("Raster map <%s> not found"), szFile);
+
+            Rast_write_colors(szFile, mapset, &colors);
+            Rast_free_colors(&colors);
+
+            struct History hist;
+            Rast_short_history(szFile, "raster", &hist);
+            Rast_command_history(&hist);
+            Rast_write_history(szFile, &hist);
+
+            G_message(_("Raster map <%s> created"), szFile);
 }
 
 /*
