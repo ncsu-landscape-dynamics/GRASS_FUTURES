@@ -134,6 +134,7 @@ typedef struct
 	int			nDevNeighbourhood;								/* 8 (i.e. 8 in each direction, leading to 17 x 17 = 289 in total) */
 	/* used in writing rasters */
     char*		dumpFile;
+    char*       outputSeries;
 	/* 1 deterministic, 2 old stochastic, 3 new stochastic */
 	int			nAlgorithm;
 	/* use this to downweight probabilities */
@@ -609,78 +610,74 @@ static int undevCmpReverse(const void *a, const void *b)
 /*
 	called at end and dumps tDeveloped for all valid cells (-9999 for all others)
 */
-void dumpDevRaster(t_Landscape *pLandscape, t_Params *pParams, char *szFile)
+// TODO: add timestamp to maps
+void outputDevRasterStep(t_Landscape *pLandscape, t_Params *pParams, const char* rasterNameBase, bool undevelopedAsNull, bool developmentAsOne)
 {
-	int		x,y,cellID,toPrint,bVal;
-    int out_fd;
-    CELL* out_row;
+    int out_fd = Rast_open_new(rasterNameBase, CELL_TYPE);
+    CELL* out_row = Rast_allocate_c_buf();
 
-            out_fd = Rast_open_new(szFile, CELL_TYPE);
-            out_row = Rast_allocate_c_buf();
+    for (int x = 0;x < pLandscape->maxX; x++)
+    {
+        Rast_set_c_null_value(out_row, pLandscape->maxY);
+        for (int y = 0; y < pLandscape->maxY ; y++)
+        {
+            // we don't check return values since we use landscape directly
+            int cellId = posFromXY(x, y, pLandscape);
+            // this handles NULLs on input
+            if (pLandscape->asCells[cellId].nCellType == _CELL_VALID)
+            {
+                CELL value = pLandscape->asCells[cellId].tDeveloped;
+                // this handles undeveloped cells
+                if (undevelopedAsNull && value == -1)
+                    continue;
+                // this handles developed cells
+                if (developmentAsOne)
+                    value = 1;
+                out_row[y] = value;
+            }
+        }
+        Rast_put_c_row(out_fd, out_row);
+    }
+    Rast_close(out_fd);
 
-				/* now dump actual information */
-				for(x=0;x<pLandscape->maxX;x++)
-				{
-                    Rast_set_c_null_value(out_row, pLandscape->maxY);
-					for(y=0;y<pLandscape->maxY;y++)
-					{
-						toPrint = _GIS_NO_DATA_INT;
-						bVal = 0;
-						cellID = posFromXY(x, y, pLandscape);
-						if(cellID != _CELL_OUT_OF_RANGE)	/* should never happen */
-						{
-							if(pLandscape->asCells[cellID].nCellType == _CELL_VALID)
-							{
-								toPrint = pLandscape->asCells[cellID].tDeveloped;
+    struct Colors colors;
+    Rast_init_colors(&colors);
+    CELL val1 = 0;
+    CELL val2 = pParams->nSteps;  // TODO: the map max is 36 for 36 steps, it is correct?
+    if (developmentAsOne) {
+        val1 = 1;
+        val2 = 1;
+        Rast_add_c_color_rule(&val1, 255, 100, 50, &val2, 255, 100, 50, &colors);
+    }
+    else {
+        Rast_add_c_color_rule(&val1, 255, 100, 50, &val2, 255, 255, 0, &colors);
+    }
+    if (!undevelopedAsNull) {
+        val1 = -1;
+        val2 = -1;
+        Rast_add_c_color_rule(&val1, 100, 255, 100, &val2, 100, 255, 100, &colors);
+    }
 
-								bVal = 1;
-							}
-						} else {
-                            G_fatal_error(_("Coordinates in raster not correct,"
-                                            " x=%d, max x=%d, y=%d, max y=%d"),
-                                            x, pLandscape->maxX, y, pLandscape->maxY);
-                        }
-						if(x)
-						{
+    const char *mapset = G_find_file2("cell", rasterNameBase, "");
+    if (mapset == NULL)
+        G_fatal_error(_("Raster map <%s> not found"), rasterNameBase);
 
-						}
-						if(bVal)
-						{
-							out_row[y] = toPrint;
-						}
-						else
-						{
-							// NULL set by default
-						}
-					}
-					Rast_put_c_row(out_fd, out_row);
-				}
+    Rast_write_colors(rasterNameBase, mapset, &colors);
+    Rast_free_colors(&colors);
 
-			Rast_close(out_fd);
+    struct History hist;
+    Rast_short_history(rasterNameBase, "raster", &hist);
+    Rast_command_history(&hist);
+    // TODO: store also random seed value (need to get it here, global? in Params?)
+    Rast_write_history(rasterNameBase, &hist);
 
-            struct Colors colors;
-            Rast_init_colors(&colors);
-            CELL val1 = 0;
-            CELL val2 = pParams->nSteps;  // TODO: the map max is 36 for 36 steps, it is correct?
-            Rast_add_c_color_rule(&val1, 255, 100, 50, &val2, 255, 255, 0, &colors);
-            val1 = -1;
-            val2 = -1;
-            Rast_add_c_color_rule(&val1, 100, 255, 100, &val2, 100, 255, 100, &colors);
+    G_message(_("Raster map <%s> created"), rasterNameBase);
+}
 
-            const char *mapset = G_find_file("cell", szFile, "");
-            if (mapset == NULL)
-                G_fatal_error(_("Raster map <%s> not found"), szFile);
-
-            Rast_write_colors(szFile, mapset, &colors);
-            Rast_free_colors(&colors);
-
-            struct History hist;
-            Rast_short_history(szFile, "raster", &hist);
-            Rast_command_history(&hist);
-            // TODO: store also random seed value (need to get it here, global? in Params?)
-            Rast_write_history(szFile, &hist);
-
-            G_message(_("Raster map <%s> created"), szFile);
+char* mapNameForStep(const char* basename, const int step, const int maxSteps)
+{
+    int digits = log10(maxSteps) + 1;
+    return G_generate_basename(basename, step, digits, 0);
 }
 
 /*
@@ -1519,7 +1516,7 @@ void updateMap(t_Landscape *pLandscape, t_Params *pParams)
 				nStep++;	/* next time step */
 			}
 			/* dump results to a file at the end of the run */
-			dumpDevRaster(pLandscape, pParams, pParams->dumpFile);
+			outputDevRasterStep(pLandscape, pParams, pParams->dumpFile, false, false);
 			free(szBuff);
 		}
 		fclose(fIn);
@@ -1588,8 +1585,10 @@ void updateMapAll(t_Landscape *pLandscape, t_Params *pParams){
         for(j=0;j<pParams->num_Regions;j++)
 	//j=1;
             updateMap1(pLandscape, pParams, i,j);
+        if (pParams->outputSeries)
+            outputDevRasterStep(pLandscape, pParams, mapNameForStep(pParams->outputSeries, i, pParams->nSteps), true, true);
     }
-    dumpDevRaster(pLandscape, pParams, pParams->dumpFile);
+    outputDevRasterStep(pLandscape, pParams, pParams->dumpFile, false, false);
     finalizeUnDev(pLandscape, pParams);
 }
 
@@ -1832,11 +1831,10 @@ int main(int argc, char **argv)
     struct
     {
         struct Option
-                *xSize, *ySize,
                 *controlFile, *employAttractionFile, *interchangeDistanceFile,
                 *roadDensityFile, *undevelopedFile, *devPressureFile, *consWeightFile,
                 *addVariableFiles, *nDevNeighbourhood, *devpotParamsFile,
-                *dumpFile, *algorithm, *dProbWeight,
+                *dumpFile, *outputSeries, *algorithm, *dProbWeight,
                 *dDevPersistence, *parcelSizeFile, *discountFactor, *giveUpRatio,
                 *probLookupFile, *sortProbs, *patchFactor, *patchMean, *patchRange,
                 *numNeighbors, *seedSearch, *devPressureApproach, *alpha, *scalingFactor,
@@ -1848,7 +1846,7 @@ int main(int argc, char **argv)
     struct
     {
         struct Flag
-                *generate_seed;
+                *generateSeed;
     } flg;
 
 
@@ -1860,9 +1858,9 @@ int main(int argc, char **argv)
     G_add_keyword(_("urban"));
     G_add_keyword(_("landscape"));
     G_add_keyword(_("modeling"));
-    module->label = _("FUTure Urban-Regional Environment Simulation (FUTURES)");
+    module->label = _("Simulates landuse change using FUTure Urban-Regional Environment Simulation (FUTURES).");
     module->description = _("Module uses Patch-Growing Algorithm (PGA) to"
-        " simulate urban-rural landscape structure development");
+        " simulate urban-rural landscape structure development.");
 
     opt.controlFile = G_define_standard_option(G_OPT_F_INPUT);
     opt.controlFile->key = "control_file";
@@ -1919,11 +1917,6 @@ int main(int argc, char **argv)
     opt.devpotParamsFile->description = _("Each line should contain region ID followed"
         " by parameters. Values are separated by whitespace (spaces or tabs)."
         " First line is ignored, so it can be used for header");
-
-    opt.dumpFile = G_define_standard_option(G_OPT_R_OUTPUT);
-    opt.dumpFile->key = "dump_file";
-    opt.dumpFile->required = YES;
-    opt.dumpFile->description = _("Used in writing rasters");
 
     opt.algorithm = G_define_option();
     opt.algorithm->key = "algorithm";
@@ -2070,6 +2063,20 @@ int main(int argc, char **argv)
     opt.controlFileAll->description = _("Control file with number of cells to convert");
     opt.controlFileAll->guisection = _("Stochastic 2");
 
+    opt.dumpFile = G_define_standard_option(G_OPT_R_OUTPUT);
+    opt.dumpFile->key = "output";
+    opt.dumpFile->required = YES;
+    opt.dumpFile->description = _("State of the development at the end of simulation");
+    opt.dumpFile->guisection = _("Output");
+
+    opt.outputSeries = G_define_standard_option(G_OPT_R_BASENAME_OUTPUT);
+    opt.outputSeries->key = "output_series";
+    opt.outputSeries->required = NO;
+    opt.outputSeries->label = _("State of the development at after each step");
+    opt.outputSeries->guisection = _("Output");
+    // TODO: add mutually exclusive?
+    // TODO: add flags or options to control values in series and final rasters
+
     opt.seed = G_define_option();
     opt.seed->key = "random_seed";
     opt.seed->type = TYPE_INTEGER;
@@ -2078,18 +2085,19 @@ int main(int argc, char **argv)
     opt.seed->description = _("The same seed can be used to obtain same results"
         " or random seed can be generated by other means.");
 
-    flg.generate_seed = G_define_flag();
-    flg.generate_seed->key = 's';
-    flg.generate_seed->label = _("Generate random seed (result is non-deterministic)");
-    flg.generate_seed->description = _("Generates random seed for random number"
+    flg.generateSeed = G_define_flag();
+    flg.generateSeed->key = 's';
+    flg.generateSeed->label = _("Generate random seed (result is non-deterministic)");
+    flg.generateSeed->description = _("Generates random seed for random number"
         " generator (use when you don't want to provide the seed option)");
     // TODO: add mutually exclusive
+    // TODO: GUI section?
 
     if (G_parser(argc, argv))
         exit(EXIT_FAILURE);
 
     long seed_value;
-    if (flg.generate_seed->answer) {
+    if (flg.generateSeed->answer) {
         seed_value = G_srand48_auto();
         G_message( "Generated random seed (-s): %ld", seed_value);
     }
@@ -2134,6 +2142,7 @@ int main(int argc, char **argv)
     sParams.nDevNeighbourhood = atoi(opt.nDevNeighbourhood->answer);
 
     sParams.dumpFile = opt.dumpFile->answer;
+    sParams.outputSeries = opt.outputSeries->answer;
 
     sParams.parcelSizeFile = opt.parcelSizeFile->answer;
 
