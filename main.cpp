@@ -32,96 +32,171 @@ extern "C"
 
 //#include "distance.h"
 
-#define _CELL_OUT_OF_RANGE -2  /* used to flag cells that are off the lattice */
-#define _CELL_OUT_OF_COUNTY -1  /* used to flag cells that are not in this county */
-#define _CELL_VALID 1  /* used to flag cells that are valid */
+/** used to flag cells that are off the lattice */
+#define _CELL_OUT_OF_RANGE -2
 
-#define _N_MAX_DYNAMIC_BUFF_LEN (1024*1024)  /* need to dynamically allocate this as putting all on stack will crash most compilers */
+/** used to flag cells that are not in this county */
+#define _CELL_OUT_OF_COUNTY -1
+
+/** used to flag cells that are valid */
+#define _CELL_VALID 1
+
+/** need to dynamically allocate this as putting all on stack will crash most compilers */
+#define _N_MAX_DYNAMIC_BUFF_LEN (1024*1024)
 #define _N_MAX_FILENAME_LEN 1024
-#define N_MAXREADINLEN 8192  /* Max length of input line */
 
-#define _GIS_HEADER_LENGTH 6  /* for working out where to start reading data */
+/** Max length of input line */
+#define N_MAXREADINLEN 8192
 
-#define _GIS_NO_DATA_STRING "-9999" /* strictly-speaking, should probably parse these from GIS files */
+/** for working out where to start reading data */
+#define _GIS_HEADER_LENGTH 6
+
+/** strictly-speaking, should probably parse these from GIS files */
+#define _GIS_NO_DATA_STRING "-9999"
+
+/** Value used to represent NULL (NoData) in some parts of the model */
 #define _GIS_NO_DATA_INT -9999
 
-#define _N_NOT_YET_DEVELOPED -1  /* use this for tDeveloped if cell still undeveloped */
+/** use this for tDeveloped if cell still undeveloped */
+#define _N_NOT_YET_DEVELOPED -1
 
 /* algorithm to use */
-#define _N_ALGORITHM_DETERMINISTIC 1  /* deterministic model */
-#define _N_ALGORITHM_STOCHASTIC_I 2  /* stochastic model with downweighting of logit probabilities and of devPressure over time */
+
+/** deterministic model */
+#define _N_ALGORITHM_DETERMINISTIC 1
+
+/** stochastic model with downweighting of logit probabilities and of devPressure over time */
+#define _N_ALGORITHM_STOCHASTIC_I 2
 #define _N_ALGORITHM_STOCHASTIC_II 3
 
 #define _MAX_RAND_FIND_SEED_FACTOR 25
 #define maxNumAddVariables 6
-#define MAXNUM_COUNTY 50  /*maximal number of counties allowed */
+
+/** maximal number of counties allowed */
+#define MAXNUM_COUNTY 50
 #define MAX_YEARS 100
-//#define MAX_UNDEV_SIZE 2000000  // maximum array size for undev cells (maximum: 1840198 for a county within 16 counties)
-#define MAX_UNDEV_SIZE 2000000  // maximum array size for undev cells (maximum: 1840198 for a county within 16 counties)
+/// maximum array size for undev cells (maximum: 1840198 for a county within 16 counties)
+#define MAX_UNDEV_SIZE 2000000
 using namespace std;
 
 
 /* Wenwu Tang */
-char dirName[100];  // use absolute paths
-char tempStr[100];  // string for temporarily storage
+/// use absolute paths
+char dirName[100];
+
+/// string for temporarily storage
+char tempStr[100];
 
 
 
 typedef struct
 {
-    int nCellType;  /* see #define's starting _CELL_ above */
-    double employAttraction;  /* attraction to employment base; static */
-    double interchangeDistance; /* distance to interchange; static */
-    double roadDensity;  /* road density; static */
-    int thisX;  /* x position on the lattice; static */
-    int thisY;  /* y position on the lattice; static */
-    int bUndeveloped;  /* whether this site is still undeveloped; varies.  Note if bUndeveloped = 0 the values of employAttraction etc. are not to be trusted */
+
+    /** see #define's starting _CELL_ above */
+    int nCellType;
+
+    /** attraction to employment base; static */
+    double employAttraction;
+
+    /** distance to interchange; static */
+    double interchangeDistance;
+
+    /** road density; static */
+    double roadDensity;
+
+    /** x position on the lattice; static */
+    int thisX;
+
+    /** y position on the lattice; static */
+    int thisY;
+
+    /** whether this site is still undeveloped; varies.  Note if bUndeveloped = 0 the values of employAttraction etc. are not to be trusted */
+    int bUndeveloped;
     // TODO: is the following int or double (defined as double but usually casting to int in assignment, was as int in some print)
-    double devPressure;  /* development pressure; varies */
-    int bUntouched;  /* stores whether this site has been considered for development, to handle "protection" */
-    int tDeveloped;  /* timestep on which developed (0 for developed at start, _N_NOT_YET_DEVELOPED for not developed yet ) */
-    double consWeight;  /* multiplicative factor on the probabilities */
-    double additionVariable[maxNumAddVariables];  /* additional variables */
+
+    /** development pressure; varies */
+    double devPressure;
+
+    /** stores whether this site has been considered for development, to handle "protection" */
+    int bUntouched;
+
+    /** timestep on which developed (0 for developed at start, _N_NOT_YET_DEVELOPED for not developed yet ) */
+    int tDeveloped;
+
+    /** multiplicative factor on the probabilities */
+    double consWeight;
+
+    /** additional variables */
+    double additionVariable[maxNumAddVariables];
     int index_region;
     float devProba;
 } t_Cell;
 
 typedef struct
 {
-    int cellID;  /* id of this cell */
-    double logitVal;  /* value of the logit */
-    int bUntouched;  /* whether or not cell previously considered...need to use this in the sort */
-    double cumulProb;  /* to support random pick based on their logitVal */
+
+    /** id of this cell */
+    int cellID;
+
+    /** value of the logit */
+    double logitVal;
+
+    /** whether or not cell previously considered...need to use this in the sort */
+    int bUntouched;
+
+    /** to support random pick based on their logitVal */
+    double cumulProb;
 } t_Undev;
 
 typedef struct
 {
-    t_Cell *asCells;  /* array of cells (see posFromXY for how they are indexed) */
-    int maxX;  /* number of columns in the grid */
-    int maxY;  /* number of rows in the grid */
-    int totalCells;  /* total number of cells */
-    t_Undev *asUndev;  /* array of information on undeveloped cells */
-    int undevSites;  /* number of cells which have not yet converted */
-    int *aParcelSizes;  /* posterior sample from parcel size distribution */
-    int parcelSizes;  /* number in that sample */
+
+    /** array of cells (see posFromXY for how they are indexed) */
+    t_Cell *asCells;
+
+    /** number of columns in the grid */
+    int maxX;
+
+    /** number of rows in the grid */
+    int maxY;
+
+    /** total number of cells */
+    int totalCells;
+
+    /** array of information on undeveloped cells */
+    t_Undev *asUndev;
+
+    /** number of cells which have not yet converted */
+    int undevSites;
+
+    /** posterior sample from parcel size distribution */
+    int *aParcelSizes;
+
+    /** number in that sample */
+    int parcelSizes;
       std::vector < std::vector < t_Undev > >asUndevs;  //WT
     int num_undevSites[MAXNUM_COUNTY];  //WT
 } t_Landscape;
 
 typedef struct
 {
-    /* size of the grids (could be worked out, but easier this way) */
-    int xSize;  /* 7312 */
-    int ySize;  /* 5571 */
-    /* file containing information on how many cells to transition and when */
+
+    /** size of the grids */
+    int xSize;
+
+    /** size of the grids */
+    int ySize;
+
+    /** file containing information on how many cells to transition and when */
     char *controlFile;
-    /* files containing the information to read in */
-    char *employAttractionFile;  /* atr1500clip */
-    char *interchangeDistanceFile;  /* d2interclip */
-    char *roadDensityFile;  /* psden1000clip */
-    char *undevelopedFile;  /* cab_undv_msk */
-    char *devPressureFile;  /* devp500clip */
-    char *consWeightFile;  /* consweight */
+
+    /** files containing the information to read in */
+    char *employAttractionFile;
+    char *interchangeDistanceFile;
+    char *roadDensityFile;
+    char *undevelopedFile;
+    char *devPressureFile;
+    char *consWeightFile;
     char *probLookupFile;
     int nProbLookup;
     double *adProbLookup;
@@ -133,50 +208,71 @@ typedef struct
     //      double          dRoadDensity;                                                                   /* 0.00065813 */
     //      double          dDevPressure;                                                                   /* -0.026190 */
     /* size of square used to recalculate development pressure */
-    int nDevNeighbourhood;  /* 8 (i.e. 8 in each direction, leading to 17 x 17 = 289 in total) */
-    /* used in writing rasters */
+
+    int nDevNeighbourhood;  /** 8 (i.e. 8 in each direction, leading to 17 x 17 = 289 in total) */
+
+    /** used in writing rasters */
     char *dumpFile;
     char *outputSeries;
-    /* 1 deterministic, 2 old stochastic, 3 new stochastic */
+
+    /** 1 deterministic, 2 old stochastic, 3 new stochastic */
     int nAlgorithm;
-    /* use this to downweight probabilities */
+
+    /** use this to downweight probabilities */
     double dProbWeight;
-    /* and this to downweight old dev pressure */
+
+    /** and this to downweight old dev pressure */
     double dDevPersistence;
-    /* file containing parcel size information */
+
+    /** file containing parcel size information */
     char *parcelSizeFile;
-    double discountFactor;  //for calibrate patch size
-    /* give up spiralling around when examined this number of times too many cells */
+    double discountFactor;      ///< for calibrate patch size
+
+    /** give up spiralling around when examined this number of times too many cells */
     double giveUpRatio;
-    /* these parameters only relevant for new stochastic algorithm */
+
+    /** these parameters only relevant for new stochastic algorithm */
     int sortProbs;
     double patchFactor;
     double patchMean;
     double patchRange;
-    int numNeighbors;  // 4 or 8 neighbors only
-    int seedSearch;  //1: uniform distribution 2: based on dev. proba.
+    /// 4 or 8 neighbors only
+    int numNeighbors;
+    /// 1: uniform distribution 2: based on dev. proba.
+    int seedSearch;
     int numAddVariables;
-    double addParameters[maxNumAddVariables][MAXNUM_COUNTY];  /* parameters for additional variables */
-    char *addVariableFile[maxNumAddVariables];
-    int devPressureApproach;  //1: #occurrence; 2: gravity (need to define alpha and scaling factor); 3: kernel, need to define alpha and scaling factor
-    // for 2: formula-> scalingFactor/power(dist,alpha)
-    // for 3: formula-> scalingFactor*exp(-2*dist/alpha)
-    double scalingFactor;  // scale distance-based force
-    double alpha;  // constraint on distance
 
-    /* parameters that go into regression formula */
-    double dIntercepts[MAXNUM_COUNTY];  /* 0.038884 */
-    double dV1[MAXNUM_COUNTY];  /* -0.0000091946 */
-    double dV2[MAXNUM_COUNTY];  /* 0.000042021 */
-    double dV3[MAXNUM_COUNTY];  /* 0.00065813 */
+    /** parameters for additional variables */
+    double addParameters[maxNumAddVariables][MAXNUM_COUNTY];
+    char *addVariableFile[maxNumAddVariables];
+    /// 1: #occurrence; 2: gravity (need to define alpha and scaling factor); 3: kernel, need to define alpha and scaling factor
+    ///
+    /// for 2: formula-> scalingFactor/power(dist,alpha)
+    /// for 3: formula-> scalingFactor*exp(-2*dist/alpha)
+    int devPressureApproach;
+    /// scale distance-based force
+    double scalingFactor;
+    ///< constraint on distance
+    double alpha;
+
+    /** parameters that go into regression formula */
+    double dIntercepts[MAXNUM_COUNTY];
+    double dV1[MAXNUM_COUNTY];
+    double dV2[MAXNUM_COUNTY];
+    double dV3[MAXNUM_COUNTY];
     double dV4[MAXNUM_COUNTY];
     int num_Regions;
-    char *indexFile;  /* index file to run multiple regions */
-    /*control files for all regions */
-    char *controlFileAll;  //development demand for multiple regions
+
+    /** index file to run multiple regions */
+    char *indexFile;
+
+    /// control files for all regions
+    /// development demand for multiple regions
+    char *controlFileAll;
     int devDemand[MAX_YEARS];
     int devDemands[MAXNUM_COUNTY][MAX_YEARS];
-    int nSteps;  //#simulation steps
+    /// number of simulation steps
+    int nSteps;
 } t_Params;
 
 
@@ -233,11 +329,11 @@ void readDevPotParams(t_Params * pParams, char *fn)
     f.close();
 }
 
-/*
-   return uniform number on [0,1)
+/**
+    Generate uniform number on [0,1).
 
-   encapsulated to allow easy replacement if necessary
- */
+    Encapsulated to allow easy replacement if necessary.
+*/
 double uniformRandom()
 {
     int nRet;
@@ -249,11 +345,11 @@ double uniformRandom()
     return ((double)nRet / (double)(RAND_MAX));
 }
 
-/*
-   seed random number generator
+/**
+    Seed random number generator.
 
-   encapsulated to allow easy replacement if necessary
- */
+    Encapsulated to allow easy replacement if necessary.
+*/
 void seedRandom(struct timeval ttime)
 {
     srand((ttime.tv_sec * 100) + (ttime.tv_usec / 100));
@@ -261,18 +357,19 @@ void seedRandom(struct timeval ttime)
 }
 
 
-/*
-   work out x and y position on the grid from index into siteMapping array
- */
+/**
+    Work out x and y position on the grid from index into siteMapping/landscape array.
+*/
 void xyFromPos(int nPos, int *pnX, int *pnY, t_Landscape * pLandscape)
 {
+    /* integer division just gives whole number part */
     *pnX = nPos % pLandscape->maxX;
-    *pnY = nPos / pLandscape->maxX;  /* integer division just gives whole number part */
+    *pnY = nPos / pLandscape->maxX;
 }
 
-/*
-   work out index into asCells array from location
- */
+/**
+    Work out index into asCells array from location.
+*/
 int posFromXY(int nX, int nY, t_Landscape * pLandscape)
 {
     int nPos;
@@ -292,9 +389,9 @@ int posFromXY(int nX, int nY, t_Landscape * pLandscape)
     return nPos;
 }
 
-/*
-   allocate memory to store information on cells
- */
+/**
+    Allocate memory to store information on cells.
+*/
 int buildLandscape(t_Landscape * pLandscape, t_Params * pParams)
 {
     int bRet;
@@ -411,11 +508,12 @@ void readIndexData(t_Landscape * pLandscape, t_Params * pParams)
     cout << "done" << endl;
 }
 
-/*
-   unavoidably unpleasant routine to read data from GIS rasters and put in correct places in memory
- */
+/**
+    Read data from GIS rasters and put in correct places in memory.
+*/
 int readData(t_Landscape * pLandscape, t_Params * pParams)
 {
+    // TODO: this function should be rewritten to be nicer (unless storing in memorey will change completely)
     // TODO: fix null handling somewhere
     char *szBuff;
     char szFName[_N_MAX_FILENAME_LEN];
@@ -592,9 +690,16 @@ int readData(t_Landscape * pLandscape, t_Params * pParams)
 }
 
 
-/*
-   used in qsort...note that this sort function is in ascending order (i.e. opposite to what we normally want)
- */
+/**
+    Compare two t_Undev structures.
+
+    To be used in qsort().
+
+    \note This sort function is in ascending order
+    (i.e. opposite to what we normally want).
+
+    \see undevCmpReverse()
+*/
 static int undevCmp(const void *a, const void *b)
 {
     double da = ((t_Undev *) a)->logitVal;
@@ -613,8 +718,10 @@ static int undevCmp(const void *a, const void *b)
     return 0;
 }
 
-/*
-   note this is the correct way around...
+/**
+    Compare two t_Undev structures.
+
+    This is the correct way around sorting with undevCmp() and qsort().
  */
 static int undevCmpReverse(const void *a, const void *b)
 {
@@ -622,8 +729,14 @@ static int undevCmpReverse(const void *a, const void *b)
 }
 
 
-/*
-   called at end and dumps tDeveloped for all valid cells (-9999 for all others)
+/**
+    Write current state of developed areas.
+
+    Called at end and dumps tDeveloped for all valid cells (NULL for all others)
+
+    \param undevelopedAsNull Represent undeveloped areas as NULLs instead of -1
+    \param developmentAsOne Represent all developed areas as 1 instead of number
+        representing the step when are was developed
  */
 // TODO: add timestamp to maps
 void outputDevRasterStep(t_Landscape * pLandscape, t_Params * pParams,
@@ -661,7 +774,7 @@ void outputDevRasterStep(t_Landscape * pLandscape, t_Params * pParams,
     Rast_init_colors(&colors);
     CELL val1 = 0;
     // TODO: the map max is 36 for 36 steps, it is correct?
-    CELL val2 = pParams->nSteps; 
+    CELL val2 = pParams->nSteps;
 
     if (developmentAsOne) {
         val1 = 1;
@@ -705,9 +818,9 @@ char *mapNameForStep(const char *basename, const int step, const int maxSteps)
     return G_generate_basename(basename, step, digits, 0);
 }
 
-/*
-   work out how many cells to transition based on the control file
- */
+/**
+    Work out how many cells to transition based on the control file.
+*/
 int parseControlLine(char *szBuff, char *szStepLabel, int *pnToConvert)
 {
     char *pPtr;
@@ -742,9 +855,9 @@ int parseControlLine(char *szBuff, char *szStepLabel, int *pnToConvert)
     return bRet;
 }
 
-/*
-   calculate probability
- */
+/**
+    Calculate probability of development.
+*/
 
 double getDevProbability(t_Cell * pThis, t_Params * pParams)
 {
@@ -842,9 +955,11 @@ double getDevProbability(t_Cell * pThis, t_Params * pParams)
  */
 
 
-/*
-   called each timestep...recalculate probabilities for each unconverted cell
- */
+/**
+    Recalculate probabilities for each unconverted cell.
+
+    Called each timestep.
+*/
 void findAndSortProbs(t_Landscape * pLandscape, t_Params * pParams,
                       int nToConvert)
 {
@@ -932,9 +1047,11 @@ void findAndSortProbs(t_Landscape * pLandscape, t_Params * pParams,
     }
 }
 
-/*
-   depreciated method of creating patches based on spiraling around
- */
+/**
+    Create patches based on spiraling around.
+
+    \deprecated
+*/
 int fillValidNeighbourList(int nThisID, t_Landscape * pLandscape,
                            t_Params * pParams, int *anToConvert,
                            int nWantToConvert, int bAllowTouched,
@@ -999,17 +1116,22 @@ int fillValidNeighbourList(int nThisID, t_Landscape * pLandscape,
     return nFound;
 }
 
-/*
-   helper structures for neighbour grabbing algorithm
+/**
+   Helper structur for neighbour grabbing algorithm
  */
 typedef struct
 {
     double probAdd;
     int cellID;
     int newInList;
-    double distance;  // distance to the center // Wenwu Tang
+    // Wenwu Tang
+    /// distance to the center
+    double distance;
 } t_candidateNeighbour;
 
+/**
+    Helper structur for neighbour grabbing algorithm
+*/
 typedef struct
 {
     double maxProb;
@@ -1103,7 +1225,11 @@ int addNeighbourIfPoss(int x, int y, t_Landscape * pLandscape,
     return listChanged;
 }
 
-// From Wenwu: sort according to the new flag and conversion probability
+// From Wenwu
+
+/**
+    Sort according to the new flag and conversion probability.
+*/
 static int sortNeighbours(const void *pOne, const void *pTwo)
 {
     t_candidateNeighbour *pNOne = (t_candidateNeighbour *) pOne;
@@ -1155,7 +1281,9 @@ static int sortNeighbours(const void *pOne, const void *pTwo)
     return 0;
 }
 
-//randomly shuffle the 4 neighbors
+/**
+    randomly shuffle the 4 neighbors
+*/
 void Shuffle4(int *mat)
 {
     int proba[4], flag[4];
@@ -1427,9 +1555,9 @@ int convertCells(t_Landscape * pLandscape, t_Params * pParams, int nThisID,
     return nDone;
 }
 
-/*
-   main routine to actually run the model
- */
+/**
+    main routine to actually run the model
+*/
 void updateMap(t_Landscape * pLandscape, t_Params * pParams)
 {
     FILE *fIn;
@@ -1613,7 +1741,7 @@ void updateMap(t_Landscape * pLandscape, t_Params * pParams)
 
 void readDevDemand(t_Params * pParams)
 {
-    ifstream f1;  // this one may be deleted
+    ifstream f1;
 
     /*
        f1.open(pParams->controlFile);
@@ -1846,8 +1974,10 @@ void updateMap1(t_Landscape * pLandscape, t_Params * pParams, int step,
 }
 
 
-/*
-   check Doug's calculation of devPressure...no longer called
+/**
+    Check Doug's calculation of devPressure.
+
+    No longer called.
  */
 void testDevPressure(t_Landscape * pLandscape, t_Params * pParams)
 {
