@@ -32,27 +32,27 @@ extern "C"
 
 //#include "distance.h"
 
-#define	_CELL_OUT_OF_RANGE -2  /* used to flag cells that are off the lattice */
-#define	_CELL_OUT_OF_COUNTY -1  /* used to flag cells that are not in this county */
-#define	_CELL_VALID 1  /* used to flag cells that are valid */
+#define _CELL_OUT_OF_RANGE -2  /* used to flag cells that are off the lattice */
+#define _CELL_OUT_OF_COUNTY -1  /* used to flag cells that are not in this county */
+#define _CELL_VALID 1  /* used to flag cells that are valid */
 
 #define _N_MAX_DYNAMIC_BUFF_LEN (1024*1024)  /* need to dynamically allocate this as putting all on stack will crash most compilers */
 #define _N_MAX_FILENAME_LEN 1024
 #define N_MAXREADINLEN 8192  /* Max length of input line */
 
-#define	_GIS_HEADER_LENGTH 6  /* for working out where to start reading data */
+#define _GIS_HEADER_LENGTH 6  /* for working out where to start reading data */
 
-#define	_GIS_NO_DATA_STRING "-9999" /* strictly-speaking, should probably parse these from GIS files */
-#define	_GIS_NO_DATA_INT -9999
+#define _GIS_NO_DATA_STRING "-9999" /* strictly-speaking, should probably parse these from GIS files */
+#define _GIS_NO_DATA_INT -9999
 
-#define	_N_NOT_YET_DEVELOPED -1  /* use this for tDeveloped if cell still undeveloped */
+#define _N_NOT_YET_DEVELOPED -1  /* use this for tDeveloped if cell still undeveloped */
 
 /* algorithm to use */
-#define	_N_ALGORITHM_DETERMINISTIC 1  /* deterministic model */
+#define _N_ALGORITHM_DETERMINISTIC 1  /* deterministic model */
 #define _N_ALGORITHM_STOCHASTIC_I 2  /* stochastic model with downweighting of logit probabilities and of devPressure over time */
-#define	_N_ALGORITHM_STOCHASTIC_II 3
+#define _N_ALGORITHM_STOCHASTIC_II 3
 
-#define	_MAX_RAND_FIND_SEED_FACTOR 25
+#define _MAX_RAND_FIND_SEED_FACTOR 25
 #define maxNumAddVariables 6
 #define MAXNUM_COUNTY 50  /*maximal number of counties allowed */
 #define MAX_YEARS 100
@@ -1018,7 +1018,7 @@ typedef struct
     t_candidateNeighbour *aCandidates;
 } t_neighbourList;
 
-#define 	_N_NEIGHBOUR_LIST_BLOCK_SIZE	20
+#define _N_NEIGHBOUR_LIST_BLOCK_SIZE 20
 
 int addNeighbourIfPoss(int x, int y, t_Landscape * pLandscape,
                        t_neighbourList * pNeighbours, t_Params * pParams)
