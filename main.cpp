@@ -33,6 +33,21 @@
  *
  *****************************************************************************/
 
+/**
+    \file main.c
+
+    The main file containing both the model code and the data handing part.
+
+    A lot of parts of the code are dead code. May be useful as an alternative
+    algorithms. Some of the dead code is commented out and might need to
+    be revived if other parts will show as useful.
+
+    The language of the code is subject to change. The goal is to use either
+    C or C++, not both mixed as it is now.
+
+    Major refactoring of the code is expected.
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
