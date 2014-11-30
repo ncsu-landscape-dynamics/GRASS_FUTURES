@@ -2,15 +2,34 @@
 /****************************************************************************
  *
  * MODULE:       r.futures
- * AUTHOR(S):
+ * AUTHOR(S):    Ross K. Meentemeyer
+ *               Wenwu Tang
+ *               Monica A. Dorning
+ *               John B. Vogler
+ *               Nik J. Cunniffe
+ *               Douglas A. Shoemaker
+ *               Jennifer A. Koch
+ *               Vaclav Petras <wenzeslaus gmail com>
+ *               (See the manual page for details and references.)
  *
- * PURPOSE:
+ * PURPOSE:      Simulation of urban-rural landscape structure (FUTURES model)
  *
- * COPYRIGHT:    (C) 2013-2014 by
+ * COPYRIGHT:    (C) 2013-2014 by Meentemeyer et al.
  *
- *               This program is free software under the GNU General Public
- *               License (>=v2). Read the file COPYING that comes with GRASS
- *               for details.
+ *               This program is free software: you can redistribute it and/or
+ *               modify it under the terms of the GNU General Public License
+ *               as published by the Free Software Foundation, either version 3
+ *               of the License, or (at your option) any later version.
+ *
+ *               This program is distributed in the hope that it will be useful,
+ *               but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *               MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *               GNU General Public License for more details.
+ *
+ *               You should have received a copy of the GNU General Public
+ *               License along with this program. If not, see
+ *               <http://www.gnu.org/licenses/> or read the file COPYING that
+ *               comes with GRASS GIS for details.
  *
  *****************************************************************************/
 
