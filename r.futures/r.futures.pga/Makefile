@@ -1,6 +1,6 @@
 MODULE_TOPDIR = ../..
 
-PGM = r.futures
+PGM = r.futures.pga
 
 LIBES = $(RASTERLIB) $(GISLIB) $(MATHLIB)
 DEPENDENCIES = $(RASTERDEP) $(GISDEP)

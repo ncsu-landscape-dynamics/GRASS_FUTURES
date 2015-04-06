@@ -1,7 +1,7 @@
 
 /****************************************************************************
  *
- * MODULE:       r.futures
+ * MODULE:       r.futures.pga
  * AUTHOR(S):    Ross K. Meentemeyer
  *               Wenwu Tang
  *               Monica A. Dorning
