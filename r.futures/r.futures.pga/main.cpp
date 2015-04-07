@@ -267,7 +267,6 @@ typedef struct
 
     /** these parameters only relevant for new stochastic algorithm */
     int sortProbs;
-    double patchFactor;
     double patchMean;
     double patchRange;
     /// 4 or 8 neighbors only
@@ -1238,9 +1237,6 @@ int addNeighbourIfPoss(int x, int y, t_Landscape * pLandscape,
                             (int)(probAdd * (pParams->nProbLookup - 1));
                         probAdd = pParams->adProbLookup[lookupPos];
                         probAdd *= pThis->consWeight;
-                        /* multiply by the patch factor to help control shapes of patches */
-                        // pF now is set to 1, so it won't affect the result.or this can be deleted // WT
-                        probAdd *= pParams->patchFactor;
                         pNeighbours->aCandidates[pNeighbours->nCandidates].
                             probAdd = probAdd;
                         /* only actually add it if will ever transition */
@@ -2108,7 +2104,7 @@ int main(int argc, char **argv)
             *consWeightFile, *addVariableFiles, *nDevNeighbourhood,
             *devpotParamsFile, *dumpFile, *outputSeries, *algorithm,
             *dProbWeight, *dDevPersistence, *parcelSizeFile, *discountFactor,
-            *giveUpRatio, *probLookupFile, *sortProbs, *patchFactor,
+            *giveUpRatio, *probLookupFile, *sortProbs,
             *patchMean, *patchRange, *numNeighbors, *seedSearch,
             *devPressureApproach, *alpha, *scalingFactor, *num_Regions,
             *indexFile, *controlFileAll, *seed;
@@ -2274,16 +2270,6 @@ int main(int argc, char **argv)
     opt.sortProbs->description =
         _("Whether or not to sort the list of undeveloped cells before choosing patch seeds");
     opt.sortProbs->guisection = _("Stochastic 2");
-
-    opt.patchFactor = G_define_option();
-    opt.patchFactor->key = "patch_factor";
-    opt.patchFactor->type = TYPE_DOUBLE;
-    opt.patchFactor->required = NO;
-    opt.patchFactor->description =
-        _("when building patches, multiply all probabilities by this"
-          " factor (will controls shape of patches to some extent, with higher"
-          " numbers more circular and lower numbers more linear)");
-    opt.patchFactor->guisection = _("Stochastic 2");
 
     opt.patchMean = G_define_option();
     opt.patchMean->key = "patch_mean";
@@ -2543,7 +2529,6 @@ int main(int argc, char **argv)
         }
 
         sParams.sortProbs = atoi(opt.sortProbs->answer);
-        sParams.patchFactor = atof(opt.patchFactor->answer);
         sParams.patchMean = atof(opt.patchMean->answer);
         sParams.patchRange = atof(opt.patchRange->answer);
         sParams.numNeighbors = atoi(opt.numNeighbors->answer);
