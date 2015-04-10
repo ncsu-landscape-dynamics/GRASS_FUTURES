@@ -249,15 +249,9 @@ typedef struct
     /** 1 deterministic, 2 old stochastic, 3 new stochastic */
     int nAlgorithm;
 
-    /** and this to downweight old dev pressure */
-    double dDevPersistence;
-
     /** file containing parcel size information */
     char *parcelSizeFile;
     double discountFactor;      ///< for calibrate patch size
-
-    /** give up spiralling around when examined this number of times too many cells */
-    double giveUpRatio;
 
     /** these parameters only relevant for new stochastic algorithm */
     int sortProbs;
@@ -1028,25 +1022,6 @@ void findAndSortProbs(t_Landscape * pLandscape, t_Params * pParams,
             }
         }
     }
-    /* downweight the devPressure if necessary (do not do in first step) */
-    /* doing it here means that last time step values have full weight */
-    if (pParams->nAlgorithm == _N_ALGORITHM_STOCHASTIC_I) {
-        if (pParams->dDevPersistence < 1.0) {
-            fprintf(stdout, "\t\tdownweighting development pressure\n");
-
-            for (i = 0; i < pLandscape->totalCells; i++) {
-                pThis = &(pLandscape->asCells[i]);
-                if (pThis->nCellType == _CELL_VALID) {
-                    /* only need to bother downweighting on cells that can still convert */
-                    if (pThis->bUndeveloped) {
-                        pThis->devPressure =
-                            (int)((double)pThis->devPressure *
-                                  pParams->dDevPersistence);
-                    }
-                }
-            }
-        }
-    }
     /* sort */
     /* can only be zero for algorithm=stochastic_ii */
     if (pParams->sortProbs) {
@@ -1806,8 +1781,8 @@ int main(int argc, char **argv)
             *roadDensityFile, *undevelopedFile, *devPressureFile,
             *consWeightFile, *addVariableFiles, *nDevNeighbourhood,
             *devpotParamsFile, *dumpFile, *outputSeries, *algorithm,
-            *dDevPersistence, *parcelSizeFile, *discountFactor,
-            *giveUpRatio, *probLookupFile, *sortProbs,
+            *parcelSizeFile, *discountFactor,
+            *probLookupFile, *sortProbs,
             *patchMean, *patchRange, *numNeighbors, *seedSearch,
             *devPressureApproach, *alpha, *scalingFactor, *num_Regions,
             *indexFile, *controlFileAll, *seed;
@@ -1902,19 +1877,6 @@ int main(int argc, char **argv)
     opt.algorithm->description =
         _("Parameters controlling the algorithm to use");
 
-    opt.dDevPersistence = G_define_option();
-    opt.dDevPersistence->key = "dev_neighbourhood";
-    opt.dDevPersistence->type = TYPE_DOUBLE;
-    opt.dDevPersistence->required = NO;
-    opt.dDevPersistence->label =
-        _("Parameters controlling the algorithm to use");
-    opt.dDevPersistence->description =
-        _("(only relevant if nAlgorithm=2) the devPressures"
-          " are multiplied by this factor on each timestep, meaning older development is"
-          " downweighted and more recent development most important...should lead"
-          " to clustering of new development");
-    opt.dDevPersistence->guisection = _("Stochastic 1");
-
     opt.parcelSizeFile = G_define_standard_option(G_OPT_F_INPUT);
     opt.parcelSizeFile->key = "parcel_size_file";
     opt.parcelSizeFile->required = YES;
@@ -1926,15 +1888,6 @@ int main(int argc, char **argv)
     opt.discountFactor->type = TYPE_DOUBLE;
     opt.discountFactor->required = YES;
     opt.discountFactor->description = _("discount factor of patch size");
-
-    opt.giveUpRatio = G_define_option();
-    opt.giveUpRatio->key = "give_up_ratio";
-    opt.giveUpRatio->type = TYPE_DOUBLE;
-    opt.giveUpRatio->required = NO;
-    opt.giveUpRatio->label = _("Give up ratio");
-    opt.giveUpRatio->description = _("(only relevant if nAlgorithm=2) give up"
-                                     " spiralling around when examined this factor of sites too many");
-    opt.giveUpRatio->guisection = _("Stochastic 1");
 
     /* stochastic 2 algorithm */
 
@@ -2359,25 +2312,6 @@ void findAndSortProbsAll(t_Landscape * pLandscape, t_Params * pParams,
                         [pLandscape->num_undevSites[id]].logitVal > 0.0) {
                         /* only add one more to the list if have a positive probability */
                         pLandscape->num_undevSites[id]++;
-                    }
-                }
-            }
-        }
-    }
-    /* downweight the devPressure if necessary (do not do in first step) */
-    /* doing it here means that last time step values have full weight */
-    if (pParams->nAlgorithm == _N_ALGORITHM_STOCHASTIC_I) {
-        if (pParams->dDevPersistence < 1.0) {
-            fprintf(stdout, "\t\tdownweighting development pressure\n");
-
-            for (i = 0; i < pLandscape->totalCells; i++) {
-                pThis = &(pLandscape->asCells[i]);
-                if (pThis->nCellType == _CELL_VALID) {
-                    /* only need to bother downweighting on cells that can still convert */
-                    if (pThis->bUndeveloped) {
-                        pThis->devPressure =
-                            (int)((double)pThis->devPressure *
-                                  pParams->dDevPersistence);
                     }
                 }
             }
