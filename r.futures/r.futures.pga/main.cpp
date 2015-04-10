@@ -1780,9 +1780,9 @@ int main(int argc, char **argv)
             *employAttractionFile, *interchangeDistanceFile,
             *roadDensityFile, *undevelopedFile, *devPressureFile,
             *consWeightFile, *addVariableFiles, *nDevNeighbourhood,
-            *devpotParamsFile, *dumpFile, *outputSeries, *algorithm,
+            *devpotParamsFile, *dumpFile, *outputSeries,
             *parcelSizeFile, *discountFactor,
-            *probLookupFile, *sortProbs,
+            *probLookupFile,
             *patchMean, *patchRange, *numNeighbors, *seedSearch,
             *devPressureApproach, *alpha, *scalingFactor, *num_Regions,
             *indexFile, *controlFileAll, *seed;
@@ -1869,14 +1869,6 @@ int main(int argc, char **argv)
           " by parameters. Values are separated by whitespace (spaces or tabs)."
           " First line is ignored, so it can be used for header");
 
-    opt.algorithm = G_define_option();
-    opt.algorithm->key = "algorithm";
-    opt.algorithm->type = TYPE_STRING;
-    opt.algorithm->required = YES;
-    opt.algorithm->options = "deterministic,stochastic1,stochastic2";
-    opt.algorithm->description =
-        _("Parameters controlling the algorithm to use");
-
     opt.parcelSizeFile = G_define_standard_option(G_OPT_F_INPUT);
     opt.parcelSizeFile->key = "parcel_size_file";
     opt.parcelSizeFile->required = YES;
@@ -1899,14 +1891,6 @@ int main(int argc, char **argv)
     opt.probLookupFile->description =
         _("Format is tightly constrained. See documentation.");
     opt.probLookupFile->guisection = _("Stochastic 2");
-
-    opt.sortProbs = G_define_option();
-    opt.sortProbs->key = "sort_probs";
-    opt.sortProbs->type = TYPE_INTEGER;
-    opt.sortProbs->required = NO;
-    opt.sortProbs->description =
-        _("Whether or not to sort the list of undeveloped cells before choosing patch seeds");
-    opt.sortProbs->guisection = _("Stochastic 2");
 
     opt.patchMean = G_define_option();
     opt.patchMean->key = "patch_mean";
@@ -2086,16 +2070,15 @@ int main(int argc, char **argv)
 
     sParams.discountFactor = atof(opt.discountFactor->answer);
 
-    // always 1 if not stochastic 2
-    sParams.sortProbs = 1;
+    // TODO: remove all sortProbs != 0 code if it does not make sense for Stochastic 2
+    // always 0 for Stochastic 2
+    sParams.sortProbs = 0;
 
-    // TODO: implement real switching of algorithm
-    if (!strcmp(opt.algorithm->answer, "deterministic"))
-        sParams.nAlgorithm = _N_ALGORITHM_DETERMINISTIC;
-    else if (!strcmp(opt.algorithm->answer, "stochastic1"))
-        sParams.nAlgorithm = _N_ALGORITHM_STOCHASTIC_I;
-    else if (!strcmp(opt.algorithm->answer, "stochastic2"))
-        sParams.nAlgorithm = _N_ALGORITHM_STOCHASTIC_II;
+    // TODO: remove remaining stochastic 1 and deterministic code
+    // stochastic 1 and deterministic not maintained, reimplementing considered as easier
+    // then fixing it (old code will be still available in the old version)
+    // always use Stochastic II
+    sParams.nAlgorithm = _N_ALGORITHM_STOCHASTIC_II;
 
     if (sParams.nAlgorithm == _N_ALGORITHM_STOCHASTIC_II) {
 
@@ -2156,7 +2139,6 @@ int main(int argc, char **argv)
             return 0;
         }
 
-        sParams.sortProbs = atoi(opt.sortProbs->answer);
         sParams.patchMean = atof(opt.patchMean->answer);
         sParams.patchRange = atof(opt.patchRange->answer);
         sParams.numNeighbors = atoi(opt.numNeighbors->answer);
