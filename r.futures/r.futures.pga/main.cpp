@@ -2046,6 +2046,7 @@ int main(int argc, char **argv)
               sParams.xSize, sParams.ySize, sParams.xSize * sParams.ySize);
 
     /* set up parameters */
+    sParams.undevelopedFile = opt.undevelopedFile->answer;
     sParams.employAttractionFile = opt.employAttractionFile->answer;
     sParams.interchangeDistanceFile = opt.interchangeDistanceFile->answer;
     sParams.roadDensityFile = opt.roadDensityFile->answer;
