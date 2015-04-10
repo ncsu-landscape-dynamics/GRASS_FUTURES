@@ -1870,10 +1870,10 @@ int main(int argc, char **argv)
           " First line is ignored, so it can be used for header");
 
     opt.parcelSizeFile = G_define_standard_option(G_OPT_F_INPUT);
-    opt.parcelSizeFile->key = "parcel_size_file";
+    opt.parcelSizeFile->key = "patch_sizes";
     opt.parcelSizeFile->required = YES;
     opt.parcelSizeFile->description =
-        _("File containing information on the parcel size to use");
+        _("File containing list of patch sizes to use");
 
     opt.discountFactor = G_define_option();
     opt.discountFactor->key = "discount_factor";
@@ -1884,10 +1884,10 @@ int main(int argc, char **argv)
     /* stochastic 2 algorithm */
 
     opt.probLookupFile = G_define_standard_option(G_OPT_F_INPUT);
-    opt.probLookupFile->key = "probability_lookup_file";
+    opt.probLookupFile->key = "incentive_table";
     opt.probLookupFile->required = NO;
     opt.probLookupFile->label =
-        _("File containing lookup table for probabilities");
+        _("File containing incentive lookup table (infill vs. sprawl)");
     opt.probLookupFile->description =
         _("Format is tightly constrained. See documentation.");
     opt.probLookupFile->guisection = _("Stochastic 2");
@@ -1936,7 +1936,7 @@ int main(int argc, char **argv)
     opt.devPressureApproach->guisection = _("Stochastic 2");
 
     opt.alpha = G_define_option();
-    opt.alpha->key = "alpha";
+    opt.alpha->key = "gamma";
     opt.alpha->type = TYPE_DOUBLE;
     opt.alpha->required = NO;
     opt.alpha->description =
@@ -1960,13 +1960,12 @@ int main(int argc, char **argv)
     opt.num_Regions->guisection = _("Stochastic 2");
 
     opt.indexFile = G_define_standard_option(G_OPT_R_INPUT);
-    opt.indexFile->key = "index_file";
+    opt.indexFile->key = "subregions";
     opt.indexFile->required = NO;
-    opt.indexFile->description = _("File for index of sub-regions");
-    opt.indexFile->guisection = _("Stochastic 2");
+    opt.indexFile->description = _("Raster map of subregions");
 
     opt.controlFileAll = G_define_standard_option(G_OPT_F_INPUT);
-    opt.controlFileAll->key = "control_file_all";
+    opt.controlFileAll->key = "demand";
     opt.controlFileAll->required = NO;
     opt.controlFileAll->description =
         _("Control file with number of cells to convert");
