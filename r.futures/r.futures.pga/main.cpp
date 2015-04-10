@@ -249,9 +249,6 @@ typedef struct
     /** 1 deterministic, 2 old stochastic, 3 new stochastic */
     int nAlgorithm;
 
-    /** use this to downweight probabilities */
-    double dProbWeight;
-
     /** and this to downweight old dev pressure */
     double dDevPersistence;
 
@@ -1077,74 +1074,6 @@ void findAndSortProbs(t_Landscape * pLandscape, t_Params * pParams,
     }
 }
 
-/**
-    Create patches based on spiraling around.
-
-    \deprecated
-*/
-int fillValidNeighbourList(int nThisID, t_Landscape * pLandscape,
-                           t_Params * pParams, int *anToConvert,
-                           int nWantToConvert, int bAllowTouched,
-                           int bDeterministic)
-{
-    int nTried, nFound, x, y, upDown, stopAt, countMove, stepMove, nPos,
-        nSkipped;
-
-    anToConvert[0] = nThisID;
-    nSkipped = 0;
-    nFound = 1;
-    nTried = 1;
-    x = pLandscape->asCells[nThisID].thisX;
-    y = pLandscape->asCells[nThisID].thisY;
-    stopAt = 0;
-    upDown = 0;
-    stepMove = -1;
-    while (nFound < nWantToConvert &&
-           ((double)nWantToConvert * pParams->giveUpRatio) > nTried) {
-        countMove = 0;
-        upDown = !upDown;
-        if (upDown) {
-            stopAt++;
-            stepMove *= -1;
-        }
-        while (countMove < stopAt && nFound < nWantToConvert &&
-               ((double)nWantToConvert * pParams->giveUpRatio) > nTried) {
-            if (upDown) {
-                x += stepMove;
-            }
-            else {
-                y += stepMove;
-            }
-            // fprintf(stdout, "%d %d\n", x, y);
-            nPos = posFromXY(x, y, pLandscape);
-            if (nPos != _CELL_OUT_OF_RANGE) {
-                if (pLandscape->asCells[nPos].nCellType == _CELL_VALID) {
-                    if (pLandscape->asCells[nPos].bUndeveloped) {
-                        if (bAllowTouched ||
-                            pLandscape->asCells[nPos].bUntouched) {
-                            if (bDeterministic ||
-                                (uniformRandom() < pParams->dProbWeight)) {
-                                if (pLandscape->asCells[nPos].consWeight >
-                                    0.0) {
-                                    anToConvert[nFound] = nPos;
-                                    nFound++;
-                                }
-                            }
-                            else {
-                                pLandscape->asCells[nPos].bUntouched = 0;
-                                nSkipped++;
-                            }
-                        }
-                    }
-                }
-            }
-            nTried++;
-            countMove++;
-        }
-    }
-    // fprintf(stdout, "\tskipped=%d\n", nSkipped);
-    return nFound;
-}
 
 /**
    Helper structur for neighbour grabbing algorithm
@@ -1517,17 +1446,9 @@ int convertCells(t_Landscape * pLandscape, t_Params * pParams, int nThisID,
     anToConvert = (int *)malloc(sizeof(int) * nWantToConvert);
     if (anToConvert) {
         /* in here goes code to fill up list of neighbours */
-        if (pParams->nAlgorithm == _N_ALGORITHM_STOCHASTIC_II) {
-            nToConvert =
-                newPatchFinder(nThisID, pLandscape, pParams, anToConvert,
-                               nWantToConvert);
-        }
-        else {
-            nToConvert =
-                fillValidNeighbourList(nThisID, pLandscape, pParams,
-                                       anToConvert, nWantToConvert,
-                                       bAllowTouched, bDeterministic);
-        }
+        nToConvert =
+            newPatchFinder(nThisID, pLandscape, pParams, anToConvert,
+                           nWantToConvert);
         /* will actually always be the case */
         if (nToConvert > 0) {
             //                      fprintf(stdout, "wanted %d, found %d\n", nWantToConvert, nToConvert);
@@ -1715,38 +1636,6 @@ void updateMap1(t_Landscape * pLandscape, t_Params * pParams, int step,
                                  pLandscape->asUndev[i].cellID, nStep, 1, 1);
             }
             break;
-        case _N_ALGORITHM_STOCHASTIC_I:        /* stochastic */
-            nDone = 0;
-            i = 0;
-            bAllowTouched = 0;
-            /* loop until done enough cells...might need multiple passes */
-            while (nDone < nToConvert) {
-                if (i == pLandscape->undevSites) {
-                    /* if at the end of the grid, just loop around again until done */
-                    i = 0;
-                    /* allow previously considered cells if you have to */
-                    bAllowTouched = 1;
-                }
-                pThis = &(pLandscape->asCells[pLandscape->asUndev[i].cellID]);
-                /* need to check is still undeveloped */
-                if (pThis->bUndeveloped) {
-                    if (bAllowTouched || pThis->bUntouched) {
-                        /* Doug's "back to front" logit */
-                        // dProb = 1.0/(1.0 + exp(pLandscape->asUndev[i].logitVal));
-                        dProb = pLandscape->asUndev[i].logitVal;
-                        /* if starting a patch off here */
-                        if (uniformRandom() < pParams->dProbWeight * dProb) {
-                            nDone +=
-                                convertCells(pLandscape, pParams,
-                                             pLandscape->asUndev[i].cellID,
-                                             nStep, bAllowTouched, 0);
-                        }
-                    }
-                    pThis->bUntouched = 0;
-                }
-                i++;
-            }
-            break;
         case _N_ALGORITHM_STOCHASTIC_II:       /* stochastic */
             nDone = 0;
             i = 0;
@@ -1917,7 +1806,7 @@ int main(int argc, char **argv)
             *roadDensityFile, *undevelopedFile, *devPressureFile,
             *consWeightFile, *addVariableFiles, *nDevNeighbourhood,
             *devpotParamsFile, *dumpFile, *outputSeries, *algorithm,
-            *dProbWeight, *dDevPersistence, *parcelSizeFile, *discountFactor,
+            *dDevPersistence, *parcelSizeFile, *discountFactor,
             *giveUpRatio, *probLookupFile, *sortProbs,
             *patchMean, *patchRange, *numNeighbors, *seedSearch,
             *devPressureApproach, *alpha, *scalingFactor, *num_Regions,
@@ -2012,17 +1901,6 @@ int main(int argc, char **argv)
     opt.algorithm->options = "deterministic,stochastic1,stochastic2";
     opt.algorithm->description =
         _("Parameters controlling the algorithm to use");
-
-    opt.dProbWeight = G_define_option();
-    opt.dProbWeight->key = "prob_weight";
-    opt.dProbWeight->type = TYPE_DOUBLE;
-    opt.dProbWeight->required = NO;
-    opt.dProbWeight->label = _("Parameters controlling the algorithm to use");
-    opt.dProbWeight->description = _("(only relevant if nAlgorithm=2)"
-                                     " the probabilities are multiplied"
-                                     " by this factor before comparing with random numbers...increases randomness"
-                                     " of the simulation as with probs like 0.95 is more or less deterministic");
-    opt.dProbWeight->guisection = _("Stochastic 1");
 
     opt.dDevPersistence = G_define_option();
     opt.dDevPersistence->key = "dev_neighbourhood";
@@ -2266,14 +2144,7 @@ int main(int argc, char **argv)
     else if (!strcmp(opt.algorithm->answer, "stochastic2"))
         sParams.nAlgorithm = _N_ALGORITHM_STOCHASTIC_II;
 
-    if (sParams.nAlgorithm == _N_ALGORITHM_STOCHASTIC_I) {
-        // TODO: add check of filled answer
-        sParams.dProbWeight = atof(opt.dProbWeight->answer);
-        sParams.dDevPersistence = atof(opt.dDevPersistence->answer);
-
-        sParams.giveUpRatio = atof(opt.giveUpRatio->answer);
-    }
-    else if (sParams.nAlgorithm == _N_ALGORITHM_STOCHASTIC_II) {
+    if (sParams.nAlgorithm == _N_ALGORITHM_STOCHASTIC_II) {
 
         int parsedOK, i;
         FILE *fp;
