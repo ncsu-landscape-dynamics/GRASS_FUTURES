@@ -221,9 +221,6 @@ typedef struct
     /** size of the grids */
     int ySize;
 
-    /** file containing information on how many cells to transition and when */
-    char *controlFile;
-
     /** files containing the information to read in */
     char *employAttractionFile;
     char *interchangeDistanceFile;
@@ -1585,189 +1582,6 @@ int convertCells(t_Landscape * pLandscape, t_Params * pParams, int nThisID,
     return nDone;
 }
 
-/**
-    main routine to actually run the model
-*/
-void updateMap(t_Landscape * pLandscape, t_Params * pParams)
-{
-    FILE *fIn;
-    char *szBuff;
-    char szStepLabel[_N_MAX_FILENAME_LEN];
-    int i, nToConvert, nStep, nDone, bAllowTouched, nRandTries, nExtra;
-    double dProb;
-    t_Cell *pThis;
-
-    nExtra = 0;
-    fprintf(stdout, "entered updateMap()\n");
-    fIn = fopen(pParams->controlFile, "rb");
-    if (fIn) {
-        szBuff = (char *)malloc(_N_MAX_DYNAMIC_BUFF_LEN * sizeof(char));
-        if (szBuff) {
-            /* start counter at 1 so can distinguish between cells
-               which transition on first step and those which already developed */
-            nStep = 1;
-            while (fgets(szBuff, _N_MAX_DYNAMIC_BUFF_LEN, fIn)) {
-                if (parseControlLine(szBuff, szStepLabel, &nToConvert)) {
-                    fprintf(stdout,
-                            "\tdoing step %s...controlFile requests conversion of %d cells\n",
-                            szStepLabel, nToConvert);
-                    if (nExtra > 0) {
-                        if (nToConvert - nExtra > 0) {
-                            nToConvert -= nExtra;
-                            nExtra = 0;
-                        }
-                        else {
-                            nExtra -= nToConvert;
-                            nToConvert = 0;
-                        }
-                    }
-                    fprintf(stdout,
-                            "\t\tafter accounting for extra cells, attempt %d cells\n",
-                            nToConvert);
-                    /* if have cells to convert this step */
-                    if (nToConvert > 0) {
-                        findAndSortProbs(pLandscape, pParams, nToConvert);
-                        /* if not enough cells to convert then alter number required */
-                        if (nToConvert > pLandscape->undevSites) {
-                            fprintf(stdout,
-                                    "\t\tnot enough undeveloped sites...converting all\n");
-                            nToConvert = pLandscape->undevSites;
-                        }
-                        /* update either in deterministic or stochastic fashion */
-                        fprintf(stdout, "\t\tupdating map\n");
-                        switch (pParams->nAlgorithm) {
-                        case _N_ALGORITHM_DETERMINISTIC:       /* deterministic */
-                            nDone = 0;
-                            for (i = 0; i < nToConvert && nDone < nToConvert;
-                                 i++) {
-                                nDone +=
-                                    convertCells(pLandscape, pParams,
-                                                 pLandscape->asUndev[i].
-                                                 cellID, nStep, 1, 1);
-                            }
-                            break;
-                        case _N_ALGORITHM_STOCHASTIC_I:        /* stochastic */
-                            nDone = 0;
-                            i = 0;
-                            bAllowTouched = 0;
-                            /* loop until done enough cells...might need multiple passes */
-                            while (nDone < nToConvert) {
-                                if (i == pLandscape->undevSites) {
-                                    /* if at the end of the grid, just loop around again until done */
-                                    i = 0;
-                                    /* allow previously considered cells if you have to */
-                                    bAllowTouched = 1;
-                                }
-                                pThis =
-                                    &(pLandscape->asCells
-                                      [pLandscape->asUndev[i].cellID]);
-                                if (pThis->bUndeveloped) {      /* need to check is still undeveloped */
-                                    if (bAllowTouched || pThis->bUntouched) {
-                                        /* Doug's "back to front" logit */
-                                        // dProb = 1.0/(1.0 + exp(pLandscape->asUndev[i].logitVal));
-                                        dProb =
-                                            pLandscape->asUndev[i].logitVal;
-                                        /* if starting a patch off here */
-                                        if (uniformRandom() <
-                                            pParams->dProbWeight * dProb) {
-                                            nDone +=
-                                                convertCells(pLandscape,
-                                                             pParams,
-                                                             pLandscape->
-                                                             asUndev[i].
-                                                             cellID, nStep,
-                                                             bAllowTouched,
-                                                             0);
-                                        }
-                                    }
-                                    pThis->bUntouched = 0;
-                                }
-                                i++;
-                            }
-                            break;
-                        case _N_ALGORITHM_STOCHASTIC_II:  /* stochastic */
-                            nDone = 0;
-                            i = 0;
-                            nRandTries = 0;
-                            bAllowTouched = 0;
-                            /* loop until done enough cells...might need multiple passes */
-                            while (nDone < nToConvert) {
-                                if (i == pLandscape->undevSites) {
-                                    /* if at the end of the grid, just loop around again until done */
-                                    i = 0;
-                                    /* allow previously considered cells if you have to */
-                                    bAllowTouched = 1;
-                                }
-                                /* if tried too many randomly in this step, give up on idea of only letting untouched cells convert */
-                                if (nRandTries >
-                                    _MAX_RAND_FIND_SEED_FACTOR * nToConvert) {
-                                    bAllowTouched = 1;
-                                }
-                                if (pParams->sortProbs) {
-                                    /* if sorted then choose the top cell and do nothing */
-                                }
-                                else {
-                                    /* otherwise give a random undeveloped cell a go */
-                                    if (sParams.seedSearch == 1)
-                                        i = (int)(uniformRandom() *
-                                                  pLandscape->undevSites);
-                                    // pick one according to their probability
-                                    else
-                                        i = getUnDevIndex(pLandscape);
-
-                                }
-                                pThis =
-                                    &(pLandscape->asCells
-                                      [pLandscape->asUndev[i].cellID]);
-
-                                if (pThis->bUndeveloped) {      /* need to check is still undeveloped */
-                                    if (bAllowTouched || pThis->bUntouched) {
-                                        /* Doug's "back to front" logit */
-                                        // dProb = 1.0/(1.0 + exp(pLandscape->asUndev[i].logitVal));
-                                        dProb =
-                                            pLandscape->asUndev[i].logitVal;
-                                        if (uniformRandom() < dProb) {
-                                            nDone +=
-                                                convertCells(pLandscape,
-                                                             pParams,
-                                                             pLandscape->
-                                                             asUndev[i].
-                                                             cellID, nStep,
-                                                             bAllowTouched,
-                                                             0);
-                                        }
-                                    }
-                                    pThis->bUntouched = 0;
-                                }
-                                if (pParams->sortProbs) {
-                                    i++;
-                                }
-                                else {
-                                    nRandTries++;
-                                }
-                            }
-                            break;
-                        default:
-                            fprintf(stderr, "Unknown algorithm...exiting\n");
-                            break;
-                        }
-                        fprintf(stdout, "\t\tconverted %d sites\n", nDone);
-                        nExtra += (nDone - nToConvert);
-                        fprintf(stdout,
-                                "\t\t%d extra sites knocked off next timestep\n",
-                                nExtra);
-                    }
-                }
-                nStep++;  /* next time step */
-            }
-            /* dump results to a file at the end of the run */
-            outputDevRasterStep(pLandscape, pParams, pParams->dumpFile, false,
-                                false);
-            free(szBuff);
-        }
-        fclose(fIn);
-    }
-}
 
 void readDevDemand(t_Params * pParams)
 {
@@ -2099,7 +1913,7 @@ int main(int argc, char **argv)
     struct
     {
         struct Option
-            *controlFile, *employAttractionFile, *interchangeDistanceFile,
+            *employAttractionFile, *interchangeDistanceFile,
             *roadDensityFile, *undevelopedFile, *devPressureFile,
             *consWeightFile, *addVariableFiles, *nDevNeighbourhood,
             *devpotParamsFile, *dumpFile, *outputSeries, *algorithm,
@@ -2131,14 +1945,6 @@ int main(int argc, char **argv)
     module->description =
         _("Module uses Patch-Growing Algorithm (PGA) to"
           " simulate urban-rural landscape structure development.");
-
-    opt.controlFile = G_define_standard_option(G_OPT_F_INPUT);
-    opt.controlFile->key = "control_file";
-    opt.controlFile->required = NO;
-    opt.controlFile->label =
-        _("File containing information on how many cells to transition and when");
-    opt.controlFile->description =
-        _("Needed only for single region/zone run");
 
     opt.undevelopedFile = G_define_standard_option(G_OPT_R_INPUT);
     opt.undevelopedFile->key = "undeveloped";
@@ -2425,8 +2231,6 @@ int main(int argc, char **argv)
               sParams.xSize, sParams.ySize, sParams.xSize * sParams.ySize);
 
     /* set up parameters */
-    sParams.controlFile = opt.controlFile->answer;
-    sParams.undevelopedFile = opt.undevelopedFile->answer;
     sParams.employAttractionFile = opt.employAttractionFile->answer;
     sParams.interchangeDistanceFile = opt.interchangeDistanceFile->answer;
     sParams.roadDensityFile = opt.roadDensityFile->answer;
