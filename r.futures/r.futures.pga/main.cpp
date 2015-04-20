@@ -225,7 +225,7 @@ typedef struct
     char *employAttractionFile;
     char *interchangeDistanceFile;
     char *roadDensityFile;
-    char *undevelopedFile;
+    char *developedFile;
     char *devPressureFile;
     char *consWeightFile;
     char *probLookupFile;
@@ -548,7 +548,7 @@ int readData(t_Landscape * pLandscape, t_Params * pParams)
         for (j = 0; j < 6; j++) {
             switch (j) {        /* get correct filename */
             case 0:
-                strcpy(szFName, pParams->undevelopedFile);
+                strcpy(szFName, pParams->developedFile);
                 break;
             case 1:
                 strcpy(szFName, pParams->employAttractionFile);
@@ -623,7 +623,7 @@ int readData(t_Landscape * pLandscape, t_Params * pParams)
                         /* put data into a correct place */
                         switch (j) {
                         case 0:
-                            pLandscape->asCells[i].bUndeveloped = iVal;
+                            pLandscape->asCells[i].bUndeveloped = (iVal == 0) ? 1 : 0;
                             pLandscape->asCells[i].bUntouched = 1;
                             if (pLandscape->asCells[i].bUndeveloped == 1) {
                                 pLandscape->asCells[i].tDeveloped =
@@ -1778,7 +1778,7 @@ int main(int argc, char **argv)
     {
         struct Option
             *employAttractionFile, *interchangeDistanceFile,
-            *roadDensityFile, *undevelopedFile, *devPressureFile,
+            *roadDensityFile, *developedFile, *devPressureFile,
             *consWeightFile, *addVariableFiles, *nDevNeighbourhood,
             *devpotParamsFile, *dumpFile, *outputSeries,
             *parcelSizeFile, *discountFactor,
@@ -1810,11 +1810,11 @@ int main(int argc, char **argv)
         _("Module uses Patch-Growing Algorithm (PGA) to"
           " simulate urban-rural landscape structure development.");
 
-    opt.undevelopedFile = G_define_standard_option(G_OPT_R_INPUT);
-    opt.undevelopedFile->key = "undeveloped";
-    opt.undevelopedFile->required = YES;
-    opt.undevelopedFile->description =
-        _("Files containing the information to read in");
+    opt.developedFile = G_define_standard_option(G_OPT_R_INPUT);
+    opt.developedFile->key = "developed";
+    opt.developedFile->required = YES;
+    opt.developedFile->description =
+        _("Raster map with developed areas (=1), undeveloped (=0) and excluded (no data)");
 
     opt.employAttractionFile = G_define_standard_option(G_OPT_R_INPUT);
     opt.employAttractionFile->key = "employ_attraction";
@@ -2045,7 +2045,7 @@ int main(int argc, char **argv)
               sParams.xSize, sParams.ySize, sParams.xSize * sParams.ySize);
 
     /* set up parameters */
-    sParams.undevelopedFile = opt.undevelopedFile->answer;
+    sParams.developedFile = opt.developedFile->answer;
     sParams.employAttractionFile = opt.employAttractionFile->answer;
     sParams.interchangeDistanceFile = opt.interchangeDistanceFile->answer;
     sParams.roadDensityFile = opt.roadDensityFile->answer;
