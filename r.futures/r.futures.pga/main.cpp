@@ -1939,9 +1939,10 @@ int main(int argc, char **argv)
     opt.devPressureApproach->key = "development_pressure_approach";
     opt.devPressureApproach->type = TYPE_INTEGER;
     opt.devPressureApproach->required = NO;
-    opt.devPressureApproach->options = "1,2,3";
+    opt.devPressureApproach->options = "occurrence,gravity,kernel";
     opt.devPressureApproach->description =
-        _("approaches to derive development pressure");
+        _("Approaches to derive development pressure");
+    opt.devPressureApproach->answer = "gravity";
     opt.devPressureApproach->guisection = _("Stochastic 2");
 
     opt.alpha = G_define_option();
@@ -2154,6 +2155,14 @@ int main(int argc, char **argv)
         // TODO: convert to options or flag: 1: uniform distribution 2: based on dev. proba.
         sParams.seedSearch = atoi(opt.seedSearch->answer);
         sParams.devPressureApproach = atoi(opt.devPressureApproach->answer);
+        if (strcmp(opt.devPressureApproach->answers[0], "occurrence") == 0)
+            sParams.devPressureApproach = 1;
+        else if (strcmp(opt.devPressureApproach->answers[i], "gravity") == 0)
+            sParams.devPressureApproach = 2;
+        else if (strcmp(opt.devPressureApproach->answers[i], "kernel") == 0)
+            sParams.devPressureApproach = 3;
+        else
+            G_fatal_error(_("Approach doesn't exist"));
         if (sParams.devPressureApproach != 1) {
             sParams.alpha = atof(opt.alpha->answer);
             sParams.scalingFactor = atof(opt.scalingFactor->answer);
