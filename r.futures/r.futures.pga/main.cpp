@@ -546,6 +546,13 @@ int readData(t_Landscape * pLandscape, t_Params * pParams)
     szBuff = (char *)malloc(_N_MAX_DYNAMIC_BUFF_LEN * sizeof(char));
     if (szBuff) {
         for (j = 0; j < 6; j++) {
+            /* workaround to skip loading constraint map so that it can be omitted in input */
+            if (j == 5) {
+                if (!pParams->consWeightFile) {
+                    pLandscape->asCells[i].consWeight = 1;
+                    continue;
+                }
+            }
             switch (j) {        /* get correct filename */
             case 0:
                 strcpy(szFName, pParams->developedFile);
@@ -1841,10 +1848,12 @@ int main(int argc, char **argv)
         _("Files containing the information to read in");
 
     opt.consWeightFile = G_define_standard_option(G_OPT_R_INPUT);
-    opt.consWeightFile->key = "cons_weight";
-    opt.consWeightFile->required = YES;
+    opt.consWeightFile->key = "constrain_weight";
+    opt.consWeightFile->required = NO;
+    opt.consWeightFile->label =
+        _("Name of raster map representing development potential constraint weight for scenarios.");
     opt.consWeightFile->description =
-        _("Files containing the information to read in");
+        _("Values must be between 0 and 1, 1 means no constraint.");
 
     opt.addVariableFiles = G_define_standard_option(G_OPT_R_INPUT);
     opt.addVariableFiles->key = "additional_variable_files";
