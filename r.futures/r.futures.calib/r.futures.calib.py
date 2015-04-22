@@ -55,13 +55,150 @@
 #% description: Patch size discount factor
 #% required: yes
 #%end
+#%option
+#% type: double
+#% key: discount_factor
+#% description: Patch size discount factor
+#% required: yes
+#%end
+#%option G_OPT_F_OUTPUT
+#% key: patch_sizes
+#% description: File with patch sizes
+#% required: yes
+#%end
+#%option G_OPT_R_INPUT
+#% key: employ_attraction
+#% required: yes
+#% description: Files containing the information to read in
+#% guisection: FUTURES
+#%end
+#%option G_OPT_R_INPUT
+#% key: interchange_distance
+#% required: yes
+#% description: Files containing the information to read in
+#% guisection: FUTURES
+#%end
+#%option G_OPT_R_INPUT
+#% key: road_density
+#% required: yes
+#% description: Files containing the information to read in
+#% guisection: FUTURES
+#%end
+#%option G_OPT_R_INPUT
+#% key: development_pressure
+#% required: yes
+#% description: Files containing the information to read in
+#% guisection: FUTURES
+#%end
+#%option G_OPT_R_INPUT
+#% key: cons_weight
+#% required: no
+#% label: Name of raster map representing development potential constraint weight for scenarios
+#% description: Values must be between 0 and 1, 1 means no constraint
+#% guisection: FUTURES
+#%end
+#%option G_OPT_R_INPUT
+#% key: additional_variable_files
+#% required: yes
+#% multiple: yes
+#% description: Additional variables
+#% guisection: FUTURES
+#%end
+#%option
+#% key: n_dev_neighbourhood
+#% type: integer
+#% description: Size of square used to recalculate development pressure
+#% required: yes
+#% guisection: FUTURES
+#%end
+#%option G_OPT_F_INPUT
+#% key: devpot_params
+#% required: yes
+#% multiple: yes
+#% label: Development potential parameters for each region
+#% description: Each line should contain region ID followed by parameters. Values are separated by whitespace (spaces or tabs). First line is ignored, so it can be used for header
+#% guisection: FUTURES
+#%end
+#%option G_OPT_F_INPUT
+#% key: incentive_table
+#% required: yes
+#% description: File containing list of patch sizes to use
+#% guisection: FUTURES
+#%end
+#%option
+#% key: num_neighbors
+#% type: integer
+#% required: yes
+#% multiple: no
+#% options: 4,8
+#% description: The number of neighbors to be used for patch generation (4 or 8)
+#% guisection: FUTURES
+#%end
+#%option
+#% key: seed_search
+#% type: integer
+#% required: yes
+#% multiple: no
+#% options: 1,2
+#% description: The way that the location of a seed is determined
+#% guisection: FUTURES
+#%end
+#%option
+#% key: development_pressure_approach
+#% type: string
+#% required: no
+#% multiple: no
+#% options: occurrence,gravity,kernel
+#% description: Approaches to derive development pressure
+#% guisection: FUTURES
+#%end
+#%option
+#% key: gamma
+#% type: double
+#% required: yes
+#% multiple: no
+#% description: Required for development_pressure_approach 1 and 2
+#% guisection: FUTURES
+#%end
+#%option
+#% key: scaling_factor
+#% type: double
+#% required: yes
+#% multiple: no
+#% description: Required for development_pressure_approach 2 and 3
+#% guisection: FUTURES
+#%end
+#%option
+#% key: num_regions
+#% type: integer
+#% required: yes
+#% multiple: no
+#% description: Number of sub-regions (e.g., counties) to be simulated
+#% guisection: FUTURES
+#%end
+#%option G_OPT_R_INPUT
+#% key: subregions
+#% required: yes
+#% description: Raster map of subregions
+#% guisection: FUTURES
+#%end
+#%option G_OPT_F_INPUT
+#% key: demand
+#% required: yes
+#% description: Control file with number of cells to convert
+#% guisection: FUTURES
+#%end
+#%option G_OPT_R_OUTPUT
+#% required: yes
+#% description: State of the development at the end of simulation
+#% guisection: FUTURES
+#%end
 
 
 import sys
 import os
 import atexit
 import numpy as np
-import random
 
 from grass.exceptions import CalledModuleError
 import grass.script.core as gcore
@@ -88,6 +225,7 @@ def main():
     compactness_mean = float(options['compactness_mean'])
     compactness_range = float(options['compactness_range'])
     discount_factor = float(options['discount_factor'])
+    patches_file = options['patch_sizes']
 
     tmp_name = 'tmp_futures_calib_' + str(os.getpid()) + '_'
     global TMP, TMPFILE
@@ -104,7 +242,9 @@ def main():
     gcore.message(_("Analyzing original patches..."))
     diff_development(dev_start, dev_end, orig_patch_diff)
     patch_analysis(orig_patch_diff, tmp_patch_vect, temp_file)
-    area, compactness = np.loadtxt(fname=temp_file, unpack=True)
+    area, perimeter = np.loadtxt(fname=temp_file, unpack=True)
+    compact = compactness(area, perimeter)
+    write_patches_file(tmp_patch_vect, patches_file)
 
     # area histogram
     first_qrt, third_qrt = np.percentile(area, 25), np.percentile(area, 75)
@@ -114,11 +254,11 @@ def main():
     histogram_area_orig, _edges = np.histogram(area, bins=hist_bins_area_orig,
                                                range=hist_range_area_orig, density=True)
     # compactness histogram
-    first_qrt, third_qrt = np.percentile(compactness, 25), np.percentile(compactness, 75)
-    bin_width = 2 * (third_qrt - first_qrt) / pow(len(compactness), 1/3.)
-    hist_bins_compactness_orig = int(np.ptp(compactness) / bin_width)
-    hist_range_compactness_orig = (np.min(compactness), np.max(compactness))
-    histogram_compactness_orig, _edges = np.histogram(compactness, bins=hist_bins_compactness_orig,
+    first_qrt, third_qrt = np.percentile(compact, 25), np.percentile(compact, 75)
+    bin_width = 2 * (third_qrt - first_qrt) / pow(len(compact), 1/3.)
+    hist_bins_compactness_orig = int(np.ptp(compact) / bin_width)
+    hist_range_compactness_orig = (np.min(compact), np.max(compact))
+    histogram_compactness_orig, _edges = np.histogram(compact, bins=hist_bins_compactness_orig,
                                                       range=hist_range_compactness_orig, density=True)
 #    import matplotlib.pyplot as plt
 #    width = 0.7 * (_edges[1] - _edges[0])
@@ -131,7 +271,8 @@ def main():
     for i in range(repeat):
         gcore.message(_("Running FUTURES simulation {i}/{repeat}...".format(i=i, repeat=repeat)))
         run_simulation(development_start=dev_start, development_end=simulation_dev_end,
-                       compactness_mean=compactness_mean, compactness_range=compactness_range, discount_factor=discount_factor)
+                       compactness_mean=compactness_mean, compactness_range=compactness_range,
+                       discount_factor=discount_factor, patches_file=patches_file, fut_options=options)
         diff_development(dev_start, simulation_dev_end, simulation_dev_diff)
         patch_analysis(simulation_dev_diff, tmp_patch_vect, temp_file)
         sim_hist_area, sim_hist_compactness = create_histograms(temp_file, hist_bins_area_orig, hist_range_area_orig,
@@ -146,9 +287,26 @@ def main():
     print "compactness_distance=%s" % mean_dist_compactness
 
 
-def run_simulation(development_start, development_end, compactness_mean, compactness_range, discount_factor):
-    # here will be PGA call, r.grow is a placeholder
-    gcore.run_command('r.grow', input=development_start, output=development_end, radius=4 * random.random(), new=1, old=1, overwrite=True)
+def run_simulation(development_start, development_end, compactness_mean, compactness_range, discount_factor, patches_file, fut_options):
+    parameters = dict(patch_mean=compactness_mean, patch_range=compactness_range,
+                           discount_factor=discount_factor, patch_sizes=patches_file,
+                           developed=development_start)
+    futures_parameters = dict(employ_attraction=fut_options['employ_attraction'],
+                              interchange_distance=fut_options['interchange_distance'], road_density=fut_options['road_density'],
+                              development_pressure=fut_options['development_pressure'],
+                              additional_variable_files=fut_options['additional_variable_files'], n_dev_neighbourhood=fut_options['n_dev_neighbourhood'],
+                              devpot_params=fut_options['additional_variable_files'], incentive_table=fut_options['additional_variable_files'],
+                              num_neighbors=fut_options['devpot_params'], seed_search=fut_options['seed_search'],
+                              development_pressure_approach=fut_options['development_pressure_approach'], gamma=fut_options['gamma'],
+                              scaling_factor=fut_options['scaling_factor'], num_regions=fut_options['num_regions'],
+                              subregions=fut_options['subregions'], demand=fut_options['demand'],
+                              output=fut_options['output'])
+    parameters.update(futures_parameters)
+    for not_required in ('cons_weight'):
+        if options[not_required]:
+            parameters.update({not_required: options[not_required]})
+
+    gcore.run_command('r.futures.pga', flags='s', **parameters)
 
 
 def diff_development(development_start, development_end, development_diff):
@@ -158,20 +316,32 @@ def diff_development(development_start, development_end, development_diff):
 
 def patch_analysis(development_diff, tmp_vector_patches, output_file):
     gcore.run_command('r.to.vect', input=development_diff, output=tmp_vector_patches, type='area', flags='s', overwrite=True, quiet=True)
-    gcore.run_command('v.db.addcolumn', map=tmp_vector_patches, columns="area double,compactness double", quiet=True)
-    gcore.run_command('v.to.db', map=tmp_vector_patches, option='area', column='area', quiet=True)
-    gcore.run_command('v.to.db', map=tmp_vector_patches, option='compact', column='compactness', quiet=True)
-    gcore.run_command('v.db.select', map=tmp_vector_patches, columns=['area', 'compactness'],
+    gcore.run_command('v.db.addcolumn', map=tmp_vector_patches, columns="area double,perimeter double", quiet=True)
+    gcore.run_command('v.to.db', map=tmp_vector_patches, option='area', column='area', units='meters', quiet=True)
+    gcore.run_command('v.to.db', map=tmp_vector_patches, option='perimeter', column='perimeter', units='meters', quiet=True)
+    gcore.run_command('v.db.select', map=tmp_vector_patches, columns=['area', 'perimeter'],
                       flags='c', separator='space', file_=output_file, overwrite=True, quiet=True)
 
 
 def create_histograms(input_file, hist_bins_area_orig, hist_range_area_orig, hist_bins_compactness_orig, hist_range_compactness_orig):
-    area, compactness = np.loadtxt(fname=input_file, unpack=True)
+    area, perimeter = np.loadtxt(fname=input_file, unpack=True)
+    compact = compactness(area, perimeter)
     histogram_area, _edges = np.histogram(area, bins=hist_bins_area_orig,
                                           range=hist_range_area_orig, density=True)
-    histogram_compactness, _edges = np.histogram(compactness, bins=hist_bins_compactness_orig,
+    histogram_compactness, _edges = np.histogram(compact, bins=hist_bins_compactness_orig,
                                                  range=hist_range_compactness_orig, density=True)
     return histogram_area, histogram_compactness
+
+
+def write_patches_file(vector_patches, output_file):
+    gcore.run_command('v.db.select', map=vector_patches, columns='area',
+                      flags='c', separator='space', file_=output_file, quiet=True)
+    areas = np.loadtxt(fname=output_file)
+    region = gcore.region()
+    res = (region['nsres'] + region['ewres'])/2.
+    coeff = gcore.parse_command('g.proj', flags='g')['meters']
+    areas = areas / (res * res * coeff * coeff)
+    np.savetxt(fname=output_file, X=areas)
 
 
 def compare_histograms(hist1, hist2):
@@ -186,6 +356,11 @@ def compare_histograms(hist1, hist2):
     hist2 = np.ma.masked_array(hist2, mask=mask)
     res = 0.5 * np.sum(np.power(hist1 - hist2, 2) / (hist1.astype(float) + hist2))
     return res
+
+
+def compactness(area, perimeter):
+    return perimeter / (2 * np.sqrt(np.pi * area))
+
 
 if __name__ == "__main__":
     options, flags = gcore.parser()
