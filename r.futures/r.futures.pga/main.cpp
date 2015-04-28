@@ -456,6 +456,10 @@ void readData4AdditionalVariables(t_Landscape * pLandscape,
                 else {
                     val = *(CELL *) ptr;
                 }
+                if (Rast_is_null_value(ptr, data_type)) {
+                    pLandscape->asCells[ii].nCellType =
+                        _CELL_OUT_OF_COUNTY;
+                }
                 if (pLandscape->asCells[ii].nCellType == _CELL_VALID)
                     pLandscape->asCells[ii].additionVariable[i] = val;
                 else
