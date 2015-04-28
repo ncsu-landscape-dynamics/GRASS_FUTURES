@@ -55,34 +55,17 @@
 #% description: Patch size discount factor
 #% required: yes
 #%end
-#%option
-#% type: double
-#% key: discount_factor
-#% description: Patch size discount factor
-#% required: yes
-#%end
 #%option G_OPT_F_OUTPUT
 #% key: patch_sizes
 #% description: File with patch sizes
 #% required: yes
 #%end
-#%option G_OPT_R_INPUT
-#% key: employ_attraction
+#%option
+#% type: double
+#% key: patch_threshold
+#% description: Minimum size of a patch in meters squared
 #% required: yes
-#% description: Files containing the information to read in
-#% guisection: FUTURES
-#%end
-#%option G_OPT_R_INPUT
-#% key: interchange_distance
-#% required: yes
-#% description: Files containing the information to read in
-#% guisection: FUTURES
-#%end
-#%option G_OPT_R_INPUT
-#% key: road_density
-#% required: yes
-#% description: Files containing the information to read in
-#% guisection: FUTURES
+#% answer: 0
 #%end
 #%option G_OPT_R_INPUT
 #% key: development_pressure
@@ -97,11 +80,11 @@
 #% description: Values must be between 0 and 1, 1 means no constraint
 #% guisection: FUTURES
 #%end
-#%option G_OPT_R_INPUT
-#% key: additional_variable_files
+#%option G_OPT_R_INPUTS
+#% key: predictors
 #% required: yes
 #% multiple: yes
-#% description: Additional variables
+#% description: Names of predictor variable raster maps
 #% guisection: FUTURES
 #%end
 #%option
@@ -122,7 +105,7 @@
 #%option G_OPT_F_INPUT
 #% key: incentive_table
 #% required: yes
-#% description: File containing list of patch sizes to use
+#% description: File containing incentive lookup table (infill vs. sprawl)
 #% guisection: FUTURES
 #%end
 #%option
@@ -146,9 +129,10 @@
 #%option
 #% key: development_pressure_approach
 #% type: string
-#% required: no
+#% required: yes
 #% multiple: no
 #% options: occurrence,gravity,kernel
+#% answer: gravity
 #% description: Approaches to derive development pressure
 #% guisection: FUTURES
 #%end
@@ -188,11 +172,6 @@
 #% description: Control file with number of cells to convert
 #% guisection: FUTURES
 #%end
-#%option G_OPT_R_OUTPUT
-#% required: yes
-#% description: State of the development at the end of simulation
-#% guisection: FUTURES
-#%end
 
 
 import sys
@@ -226,6 +205,7 @@ def main():
     compactness_range = float(options['compactness_range'])
     discount_factor = float(options['discount_factor'])
     patches_file = options['patch_sizes']
+    threshold = float(options['patch_threshold'])
 
     tmp_name = 'tmp_futures_calib_' + str(os.getpid()) + '_'
     global TMP, TMPFILE
@@ -241,7 +221,7 @@ def main():
 
     gcore.message(_("Analyzing original patches..."))
     diff_development(dev_start, dev_end, orig_patch_diff)
-    patch_analysis(orig_patch_diff, tmp_patch_vect, temp_file)
+    patch_analysis(orig_patch_diff, tmp_patch_vect, threshold, temp_file)
     area, perimeter = np.loadtxt(fname=temp_file, unpack=True)
     compact = compactness(area, perimeter)
     write_patches_file(tmp_patch_vect, patches_file)
@@ -269,12 +249,12 @@ def main():
     sum_dist_area = 0
     sum_dist_compactness = 0
     for i in range(repeat):
-        gcore.message(_("Running FUTURES simulation {i}/{repeat}...".format(i=i, repeat=repeat)))
+        gcore.message(_("Running FUTURES simulation {i}/{repeat}...".format(i=i + 1, repeat=repeat)))
         run_simulation(development_start=dev_start, development_end=simulation_dev_end,
                        compactness_mean=compactness_mean, compactness_range=compactness_range,
                        discount_factor=discount_factor, patches_file=patches_file, fut_options=options)
         diff_development(dev_start, simulation_dev_end, simulation_dev_diff)
-        patch_analysis(simulation_dev_diff, tmp_patch_vect, temp_file)
+        patch_analysis(simulation_dev_diff, tmp_patch_vect, threshold, temp_file)
         sim_hist_area, sim_hist_compactness = create_histograms(temp_file, hist_bins_area_orig, hist_range_area_orig,
                                                                 hist_bins_compactness_orig, hist_range_compactness_orig)
         sum_dist_area += compare_histograms(histogram_area_orig, sim_hist_area)
@@ -291,22 +271,20 @@ def run_simulation(development_start, development_end, compactness_mean, compact
     parameters = dict(patch_mean=compactness_mean, patch_range=compactness_range,
                            discount_factor=discount_factor, patch_sizes=patches_file,
                            developed=development_start)
-    futures_parameters = dict(employ_attraction=fut_options['employ_attraction'],
-                              interchange_distance=fut_options['interchange_distance'], road_density=fut_options['road_density'],
-                              development_pressure=fut_options['development_pressure'],
-                              additional_variable_files=fut_options['additional_variable_files'], n_dev_neighbourhood=fut_options['n_dev_neighbourhood'],
-                              devpot_params=fut_options['additional_variable_files'], incentive_table=fut_options['additional_variable_files'],
-                              num_neighbors=fut_options['devpot_params'], seed_search=fut_options['seed_search'],
+    futures_parameters = dict(development_pressure=fut_options['development_pressure'],
+                              predictors=fut_options['predictors'], n_dev_neighbourhood=fut_options['n_dev_neighbourhood'],
+                              devpot_params=fut_options['devpot_params'], incentive_table=fut_options['incentive_table'],
+                              num_neighbors=fut_options['num_neighbors'], seed_search=fut_options['seed_search'],
                               development_pressure_approach=fut_options['development_pressure_approach'], gamma=fut_options['gamma'],
                               scaling_factor=fut_options['scaling_factor'], num_regions=fut_options['num_regions'],
                               subregions=fut_options['subregions'], demand=fut_options['demand'],
-                              output=fut_options['output'])
+                              output=development_end)
     parameters.update(futures_parameters)
-    for not_required in ('cons_weight'):
+    for not_required in ('cons_weight',):
         if options[not_required]:
             parameters.update({not_required: options[not_required]})
 
-    gcore.run_command('r.futures.pga', flags='s', **parameters)
+    gcore.run_command('r.futures.pga', flags='s', overwrite=True, **parameters)
 
 
 def diff_development(development_start, development_end, development_diff):
@@ -314,8 +292,12 @@ def diff_development(development_start, development_end, development_diff):
                   dev_end=development_end, dev_start=development_start), overwrite=True, quiet=True)
 
 
-def patch_analysis(development_diff, tmp_vector_patches, output_file):
-    gcore.run_command('r.to.vect', input=development_diff, output=tmp_vector_patches, type='area', flags='s', overwrite=True, quiet=True)
+def patch_analysis(development_diff, tmp_vector_patches, threshold, output_file):
+    tmp_patch_vect2 = tmp_vector_patches + '2'
+    global TMP
+    TMP.append(tmp_patch_vect2)
+    gcore.run_command('r.to.vect', input=development_diff, output=tmp_patch_vect2, type='area', flags='s', overwrite=True, quiet=True)
+    gcore.run_command('v.clean', input=tmp_patch_vect2, output=tmp_vector_patches, tool='rmarea', threshold=threshold, quiet=True, overwrite=True)
     gcore.run_command('v.db.addcolumn', map=tmp_vector_patches, columns="area double,perimeter double", quiet=True)
     gcore.run_command('v.to.db', map=tmp_vector_patches, option='area', column='area', units='meters', quiet=True)
     gcore.run_command('v.to.db', map=tmp_vector_patches, option='perimeter', column='perimeter', units='meters', quiet=True)
@@ -339,8 +321,8 @@ def write_patches_file(vector_patches, output_file):
     areas = np.loadtxt(fname=output_file)
     region = gcore.region()
     res = (region['nsres'] + region['ewres'])/2.
-    coeff = gcore.parse_command('g.proj', flags='g')['meters']
-    areas = areas / (res * res * coeff * coeff)
+    coeff = float(gcore.parse_command('g.proj', flags='g')['meters'])
+    areas = np.round(areas / (res * res * coeff * coeff))
     np.savetxt(fname=output_file, X=areas)
 
 
