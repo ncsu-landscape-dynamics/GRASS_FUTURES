@@ -527,7 +527,13 @@ int readData(t_Landscape * pLandscape, t_Params * pParams)
             /* workaround to skip loading constraint map so that it can be omitted in input */
             if (j == 2) {
                 if (!pParams->consWeightFile) {
-                    pLandscape->asCells[i].consWeight = 1;
+                    i = 0;
+                    for (int row = 0; row < pParams->xSize; row++) {
+                        for (int col = 0; col < pParams->ySize; col++) {
+                            pLandscape->asCells[i].consWeight = 1;
+                            i++;
+                        }
+                    }
                     continue;
                 }
             }
