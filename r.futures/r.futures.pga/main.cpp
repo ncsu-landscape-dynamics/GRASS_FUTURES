@@ -104,7 +104,7 @@ extern "C"
 #define _N_ALGORITHM_STOCHASTIC_II 3
 
 #define _MAX_RAND_FIND_SEED_FACTOR 25
-#define maxNumAddVariables 6
+#define maxNumAddVariables 10
 
 /** maximal number of counties allowed */
 #define MAXNUM_COUNTY 50
@@ -128,15 +128,6 @@ typedef struct
 
     /** see #define's starting _CELL_ above */
     int nCellType;
-
-    /** attraction to employment base; static */
-    double employAttraction;
-
-    /** distance to interchange; static */
-    double interchangeDistance;
-
-    /** road density; static */
-    double roadDensity;
 
     /** x position on the lattice; static */
     int thisX;
@@ -222,9 +213,6 @@ typedef struct
     int ySize;
 
     /** files containing the information to read in */
-    char *employAttractionFile;
-    char *interchangeDistanceFile;
-    char *roadDensityFile;
     char *developedFile;
     char *devPressureFile;
     char *consWeightFile;
@@ -278,9 +266,6 @@ typedef struct
 
     /** parameters that go into regression formula */
     double dIntercepts[MAXNUM_COUNTY];
-    double dV1[MAXNUM_COUNTY];
-    double dV2[MAXNUM_COUNTY];
-    double dV3[MAXNUM_COUNTY];
     double dV4[MAXNUM_COUNTY];
     int num_Regions;
 
@@ -317,7 +302,7 @@ void readDevPotParams(t_Params * pParams, char *fn)
 {
     char str[200];
     int id;
-    double di, d1, d2, d3, d4, val;
+    double di, d4, val;
 
     // TODO: d5 is in file but unused
     int i, j;
@@ -331,21 +316,13 @@ void readDevPotParams(t_Params * pParams, char *fn)
     f.getline(str, 200);
     for (i = 0; i < pParams->num_Regions; i++) {
         // TODO: read by lines to count the variables
-        f >> id >> di >> d1 >> d2 >> d3 >> d4;
-        cout << id << "\t" << di << "\t" << d1 << "\t" << d2 << "\t" << d3 <<
-            "\t" << d4;
-
+        f >> id >> di >> d4;
         pParams->dIntercepts[i] = di;
-        pParams->dV1[i] = d1;
-        pParams->dV2[i] = d2;
-        pParams->dV3[i] = d3;
         pParams->dV4[i] = d4;
         for (j = 0; j < pParams->numAddVariables; j++) {
             f >> val;
-            cout << "\t" << val;
             pParams->addParameters[j][i] = val;
         }
-        cout << endl;
     }
     f.close();
 }
@@ -432,6 +409,7 @@ int buildLandscape(t_Landscape * pLandscape, t_Params * pParams)
     pLandscape->maxX = pParams->xSize;
     pLandscape->maxY = pParams->ySize;
     pLandscape->totalCells = pLandscape->maxX * pLandscape->maxY;
+    int a = sizeof(t_Cell);
     pLandscape->asCells =
         (t_Cell *) malloc(sizeof(t_Cell) * pLandscape->totalCells);
     if (pLandscape->asCells) {
@@ -545,9 +523,9 @@ int readData(t_Landscape * pLandscape, t_Params * pParams)
     bRet = 0;
     szBuff = (char *)malloc(_N_MAX_DYNAMIC_BUFF_LEN * sizeof(char));
     if (szBuff) {
-        for (j = 0; j < 6; j++) {
+        for (j = 0; j < 3; j++) {
             /* workaround to skip loading constraint map so that it can be omitted in input */
-            if (j == 5) {
+            if (j == 2) {
                 if (!pParams->consWeightFile) {
                     pLandscape->asCells[i].consWeight = 1;
                     continue;
@@ -558,18 +536,9 @@ int readData(t_Landscape * pLandscape, t_Params * pParams)
                 strcpy(szFName, pParams->developedFile);
                 break;
             case 1:
-                strcpy(szFName, pParams->employAttractionFile);
-                break;
-            case 2:
-                strcpy(szFName, pParams->interchangeDistanceFile);
-                break;
-            case 3:
-                strcpy(szFName, pParams->roadDensityFile);
-                break;
-            case 4:
                 strcpy(szFName, pParams->devPressureFile);
                 break;
-            case 5:
+            case 2:
                 strcpy(szFName, pParams->consWeightFile);
                 break;
             default:
@@ -642,18 +611,9 @@ int readData(t_Landscape * pLandscape, t_Params * pParams)
                             }
                             break;
                         case 1:
-                            pLandscape->asCells[i].employAttraction = dVal;
-                            break;
-                        case 2:
-                            pLandscape->asCells[i].interchangeDistance = dVal;
-                            break;
-                        case 3:
-                            pLandscape->asCells[i].roadDensity = dVal;
-                            break;
-                        case 4:
                             pLandscape->asCells[i].devPressure = (int)dVal;
                             break;
-                        case 5:
+                        case 2:
                             pLandscape->asCells[i].consWeight = dVal;
                             break;
                         default:
@@ -898,18 +858,6 @@ double getDevProbability(t_Cell * pThis, t_Params * pParams)
     id = id - 1;
     probAdd = pParams->dIntercepts[id];
     //cout<<"intercept\t"<<probAdd<<endl;
-    probAdd += pParams->dV1[id] * pThis->employAttraction;
-    //cout<<"employAttraction: "<<pParams->dV1[id]<<endl;
-    //cout<<"employAttraction: "<<pThis->employAttraction<<endl;
-    //cout<<"employAttraction: "<<pParams->dV1[id] * pThis->employAttraction<<endl;
-    probAdd += pParams->dV2[id] * pThis->interchangeDistance;
-    //cout<<"interchangeDistance: "<<pParams->dV2[id]<<endl;
-    //cout<<"interchangeDistance: "<<pThis->interchangeDistance<<endl;
-    //cout<<"interchangeDistance: "<<pParams->dV2[id] * pThis->interchangeDistance<<endl;
-    probAdd += pParams->dV3[id] * pThis->roadDensity;
-    //cout<<"roadDensity: "<<pParams->dV3[id]<<endl;
-    //cout<<"roadDensity: "<<pThis->roadDensity<<endl;
-    //cout<<"roadDensity: "<<pParams->dV3[id] * pThis->roadDensity<<endl;
     probAdd += pParams->dV4[id] * pThis->devPressure;
     //cout<<"devPressure: "<<pParams->dV4[id]<<endl;
     //cout<<"devPressure: "<<pThis->devPressure<<endl;
@@ -1784,8 +1732,7 @@ int main(int argc, char **argv)
     struct
     {
         struct Option
-            *employAttractionFile, *interchangeDistanceFile,
-            *roadDensityFile, *developedFile, *devPressureFile,
+            *developedFile, *devPressureFile,
             *consWeightFile, *addVariableFiles, *nDevNeighbourhood,
             *devpotParamsFile, *dumpFile, *outputSeries,
             *parcelSizeFile, *discountFactor,
@@ -1823,24 +1770,6 @@ int main(int argc, char **argv)
     opt.developedFile->description =
         _("Raster map with developed areas (=1), undeveloped (=0) and excluded (no data)");
 
-    opt.employAttractionFile = G_define_standard_option(G_OPT_R_INPUT);
-    opt.employAttractionFile->key = "employ_attraction";
-    opt.employAttractionFile->required = YES;
-    opt.employAttractionFile->description =
-        _("Files containing the information to read in");
-
-    opt.interchangeDistanceFile = G_define_standard_option(G_OPT_R_INPUT);
-    opt.interchangeDistanceFile->key = "interchange_distance";
-    opt.interchangeDistanceFile->required = YES;
-    opt.interchangeDistanceFile->description =
-        _("Files containing the information to read in");
-
-    opt.roadDensityFile = G_define_standard_option(G_OPT_R_INPUT);
-    opt.roadDensityFile->key = "road_density";
-    opt.roadDensityFile->required = YES;
-    opt.roadDensityFile->description =
-        _("Files containing the information to read in");
-
     opt.devPressureFile = G_define_standard_option(G_OPT_R_INPUT);
     opt.devPressureFile->key = "development_pressure";
     opt.devPressureFile->required = YES;
@@ -1855,11 +1784,12 @@ int main(int argc, char **argv)
     opt.consWeightFile->description =
         _("Values must be between 0 and 1, 1 means no constraint.");
 
-    opt.addVariableFiles = G_define_standard_option(G_OPT_R_INPUT);
-    opt.addVariableFiles->key = "additional_variable_files";
+    opt.addVariableFiles = G_define_standard_option(G_OPT_R_INPUTS);
+    opt.addVariableFiles->key = "predictors";
     opt.addVariableFiles->required = YES;
     opt.addVariableFiles->multiple = YES;
-    opt.addVariableFiles->description = _("additional variables");
+    opt.addVariableFiles->label = _("Names of predictor variable raster maps");
+    opt.addVariableFiles->description = _("Listed in the same order as in the development potential table");
 
     opt.nDevNeighbourhood = G_define_option();
     opt.nDevNeighbourhood->key = "n_dev_neighbourhood";
@@ -1875,7 +1805,8 @@ int main(int argc, char **argv)
         _("Development potential parameters for each region");
     opt.devpotParamsFile->description =
         _("Each line should contain region ID followed"
-          " by parameters. Values are separated by whitespace (spaces or tabs)."
+          " by parameters (intercepts, development pressure, other predictors)."
+          " Values are separated by whitespace (spaces or tabs)."
           " First line is ignored, so it can be used for header");
 
     opt.parcelSizeFile = G_define_standard_option(G_OPT_F_INPUT);
@@ -1937,7 +1868,7 @@ int main(int argc, char **argv)
 
     opt.devPressureApproach = G_define_option();
     opt.devPressureApproach->key = "development_pressure_approach";
-    opt.devPressureApproach->type = TYPE_INTEGER;
+    opt.devPressureApproach->type = TYPE_STRING;
     opt.devPressureApproach->required = NO;
     opt.devPressureApproach->options = "occurrence,gravity,kernel";
     opt.devPressureApproach->description =
@@ -2056,17 +1987,13 @@ int main(int argc, char **argv)
 
     /* set up parameters */
     sParams.developedFile = opt.developedFile->answer;
-    sParams.employAttractionFile = opt.employAttractionFile->answer;
-    sParams.interchangeDistanceFile = opt.interchangeDistanceFile->answer;
-    sParams.roadDensityFile = opt.roadDensityFile->answer;
     sParams.devPressureFile = opt.devPressureFile->answer;
     sParams.consWeightFile = opt.consWeightFile->answer;
     sParams.numAddVariables = 0;
-    char **answer = opt.addVariableFiles->answers;
-    size_t num_answers = 0;
 
+    size_t num_answers = 0;
     while (opt.addVariableFiles->answers[num_answers]) {
-        sParams.addVariableFile[num_answers] = *answer;
+        sParams.addVariableFile[num_answers] = opt.addVariableFiles->answers[num_answers];
         num_answers++;
     }
     sParams.numAddVariables = num_answers;
@@ -2155,11 +2082,11 @@ int main(int argc, char **argv)
         // TODO: convert to options or flag: 1: uniform distribution 2: based on dev. proba.
         sParams.seedSearch = atoi(opt.seedSearch->answer);
         sParams.devPressureApproach = atoi(opt.devPressureApproach->answer);
-        if (strcmp(opt.devPressureApproach->answers[0], "occurrence") == 0)
+        if (strcmp(opt.devPressureApproach->answer, "occurrence") == 0)
             sParams.devPressureApproach = 1;
-        else if (strcmp(opt.devPressureApproach->answers[i], "gravity") == 0)
+        else if (strcmp(opt.devPressureApproach->answer, "gravity") == 0)
             sParams.devPressureApproach = 2;
-        else if (strcmp(opt.devPressureApproach->answers[i], "kernel") == 0)
+        else if (strcmp(opt.devPressureApproach->answer, "kernel") == 0)
             sParams.devPressureApproach = 3;
         else
             G_fatal_error(_("Approach doesn't exist"));
