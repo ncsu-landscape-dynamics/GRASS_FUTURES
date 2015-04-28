@@ -1908,7 +1908,7 @@ int main(int argc, char **argv)
 
     opt.indexFile = G_define_standard_option(G_OPT_R_INPUT);
     opt.indexFile->key = "subregions";
-    opt.indexFile->required = NO;
+    opt.indexFile->required = YES;
     opt.indexFile->description = _("Raster map of subregions");
 
     opt.controlFileAll = G_define_standard_option(G_OPT_F_INPUT);
