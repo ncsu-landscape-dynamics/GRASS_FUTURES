@@ -206,6 +206,8 @@ def main():
     discount_factor = float(options['discount_factor'])
     patches_file = options['patch_sizes']
     threshold = float(options['patch_threshold'])
+    # v.clean removes size <= threshold, we want to keep size == threshold
+    threshold -= 1e-6
 
     tmp_name = 'tmp_futures_calib_' + str(os.getpid()) + '_'
     global TMP, TMPFILE
@@ -296,7 +298,7 @@ def patch_analysis(development_diff, tmp_vector_patches, threshold, output_file)
     tmp_patch_vect2 = tmp_vector_patches + '2'
     global TMP
     TMP.append(tmp_patch_vect2)
-    gcore.run_command('r.to.vect', input=development_diff, output=tmp_patch_vect2, type='area', flags='s', overwrite=True, quiet=True)
+    gcore.run_command('r.to.vect', input=development_diff, output=tmp_patch_vect2, type='area', overwrite=True, quiet=True)
     gcore.run_command('v.clean', input=tmp_patch_vect2, output=tmp_vector_patches, tool='rmarea', threshold=threshold, quiet=True, overwrite=True)
     gcore.run_command('v.db.addcolumn', map=tmp_vector_patches, columns="area double,perimeter double", quiet=True)
     gcore.run_command('v.to.db', map=tmp_vector_patches, option='area', column='area', units='meters', quiet=True)
