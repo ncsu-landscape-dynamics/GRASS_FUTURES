@@ -1595,7 +1595,7 @@ void updateMap1(t_Landscape * pLandscape, t_Params * pParams, int step,
                                   pLandscape->num_undevSites[regionID]);
                     //pick one according to their probability
                     else
-                        G_verbose_message("nDone=%d, toConvert=%d", nDone,
+                        G_debug(3, "nDone=%d, toConvert=%d", nDone,
                                           nToConvert);
                     i = getUnDevIndex1(pLandscape, regionID);
                 }
@@ -2150,13 +2150,13 @@ int getUnDevIndex1(t_Landscape * pLandscape, int regionID)
 {
     float p = rand() / (double)RAND_MAX;
 
-    G_verbose_message(_("getUnDevIndex1: regionID=%d, num_undevSites=%d, p=%f"),
+    G_debug(3, _("getUnDevIndex1: regionID=%d, num_undevSites=%d, p=%f"),
                       regionID, pLandscape->num_undevSites[regionID], p);
     int i;
 
     for (i = 0; i < pLandscape->num_undevSites[regionID]; i++) {
         if (p < pLandscape->asUndevs[regionID][i].cumulProb) {
-            G_verbose_message(_("getUnDevIndex1: cumulProb=%f"),
+            G_debug(3, _("getUnDevIndex1: cumulProb=%f"),
                               pLandscape->asUndevs[regionID][i].cumulProb);
             return i;
         }
@@ -2207,7 +2207,7 @@ void findAndSortProbsAll(t_Landscape * pLandscape, t_Params * pParams,
                     val = getDevProbability(pThis, pParams);
                     pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].
                         logitVal = val;
-                    G_verbose_message("logit value %f", val);
+                    G_debug(2, "logit value %f", val);
                     pThis->devProba = val;
                     /* lookup table of probabilities is applied before consWeight */
                     if (pParams->nAlgorithm == _N_ALGORITHM_STOCHASTIC_II) {
@@ -2244,13 +2244,13 @@ void findAndSortProbsAll(t_Landscape * pLandscape, t_Params * pParams,
     /* sort */
     /* can only be zero for algorithm=stochastic_ii */
     if (pParams->sortProbs) {
-        G_verbose_message("Sorting %d unconserved undeveloped sites",
+        G_debug(1, "Sorting %d unconserved undeveloped sites",
                 pLandscape->undevSites);
         qsort(pLandscape->asUndev, pLandscape->undevSites, sizeof(t_Undev),
               undevCmpReverse);
     }
     else {
-        G_verbose_message("Skipping sort as choosing cells randomly");
+        G_debug(1, "Skipping sort as choosing cells randomly");
     }
     //calculate cumulative probability // From Wenwu Tang
     int j;
