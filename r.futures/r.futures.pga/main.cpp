@@ -395,7 +395,7 @@ int buildLandscape(t_Landscape * pLandscape, t_Params * pParams)
     int bRet;
 
     /* blank everything out */
-    fprintf(stdout, "entered buildLandscape()\n");
+    G_verbose_message("Initialization and memory allocation...");
     bRet = 0;
 
     pLandscape->asCells = NULL;
@@ -434,8 +434,7 @@ void readData4AdditionalVariables(t_Landscape * pLandscape,
     double val;
 
     for (i = 0; i < pParams->numAddVariables; i++) {
-        cout << "reading additional variables File: " <<
-            pParams->addVariableFile[i] << "...";
+        G_verbose_message("Reading predictor variables %s...", pParams->addVariableFile[i]);
 
         /* open raster map */
         int fd = Rast_open_old(pParams->addVariableFile[i], "");
@@ -468,7 +467,7 @@ void readData4AdditionalVariables(t_Landscape * pLandscape,
             }
         }
         Rast_close(fd);
-        cout << "done" << endl;
+        G_verbose_message("Done");
     }
 }
 
@@ -484,7 +483,7 @@ void readIndexData(t_Landscape * pLandscape, t_Params * pParams)
     RASTER_MAP_TYPE data_type = Rast_get_map_type(fd);
     void *buffer = Rast_allocate_buf(data_type);
 
-    cout << "reading index File: " << pParams->indexFile << "...";
+    G_verbose_message("Reading subregions %s", pParams->indexFile);
     for (int row = 0; row < pParams->xSize; row++) {
         Rast_get_row(fd, buffer, row, data_type);
         void *ptr = buffer;
@@ -508,7 +507,7 @@ void readIndexData(t_Landscape * pLandscape, t_Params * pParams)
             ii++;
         }
     }
-    cout << "done" << endl;
+    G_verbose_message("Done");
 }
 
 /**
@@ -523,7 +522,7 @@ int readData(t_Landscape * pLandscape, t_Params * pParams)
     int bRet, x, y, i, j;
     double dVal;
 
-    fprintf(stdout, "entered readData()\n");
+    G_verbose_message("Reading input rasters...");
     bRet = 0;
     szBuff = (char *)malloc(_N_MAX_DYNAMIC_BUFF_LEN * sizeof(char));
     if (szBuff) {
@@ -552,10 +551,10 @@ int readData(t_Landscape * pLandscape, t_Params * pParams)
                 strcpy(szFName, pParams->consWeightFile);
                 break;
             default:
-                fprintf(stderr, "readData(): shouldn't get here...\n");
+                G_fatal_error("readData(): shouldn't get here");
                 break;
             }
-            fprintf(stdout, "\t%s...", szFName);
+            G_verbose_message("%s...", szFName);
             /* open raster map */
             int fd = Rast_open_old(szFName, "");
 
@@ -627,8 +626,7 @@ int readData(t_Landscape * pLandscape, t_Params * pParams)
                             pLandscape->asCells[i].consWeight = dVal;
                             break;
                         default:
-                            fprintf(stderr,
-                                    "readData(): shouldn't get here...\n");
+                            G_fatal_error("readData(): shouldn't get here");
                             break;
                         }
                     }
@@ -643,7 +641,7 @@ int readData(t_Landscape * pLandscape, t_Params * pParams)
             }
             else {
                 if (bRet) {
-                    fprintf(stderr, "readData(): x too small\n");
+                    G_warning("readData(): x too small");
                     bRet = 0;
                 }
             }
@@ -655,13 +653,13 @@ int readData(t_Landscape * pLandscape, t_Params * pParams)
                               pParams->ySize);
                     G_message(_(" maxX=%d minX=%d"), pLandscape->maxX,
                               pLandscape->maxY);
-                    fprintf(stderr, "readData(): y too small\n");
+                    G_warning("readData(): y too small");
                     bRet = 0;
                 }
             }
             else {
                 if (bRet && i == pLandscape->totalCells) {
-                    fprintf(stdout, "done\n");;
+                    G_verbose_message("Done");
                 }
                 else {
 
@@ -671,8 +669,7 @@ int readData(t_Landscape * pLandscape, t_Params * pParams)
                                   pParams->ySize);
                         G_message(_(" maxX=%d minX=%d"), pLandscape->maxX,
                                   pLandscape->maxY);
-                        fprintf(stderr,
-                                "readData(): not read in enough points\n");
+                        G_warning("readData(): not read in enough points");
                         bRet = 0;
                     }
 
@@ -953,7 +950,7 @@ void findAndSortProbs(t_Landscape * pLandscape, t_Params * pParams,
     t_Cell *pThis;
 
     /* update calcs */
-    fprintf(stdout, "\t\trecalculating probabilities\n");
+    G_verbose_message("Recalculating probabilities...");
     pLandscape->undevSites = 0;
     for (i = 0; i < pLandscape->totalCells; i++) {
         pThis = &(pLandscape->asCells[i]);
@@ -990,13 +987,13 @@ void findAndSortProbs(t_Landscape * pLandscape, t_Params * pParams,
     /* sort */
     /* can only be zero for algorithm=stochastic_ii */
     if (pParams->sortProbs) {
-        fprintf(stdout, "\t\tsorting %d unconserved undeveloped sites\n",
+        G_verbose_message("Sorting %d unconserved undeveloped sites",
                 pLandscape->undevSites);
         qsort(pLandscape->asUndev, pLandscape->undevSites, sizeof(t_Undev),
               undevCmpReverse);
     }
     else {
-        fprintf(stdout, "\t\tskipping sort as choosing cells randomly\n");
+        G_verbose_message("Skipping sort as choosing cells randomly");
     }
     //calculate cumulative probability
     // From Wenwu Tang
@@ -1078,9 +1075,7 @@ int addNeighbourIfPoss(int x, int y, t_Landscape * pLandscape,
                                         pNeighbours->nSpace *
                                         sizeof(t_candidateNeighbour));
                             if (!pNeighbours->aCandidates) {
-                                fprintf(stderr,
-                                        "memory error in addNeighbourIfPoss()\n...exiting\n");
-                                exit(EXIT_FAILURE);
+                                G_fatal_error("Memory error in addNeighbourIfPoss()");
                             }
                         }
                         pNeighbours->aCandidates[pNeighbours->nCandidates].
@@ -1514,7 +1509,7 @@ void updateMapAll(t_Landscape * pLandscape, t_Params * pParams)
 
     //iterate each step (year)
     for (i = 0; i < pParams->nSteps; i++) {
-        cout << i << "\t" << pParams->nSteps << endl;
+        G_verbose_message("Processing step %d from %d", i + 1, pParams->nSteps);
         // for each sub-region, find and update conversion probability (conservation weight applied)
         findAndSortProbsAll(pLandscape, pParams, i);
         for (j = 0; j < pParams->num_Regions; j++)
@@ -1553,16 +1548,13 @@ void updateMap1(t_Landscape * pLandscape, t_Params * pParams, int step,
             nToConvert = 0;
         }
     }
-    fprintf(stdout,
-            "\t\tafter accounting for extra cells, attempt %d cells\n",
-            nToConvert);
+    G_debug(1, "After accounting for extra cells, attempt %d cells", nToConvert);
     /* if have cells to convert this step */
     if (nToConvert > 0) {
         //findAndSortProbs(pLandscape, pParams, nToConvert);
         /* if not enough cells to convert then alter number required */
         if (nToConvert > pLandscape->num_undevSites[regionID]) {
-            fprintf(stdout,
-                    "\t\tnot enough undeveloped sites...converting all\n");
+            G_warning("Not enough undeveloped sites... converting all");
             nToConvert = pLandscape->num_undevSites[regionID];
         }
         /* update either in deterministic or stochastic fashion */
@@ -1636,13 +1628,12 @@ void updateMap1(t_Landscape * pLandscape, t_Params * pParams, int step,
             }
             break;
         default:
-            fprintf(stderr, "Unknown algorithm...exiting\n");
+            G_fatal_error("Unknown algorithm...exiting");
             break;
         }
-        fprintf(stdout, "\t\tconverted %d sites\n", nDone);
+        G_debug(1, "Converted %d sites", nDone);
         nExtra += (nDone - nToConvert);
-        fprintf(stdout, "\t\t%d extra sites knocked off next timestep\n",
-                nExtra);
+        G_debug(1, "%d extra sites knocked off next timestep", nExtra);
     }
 }
 
@@ -1705,7 +1696,7 @@ int readParcelSizes(t_Landscape * pLandscape, t_Params * pParams)
 
     pLandscape->parcelSizes = 0;
 
-    fprintf(stdout, "entered readParcelSizes()\n");
+    G_verbose_message("Reading patch sizes...");
     fIn = fopen(pParams->parcelSizeFile, "rb");
     if (fIn) {
         szBuff = (char *)malloc(_N_MAX_DYNAMIC_BUFF_LEN * sizeof(char));
@@ -2034,7 +2025,7 @@ int main(int argc, char **argv)
         char inBuff[N_MAXREADINLEN];
         char *pPtr;
 
-        fprintf(stdout, "reading probability lookup\n");
+        G_verbose_message("Reading probability lookup ...");
         sParams.probLookupFile = opt.probLookupFile->answer;
 
         fp = fopen(sParams.probLookupFile, "r");
@@ -2072,18 +2063,14 @@ int main(int argc, char **argv)
                 }
             }
             if (!parsedOK) {
-                fprintf(stderr,
-                        "error parsing probLookup file '%s'...exiting\n",
+                G_fatal_error("Error parsing probability lookup file '%s'",
                         sParams.probLookupFile);
-                return 0;
             }
             fclose(fp);
         }
         else {
-            perror("The following error occurred");
-            fprintf(stderr, "error opening probLookup file '%s'...exiting\n",
+            G_fatal_error("Error opening probability lookup file '%s'",
                     sParams.probLookupFile);
-            return 0;
         }
 
         sParams.patchMean = atof(opt.patchMean->answer);
@@ -2130,16 +2117,16 @@ int main(int argc, char **argv)
                 updateMapAll(&sLandscape, &sParams);
             }
             else {
-                fprintf(stderr, "error in readParcelSizes()\n");
+                G_fatal_error("Reading patch sizes failed");
             }
         }
         else {
-            fprintf(stderr, "error in readData()\n");
+            G_fatal_error("Reading input maps failed");
         }
         /* could put in routines to free memory, but OS will garbage collect anyway */
     }
     else {
-        fprintf(stderr, "error in buildLandscape()\n");
+        G_fatal_error("Initialization failed");
     }
 
     return EXIT_SUCCESS;
@@ -2186,7 +2173,7 @@ void findAndSortProbsAll(t_Landscape * pLandscape, t_Params * pParams,
     int id;
 
     /* update calcs */
-    fprintf(stdout, "\t\trecalculating probabilities\n");
+    G_verbose_message("Recalculating probabilities");
     for (i = 0; i < pParams->num_Regions; i++) {
         pLandscape->num_undevSites[i] = 0;
     }
@@ -2257,13 +2244,13 @@ void findAndSortProbsAll(t_Landscape * pLandscape, t_Params * pParams,
     /* sort */
     /* can only be zero for algorithm=stochastic_ii */
     if (pParams->sortProbs) {
-        fprintf(stdout, "\t\tsorting %d unconserved undeveloped sites\n",
+        G_verbose_message("Sorting %d unconserved undeveloped sites",
                 pLandscape->undevSites);
         qsort(pLandscape->asUndev, pLandscape->undevSites, sizeof(t_Undev),
               undevCmpReverse);
     }
     else {
-        fprintf(stdout, "\t\tskipping sort as choosing cells randomly\n");
+        G_verbose_message("Skipping sort as choosing cells randomly");
     }
     //calculate cumulative probability // From Wenwu Tang
     int j;
