@@ -262,9 +262,12 @@ def main():
         sum_dist_area += compare_histograms(histogram_area_orig, sim_hist_area)
         sum_dist_compactness += compare_histograms(histogram_compactness_orig, sim_hist_compactness)
 
-    gcore.message(_("Averaged error:"))
     mean_dist_area = sum_dist_area / repeat
     mean_dist_compactness = sum_dist_compactness / repeat
+    gcore.message(_("Summary of calibrated parameters and error averaged from %s PGA runs:") % repeat)
+    print "input_discount_factor=%s" % discount_factor
+    print "input_compactness_mean=%s" % compactness_mean
+    print "input_compactness_range=%s" % compactness_range
     print "area_distance=%s" % mean_dist_area
     print "compactness_distance=%s" % mean_dist_compactness
 
