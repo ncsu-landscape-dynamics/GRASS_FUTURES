@@ -209,6 +209,12 @@ def main():
     # v.clean removes size <= threshold, we want to keep size == threshold
     threshold -= 1e-6
 
+    # compute cell size
+    region = gcore.region()
+    res = (region['nsres'] + region['ewres'])/2.
+    coeff = float(gcore.parse_command('g.proj', flags='g')['meters'])
+    cell_size = res * res * coeff * coeff
+
     tmp_name = 'tmp_futures_calib_' + str(os.getpid()) + '_'
     global TMP, TMPFILE
 
@@ -226,22 +232,24 @@ def main():
     patch_analysis(orig_patch_diff, tmp_patch_vect, threshold, temp_file)
     area, perimeter = np.loadtxt(fname=temp_file, unpack=True)
     compact = compactness(area, perimeter)
-    write_patches_file(tmp_patch_vect, patches_file)
+    write_patches_file(tmp_patch_vect, cell_size, patches_file)
 
     # area histogram
-    first_qrt, third_qrt = np.percentile(area, 25), np.percentile(area, 75)
-    bin_width = 2 * (third_qrt - first_qrt) / pow(len(area), 1/3.)
+    area = area / cell_size
+    bin_width = 1.  # automatic ways to determine bin width do not perform well in this case
     hist_bins_area_orig = int(np.ptp(area) / bin_width)
     hist_range_area_orig = (np.min(area), np.max(area))
     histogram_area_orig, _edges = np.histogram(area, bins=hist_bins_area_orig,
                                                range=hist_range_area_orig, density=True)
+    histogram_area_orig = histogram_area_orig * 100  # to get percentage for readability
+
     # compactness histogram
-    first_qrt, third_qrt = np.percentile(compact, 25), np.percentile(compact, 75)
-    bin_width = 2 * (third_qrt - first_qrt) / pow(len(compact), 1/3.)
+    bin_width = 0.1
     hist_bins_compactness_orig = int(np.ptp(compact) / bin_width)
     hist_range_compactness_orig = (np.min(compact), np.max(compact))
     histogram_compactness_orig, _edges = np.histogram(compact, bins=hist_bins_compactness_orig,
                                                       range=hist_range_compactness_orig, density=True)
+    histogram_compactness_orig = histogram_compactness_orig * 100  # to get percentage for readability
 #    import matplotlib.pyplot as plt
 #    width = 0.7 * (_edges[1] - _edges[0])
 #    center = (_edges[:-1] + _edges[1:]) / 2
@@ -255,10 +263,10 @@ def main():
         run_simulation(development_start=dev_start, development_end=simulation_dev_end,
                        compactness_mean=compactness_mean, compactness_range=compactness_range,
                        discount_factor=discount_factor, patches_file=patches_file, fut_options=options)
-        diff_development(dev_start, simulation_dev_end, simulation_dev_diff)
+        new_development(simulation_dev_end, simulation_dev_diff)
         patch_analysis(simulation_dev_diff, tmp_patch_vect, threshold, temp_file)
         sim_hist_area, sim_hist_compactness = create_histograms(temp_file, hist_bins_area_orig, hist_range_area_orig,
-                                                                hist_bins_compactness_orig, hist_range_compactness_orig)
+                                                                hist_bins_compactness_orig, hist_range_compactness_orig, cell_size)
         sum_dist_area += compare_histograms(histogram_area_orig, sim_hist_area)
         sum_dist_compactness += compare_histograms(histogram_compactness_orig, sim_hist_compactness)
 
@@ -297,6 +305,11 @@ def diff_development(development_start, development_end, development_diff):
                   dev_end=development_end, dev_start=development_start), overwrite=True, quiet=True)
 
 
+def new_development(development_end, development_diff):
+    grast.mapcalc(exp="{res} = if({dev_end} > 0, 1, null())".format(res=development_diff,
+                  dev_end=development_end), overwrite=True, quiet=True)
+
+
 def patch_analysis(development_diff, tmp_vector_patches, threshold, output_file):
     tmp_patch_vect2 = tmp_vector_patches + '2'
     global TMP
@@ -310,24 +323,23 @@ def patch_analysis(development_diff, tmp_vector_patches, threshold, output_file)
                       flags='c', separator='space', file_=output_file, overwrite=True, quiet=True)
 
 
-def create_histograms(input_file, hist_bins_area_orig, hist_range_area_orig, hist_bins_compactness_orig, hist_range_compactness_orig):
+def create_histograms(input_file, hist_bins_area_orig, hist_range_area_orig, hist_bins_compactness_orig, hist_range_compactness_orig, cell_size):
     area, perimeter = np.loadtxt(fname=input_file, unpack=True)
     compact = compactness(area, perimeter)
-    histogram_area, _edges = np.histogram(area, bins=hist_bins_area_orig,
+    histogram_area, _edges = np.histogram(area / cell_size, bins=hist_bins_area_orig,
                                           range=hist_range_area_orig, density=True)
+    histogram_area = histogram_area * 100
     histogram_compactness, _edges = np.histogram(compact, bins=hist_bins_compactness_orig,
                                                  range=hist_range_compactness_orig, density=True)
+    histogram_compactness = histogram_compactness * 100
     return histogram_area, histogram_compactness
 
 
-def write_patches_file(vector_patches, output_file):
+def write_patches_file(vector_patches, cell_size, output_file):
     gcore.run_command('v.db.select', map=vector_patches, columns='area',
                       flags='c', separator='space', file_=output_file, quiet=True)
     areas = np.loadtxt(fname=output_file)
-    region = gcore.region()
-    res = (region['nsres'] + region['ewres'])/2.
-    coeff = float(gcore.parse_command('g.proj', flags='g')['meters'])
-    areas = np.round(areas / (res * res * coeff * coeff))
+    areas = np.round(areas / cell_size)
     np.savetxt(fname=output_file, X=areas)
 
 
