@@ -225,10 +225,10 @@ def main():
     temp_file = TMPFILE = gcore.tempfile(create=False)
     simulation_dev_end = tmp_name + 'simulation_dev_end'
     simulation_dev_diff = tmp_name + 'simulation_dev_diff'
-    TMP.append(simulation_dev_end)
+    TMP.append(simulation_dev_end, simulation_dev_diff)
 
     gcore.message(_("Analyzing original patches..."))
-    diff_development(dev_start, dev_end, orig_patch_diff)
+    diff_development(dev_start, dev_end, options['subregions'], orig_patch_diff)
     patch_analysis(orig_patch_diff, tmp_patch_vect, threshold, temp_file)
     area, perimeter = np.loadtxt(fname=temp_file, unpack=True)
     compact = compactness(area, perimeter)
@@ -300,8 +300,8 @@ def run_simulation(development_start, development_end, compactness_mean, compact
     gcore.run_command('r.futures.pga', flags='s', overwrite=True, **parameters)
 
 
-def diff_development(development_start, development_end, development_diff):
-    grast.mapcalc(exp="{res} = if({dev_end} && (isnull({dev_start}) ||| !{dev_start}), 1, null())".format(res=development_diff,
+def diff_development(development_start, development_end, subregions, development_diff):
+    grast.mapcalc(exp="{res} = if({subregions} && {dev_end} && (isnull({dev_start}) ||| !{dev_start}), 1, null())".format(res=development_diff, subregions=subregions,
                   dev_end=development_end, dev_start=development_start), overwrite=True, quiet=True)
 
 
