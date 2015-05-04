@@ -225,7 +225,8 @@ def main():
     temp_file = TMPFILE = gcore.tempfile(create=False)
     simulation_dev_end = tmp_name + 'simulation_dev_end'
     simulation_dev_diff = tmp_name + 'simulation_dev_diff'
-    TMP.append(simulation_dev_end, simulation_dev_diff)
+    TMP.append(simulation_dev_end)
+    TMP.append(simulation_dev_diff)
 
     gcore.message(_("Analyzing original patches..."))
     diff_development(dev_start, dev_end, options['subregions'], orig_patch_diff)
