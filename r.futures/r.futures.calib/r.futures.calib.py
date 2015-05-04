@@ -341,7 +341,7 @@ def write_patches_file(vector_patches, cell_size, output_file):
                       flags='c', separator='space', file_=output_file, quiet=True)
     areas = np.loadtxt(fname=output_file)
     areas = np.round(areas / cell_size)
-    np.savetxt(fname=output_file, X=areas)
+    np.savetxt(fname=output_file, X=areas.astype(int), fmt='%u')
 
 
 def compare_histograms(hist1, hist2):
