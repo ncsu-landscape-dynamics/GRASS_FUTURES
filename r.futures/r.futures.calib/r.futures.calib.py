@@ -316,7 +316,7 @@ def patch_analysis(development_diff, tmp_vector_patches, threshold, output_file)
     TMP.append(tmp_patch_vect2)
     gcore.run_command('r.to.vect', input=development_diff, output=tmp_patch_vect2, type='area', overwrite=True, quiet=True)
     gcore.run_command('v.clean', input=tmp_patch_vect2, output=tmp_vector_patches, tool='rmarea', threshold=threshold, quiet=True, overwrite=True)
-    gcore.run_command('v.db.addcolumn', map=tmp_vector_patches, columns="area double,perimeter double", quiet=True)
+    gcore.run_command('v.db.addcolumn', map=tmp_vector_patches, columns="area double precision,perimeter double precision", quiet=True)
     gcore.run_command('v.to.db', map=tmp_vector_patches, option='area', column='area', units='meters', quiet=True)
     gcore.run_command('v.to.db', map=tmp_vector_patches, option='perimeter', column='perimeter', units='meters', quiet=True)
     gcore.run_command('v.db.select', map=tmp_vector_patches, columns=['area', 'perimeter'],
