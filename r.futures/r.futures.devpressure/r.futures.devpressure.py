@@ -58,8 +58,13 @@
 #% required: no
 #% answer: 1
 #%end
+#%flag
+#% key: n
+#% description: Do not propagate nulls
+#%end
 
 
+import os
 import sys
 import atexit
 import numpy as np
@@ -71,9 +76,12 @@ import grass.script.utils as gutils
 import grass.script.raster as grast
 
 TMPFILE = None
+TMP = []
 
 
 def cleanup():
+    if TMP:
+        gcore.run_command('g.remove', flags='f', type=['raster'], name=TMP)
     gutils.try_remove(TMPFILE)
 
 
@@ -90,6 +98,30 @@ def main():
 
     if method in ('gravity', 'kernel') and (gamma is None or scale is None):
         gcore.fatal(_("Methods gravity and kernel require options scaling_factor and gamma"))
+
+    temp_map = 'tmp_futures_devPressure_' + str(os.getpid()) + '_copy'
+    temp_map_out = 'tmp_futures_devPressure_' + str(os.getpid()) + '_out'
+    temp_map_nulls = 'tmp_futures_devPressure_' + str(os.getpid()) + '_nulls'
+    global TMP, TMPFILE
+    if flags['n']:
+        gcore.message(_("Preparing data..."))
+        region = gcore.region()
+        gcore.use_temp_region()
+        gcore.run_command('g.region', n=region['n'] + size * region['nsres'],
+                          s=region['s'] - size * region['nsres'],
+                          e=region['e'] + size * region['ewres'],
+                          w=region['w'] - size * region['ewres'])
+        TMP.append(temp_map)
+        TMP.append(temp_map_nulls)
+        TMP.append(temp_map_out)
+        exp = "{temp_map_nulls} = if(isnull({inp}), 1, null())".format(temp_map_nulls=temp_map_nulls, inp=input_dev)
+        grast.mapcalc(exp=exp)
+        grast.mapcalc(exp="{temp} = if(isnull({inp}), 0, {inp})".format(temp=temp_map, inp=input_dev))
+        rmfilter_inp = temp_map
+        rmfilter_out = temp_map_out
+    else:
+        rmfilter_inp = input_dev
+        rmfilter_out = output
 
     matrix = distance_matrix(size)
     if method == 'occurrence':
@@ -109,7 +141,15 @@ def main():
 
     with open(path, 'w') as f:
         f.write(write_filter(matrix))
-    gcore.run_command('r.mfilter', input=input_dev, output=output, filter=path)
+    gcore.message(_("Running development pressure filter..."))
+    gcore.run_command('r.mfilter', input=rmfilter_inp, output=rmfilter_out, filter=path)
+
+    if flags['n']:
+        gcore.run_command('g.region', n=region['n'],  s=region['s'], e=region['e'], w=region['w'],)
+        grast.mapcalc(exp="{out} = if(isnull({temp_null}), {rmfilter_out}, null())".format(temp_null=temp_map_nulls,
+                      rmfilter_out=rmfilter_out, out=output))
+        gcore.del_temp_region()
+
     grast.raster_history(output)
 
 
