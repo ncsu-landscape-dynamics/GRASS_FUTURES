@@ -36,7 +36,7 @@
 #% required: yes
 #% answer: gravity
 #% options: occurrence,gravity,kernel
-#% descriptions: occurrence;number of developed cells in window;gravity;scaling_factor/distance^gamma;kernel;scaling_factor * exp (-2*distance/gamma)
+#% descriptions: occurrence;number of developed cells in window;gravity;scaling_factor / pow(distance, gamma);kernel;scaling_factor * exp (-2*distance / gamma)
 #%end
 #%option
 #% key: size
@@ -50,6 +50,7 @@
 #% type: double
 #% description: Coefficient controlling the influence of distance, needed for method gravity and kernel
 #% required: no
+#% answer: 1.5
 #%end
 #%option
 #% key: scaling_factor

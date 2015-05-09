@@ -1,17 +1,58 @@
 <h2>DESCRIPTION</h2>
-Module <em>r.futures.devpressure</em> is one of the modules needed
-for FUTURES land change model.
+Module <em>r.futures.devpressure</em> is part of FUTURES land change model.
 It computes development pressure, a predictor based on number of neighboring
 developed cells within search distance, weighted by distance.
+The development pressure variable plays a special role in the model,
+allowing for a feedback between predicted change and change in subsequent steps.
+
+<p>
+There are multiple options for calculating development pressure in the model.
+<ul>
+<li><b>occurrence</b>: simple count of the number of developed
+cells within the specified window size</li>
+<li><b>gravity</b>: defined as scaling_factor / pow(distance, gamma)</li>
+<li><b>kernel</b>: defined as scaling_factor * exp(-2 * distance / gamma)</li>
+</ul>
+<p>
+Coefficient <b>gamma</b> is the coefficient controlling the influence of distance.
+The best value for alpha is chosen during the model selection process (TODO).
+
+<p>
+The input raster is binary, value 1 represents development, value 0 no development.
+The neighborhood <b>size</b> describes the size of the moving
+window in cells (2 * size + 1).
+
+
+<h2>NOTES</h2>
+By default NULL values are propagated.
+This means that the edges of resulting map will be NULLs. To avoid that,
+flag <b>n<b> internally enlarges the computational region,
+converts NULLs to zeros, performs the computation
+and then patches back the original NULL values.
+
+
 
 <h2>EXAMPLES</h2>
 <div class="code"><pre>
 r.futures.devpressure input=developed output=pressure gamma=1.5 size=10 method=gravity
-</div></pre>
+</pre></div>
 
 <h2>SEE ALSO</h2>
 
-<em><a href="r.futures.pga">r.futures.pga</a></em>
+<em><a href="r.futures.pga">r.futures.pga</a></em><br>
+<em><a href="r.mfilter">r.mfilter</a></em>
+
+<h2>REFERENCES</h2>
+<ul>
+<li>
+    Meentemeyer, R. K., Tang, W., Dorning, M. A, Vogler, J. B., Cunniffe, N. J., Shoemaker D. A.,
+    <a href="http://dx.doi.org/10.1080/00045608.2012.707591">FUTURES: Multilevel Simulations of Emerging Urban-Rural Landscape Structure Using a Stochastic Patch-Growing Algorithm</a>
+    Annals of the Association of American Geographers
+    Vol. 103, Iss. 4, 2013
+<li>
+    Dorning, M. A, Koch J., Shoemaker D. A, Meentemeyer, R. K.,
+    <a href="http://dx.doi.org/10.1016/j.landurbplan.2014.11.011">Simulating urbanization scenarios under various landscape planning policies reveals trade-offs between disparate conservation goals</a>
+</ul>
 
 <h2>AUTHOR</h2>
 
