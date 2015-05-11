@@ -10,4 +10,4 @@ if [ $# -lt 1 ] ; then
     exit 1
 fi
 
-cp -r r.futures $1
+cp -r r.futures/* $1
