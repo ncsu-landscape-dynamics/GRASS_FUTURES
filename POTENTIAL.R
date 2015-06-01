@@ -10,7 +10,7 @@
 # GENERIC CODE ####
 
 # Import data
-working_data = read.csv('C:/PATH/DATA.csv')
+potential.data = read.csv('C:/PATH/DATA.csv')
 
 # Load required libraries
 library(MuMIn)
@@ -36,14 +36,14 @@ coef(model)
 # WORKING EXAMPLE ####
 
 # Import Data
-data9c = read.csv('C:/<INSERT PATH HERE>/data_network.csv')
+potential.data = read.csv('C:/<INSERT PATH HERE>/data_network.csv')
 
 # Load required libraries
 library(MuMIn)
 library(lme4)
 
 # Create global model with all variables
-global.model = glmer(convert ~ slope + d2urban + d2water + d2protect + d2inter + d2rds + gdp10_2 + (1|county), family = binomial, data=data9c)
+global.model = glmer(convert ~ slope + d2urban + d2water + d2protect + d2inter + d2rds + gdp10_2 + (1|county), family = binomial, data=potential.data)
 
 # Create all possible models with a minimum of 3 and maximum of 7 variables, always include county as the level
 select.model<-dredge(global.model, evaluate=TRUE, rank="AIC", fixed=~(1|county), m.min=3, m.max=7, trace=FALSE)
@@ -53,6 +53,6 @@ model.best<-get.models(select.model, 1)
 print(model.best)
 
 # Rerun the best model and extract coefficients
-model = glmer(convert ~ slope + d2urban + d2inter + d2rds + gdp10_2 + (1|county), family = binomial, data=data9c)
+model = glmer(convert ~ slope + d2urban + d2inter + d2rds + gdp10_2 + (1|county), family = binomial, data=potential.data)
 summary(model) 
 coef(model) 

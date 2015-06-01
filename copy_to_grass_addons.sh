@@ -10,4 +10,4 @@ if [ $# -lt 1 ] ; then
     exit 1
 fi
 
-cp *.cpp Makefile r.futures.html r_futures_detail.png r_futures.png $1
+cp -r r.futures/* $1
