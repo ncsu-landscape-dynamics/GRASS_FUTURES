@@ -233,7 +233,8 @@ def run_one_combination(repeat, development_start, compactness_mean, compactness
                         hist_range_compactness_orig, cell_size, histogram_area_orig, histogram_compactness_orig,
                         tmp_name, queue):
     TMP_PROCESS = []
-    suffix = str(discount_factor) + str(compactness_mean) + str(compactness_range)
+    # unique name, must be sql compliant
+    suffix = (str(discount_factor) + str(compactness_mean) + str(compactness_range)).replace('.', '')
     simulation_dev_end = tmp_name + 'simulation_dev_end_' + suffix
     simulation_dev_diff = tmp_name + 'simulation_dev_diff' + suffix
     tmp_patch_vect = tmp_name + 'tmp_patch_vect' + suffix
@@ -242,8 +243,6 @@ def run_one_combination(repeat, development_start, compactness_mean, compactness
     TMP_PROCESS.append(simulation_dev_diff)
     TMP_PROCESS.append(tmp_patch_vect)
     TMP_PROCESS.append(tmp_patch_vect2)
-    temp_file = tempfile.NamedTemporaryFile(delete=False)
-    temp_file.close()
 
     sum_dist_area = 0
     sum_dist_compactness = 0
@@ -388,8 +387,8 @@ def main():
 
     gcore.message(_("Analyzing original patches..."))
     diff_development(dev_start, dev_end, options['subregions'], orig_patch_diff)
-    patch_analysis(orig_patch_diff, threshold, tmp_patch_vect, tmp_patch_vect2, temp_file)
-    area, perimeter = np.loadtxt(fname=temp_file, unpack=True)
+    patch_analysis(orig_patch_diff, threshold, tmp_patch_vect, tmp_patch_vect2, temp_file.name)
+    area, perimeter = np.loadtxt(fname=temp_file.name, unpack=True)
     compact = compactness(area, perimeter)
     write_patches_file(tmp_patch_vect, cell_size, patches_file)
 
@@ -440,9 +439,9 @@ def main():
                         for i in range(proc_count):
                             proc_list[i].join()
                             data = queue_list[i].get()
-                            f.write(' '.join([data['input_discount_factor'], data['area_distance'],
-                                              data['input_compactness_mean'], data['input_compactness_range'],
-                                              data['compactness_distance']]))
+                            f.write(' '.join([str(data['input_discount_factor']), str(data['area_distance']),
+                                              str(data['input_compactness_mean']), str(data['input_compactness_range']),
+                                              str(data['compactness_distance'])]))
                             f.write('\n')
                     proc_count = 0
                     proc_list = []
