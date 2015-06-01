@@ -415,6 +415,11 @@ def main():
     queue_list = []
     proc_list = []
     num_all = len(compactness_means) * len(compactness_ranges) * len(discount_factors)
+    with open(options['calibration_results'], 'a') as f:
+        f.write(' '.join(['input_discount_factor', 'area_distance',
+                          'input_compactness_mean', 'input_compactness_range',
+                          'compactness_distance']))
+        f.write('\n')
     for com_mean in compactness_means:
         for com_range in compactness_ranges:
             for discount_factor in discount_factors:
@@ -431,11 +436,6 @@ def main():
                 proc_list.append(p)
                 proc_count += 1
                 if proc_count == nprocs or count == num_all:
-                    with open(options['calibration_results'], 'a') as f:
-                        f.write(' '.join(['input_discount_factor', 'area_distance',
-                                          'input_compactness_mean', 'input_compactness_range',
-                                          'compactness_distance']))
-                        f.write('\n')
                         for i in range(proc_count):
                             proc_list[i].join()
                             data = queue_list[i].get()
