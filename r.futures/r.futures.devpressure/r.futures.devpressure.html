@@ -15,7 +15,7 @@ cells within the specified window size</li>
 </ul>
 <p>
 Coefficient <b>gamma</b> is the coefficient controlling the influence of distance.
-The best value for alpha is chosen during the model selection process (TODO).
+The best value for gamma is chosen during the model selection process (TODO).
 
 <p>
 The input raster is binary, value 1 represents development, value 0 no development.
@@ -26,10 +26,14 @@ window in cells (2 * size + 1).
 <h2>NOTES</h2>
 By default NULL values are propagated.
 This means that the edges of resulting map will be NULLs. To avoid that,
-flag <b>n<b> internally enlarges the computational region,
+flag <b>n</b> internally enlarges the computational region,
 converts NULLs to zeros, performs the computation
 and then patches back the original NULL values.
 
+<p>
+Module <em>r.futures.devpressure</em>, although written for FUTURES model,
+is general enough to be used for different applications where distance pressure
+ can be described with the functions above.
 
 
 <h2>EXAMPLES</h2>
