@@ -12,7 +12,7 @@
 # COPYRIGHT:    (C) 2015 by the GRASS Development Team
 #
 #		This program is free software under the GNU General Public
-#		License (version 2). Read the file COPYING that comes with GRASS
+#		License (>=v2). Read the file COPYING that comes with GRASS
 #		for details.
 #
 ##############################################################################
@@ -77,13 +77,13 @@
 #%end
 #%option G_OPT_F_OUTPUT
 #% key: patch_sizes
-#% description: File with patch sizes
+#% description: Output file with patch sizes
 #% required: yes
 #% guisection: Calibration
 #%end
 #%option G_OPT_F_OUTPUT
 #% key: calibration_results
-#% description: File with calibration results
+#% description: Output file with calibration results
 #% required: yes
 #% guisection: Calibration
 #%end
@@ -436,13 +436,13 @@ def main():
                 proc_list.append(p)
                 proc_count += 1
                 if proc_count == nprocs or count == num_all:
-                        for i in range(proc_count):
-                            proc_list[i].join()
-                            data = queue_list[i].get()
-                            f.write(' '.join([str(data['input_discount_factor']), str(data['area_distance']),
-                                              str(data['input_compactness_mean']), str(data['input_compactness_range']),
-                                              str(data['compactness_distance'])]))
-                            f.write('\n')
+                    for i in range(proc_count):
+                        proc_list[i].join()
+                        data = queue_list[i].get()
+                        f.write(' '.join([str(data['input_discount_factor']), str(data['area_distance']),
+                                          str(data['input_compactness_mean']), str(data['input_compactness_range']),
+                                          str(data['compactness_distance'])]))
+                        f.write('\n')
                     proc_count = 0
                     proc_list = []
                     queue_list = []
