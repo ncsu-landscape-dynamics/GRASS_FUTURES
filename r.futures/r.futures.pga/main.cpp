@@ -1808,7 +1808,7 @@ int main(int argc, char **argv)
     opt.discountFactor->guisection = _("PGA");
 
     opt.patchMean = G_define_option();
-    opt.patchMean->key = "patch_mean";
+    opt.patchMean->key = "compactness_mean";
     opt.patchMean->type = TYPE_DOUBLE;
     opt.patchMean->required = YES;
     opt.patchMean->description =
@@ -1816,7 +1816,7 @@ int main(int argc, char **argv)
     opt.patchMean->guisection = _("PGA");
 
     opt.patchRange = G_define_option();
-    opt.patchRange->key = "patch_range";
+    opt.patchRange->key = "compactness_range";
     opt.patchRange->type = TYPE_DOUBLE;
     opt.patchRange->required = YES;
     opt.patchRange->description =
