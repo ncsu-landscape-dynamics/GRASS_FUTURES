@@ -11,6 +11,39 @@ and a contextually aware region growing mechanism.
 Simulations of change at each time step feed development pressure back
 to the POTENTIAL submodel, influencing site suitability for the next step.
 
+<h3>Patch growing</h3>
+Patches are constructed in
+three steps. First, a potential seed is randomly selected from available cells.
+In case <b>seed_search</b> is 2, the probability value (based on POTENTIAL)
+of the seed is tested using Monte Carlo approach, and if it doesn't survive,
+new potential seed is selected and tested.
+Second, using a 4- or 8-neighbor (see <b>num_neighbors</b>) search rule PGA grows the patch.
+PGA decides on the suitability of contiguous cells based on their
+underlying development potential and distance to the seed adjusted
+by compactness parameter given in <b>compactness_mean</b> and <b>compactness_range</b>.
+The size of the patch is determined by randomly selecting a patch size from <b>patch sizes</b> file
+and multiplied by <b>discount_factor</b>. To find optimal values
+for patch sizes and compactness, use module <a href="r.futures.calib.html">r.futures.calib</a>.
+Once a cell is converted, it remains developed.
+PGA continues to grow patches until the per capita land demand is satisfied.
+
+<h3>Development pressure</h3>
+Development pressure is a dynamic spatial variable
+derived from the patch-building process of PGA and associated with the POTENTIAL submodel.
+At each time step, PGA updates the POTENTIAL probability surface based on land change,
+and the new development pressure then affects future land change.
+The initail development pressure is computed using module <a href="r.futures.devpressure.html">
+r.futures.devpressure</a>. The same input parameters of this module
+(<b>gamma</b>, <b>scaling factor</b> and <b>n_dev_neighbourhood</b>)
+are then used as input for <a href="r.futures.pga.html">
+r.futures.pga</a>.
+
+<h3>Output</h3>
+After the simulation ends, raster specified in parameter <b>output</b> is written.
+If optional parameter <b>output_series</b> is specified, additional output
+is a series of raster maps for each step.
+Cells with value 0 represents the initial development, values >= 1 then represent
+the step in which the cell was developed. Undeveloped cells have value -1.
 <p>
 <center>
 <img src="r_futures.png">
@@ -29,7 +62,7 @@ Figure: Detail of output map
 <h2>EXAMPLE</h2>
 
 <div class="code"><pre>
-r.futures.pga -s employ_attraction=d2urbkm interchange_distance=d2intkm road_density=d2rdskm undeveloped=lc96 development_pressure=gdp cons_weight=weight_1 additional_variable_files=slope n_dev_neighbourhood=10 devpot_params=devpotParams.cfg parcel_size_file=patch_sizes.txt discount_factor=0.6 probability_lookup_file=probLookup.csv patch_factor=1 patch_mean=0.4 patch_range=0.08 num_neighbors=4 seed_search=2 development_pressure_approach=2 alpha=2 scaling_factor=10 num_regions=9 index_file=index control_file_all=demand.txt output=final_results output_series=development
+r.futures.pga -s developed=lc96 predictors=d2urbkm,d2intkm,d2rdskm,slope demand=demand.txt devpot_params=devpotParams.csv discount_factor=0.6 compactness_mean=0.4 compactness_range=0.08 num_neighbors=4 seed_search=2 patch_sizes=patch_sizes.txt development_pressure=gdp n_dev_neighbourhood=10 development_pressure_approach=gravity gamma=2 scaling_factor=1 subregions=subregions  num_regions=9 incentive_table=probLookup.csv constrain_weight=weight_1 output=final_results output_series=development
 </pre></div>
 
 
@@ -38,7 +71,7 @@ r.futures.pga -s employ_attraction=d2urbkm interchange_distance=d2intkm road_den
 Module holds all data in the memory, so for large areas the memory requirements
 are high.
 
-The inputs are not documented.
+Some inputs are not yet documented.
 
 
 <h2>REFERENCES</h2>
