@@ -1840,7 +1840,7 @@ int main(int argc, char **argv)
     opt.seedSearch->options = "1,2";
     opt.seedSearch->answer="2";
     opt.seedSearch->description =
-        _("The way that the location of a seed is determined");
+        _("The way location of a seed is determined (1: uniform distribution 2: development probability)");
     opt.seedSearch->guisection = _("PGA");
 
     opt.parcelSizeFile = G_define_standard_option(G_OPT_F_INPUT);
