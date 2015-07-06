@@ -32,11 +32,39 @@ Development pressure is a dynamic spatial variable
 derived from the patch-building process of PGA and associated with the POTENTIAL submodel.
 At each time step, PGA updates the POTENTIAL probability surface based on land change,
 and the new development pressure then affects future land change.
-The initail development pressure is computed using module <a href="r.futures.devpressure.html">
+The initial development pressure is computed using module <a href="r.futures.devpressure.html">
 r.futures.devpressure</a>. The same input parameters of this module
 (<b>gamma</b>, <b>scaling factor</b> and <b>n_dev_neighbourhood</b>)
 are then used as input for <a href="r.futures.pga.html">
 r.futures.pga</a>.
+
+<h3>Scenarios</h3>
+Scenarios involving policies that encourage infill versus sprawl
+can be explored using the <b>incentive_table</b> parameter,
+which uses a power function to transform the probability in POTENTIAL.
+
+A simple incentive table can be generated using the
+following commands in Python:
+<div class="code"><pre>
+import numpy as np
+power = 2
+x = np.linspace(0, 1, 1001)
+np.savetxt(fname="incentive_table.txt", fmt='%1.3f', delimiter=',',
+           X=np.column_stack((x, np.power(x, power))))
+</pre></div>
+
+<center>
+<img src="incentive.png">
+<p>
+Figure: Effect of incentive table on development probability
+</center>
+<p>
+Additionally, parameter <b>constrain_weight</b> (raster map from 0 to 1)
+enables to include policies (such as new regulations or fees) which limit the
+development in certain areas.
+The probability surface is simply multiplied by the <b>constrain_weight</b> values,
+which results in decreased site suitability in areas,
+where the <b>constrain_weight</b> values are lower than 1.
 
 <h3>Output</h3>
 After the simulation ends, raster specified in parameter <b>output</b> is written.
