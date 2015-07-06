@@ -11,3 +11,6 @@ if [ $# -lt 1 ] ; then
 fi
 
 cp -r r.futures/* $1
+rm $1/r.futures.pga/Doxyfile
+rm $1/r.futures.pga/incentive.svg
+rm $1/r.futures.pga/futures_indent.sh
