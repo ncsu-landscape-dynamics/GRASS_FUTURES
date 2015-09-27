@@ -1,0 +1,39 @@
+<h2>DESCRIPTION</h2>
+The <em>r.futures.demand</em> module of FUTURES
+determines the quantity of expected land changed.
+It creates a demand table as the number of cells to be converted
+at each time step for each subregion.
+
+<p>
+The format of demand table:
+<pre>
+Years_to_simulate: 24
+year	1_ASHE	2_ALLEGHANY	3_WILKES	4_WATAUGA	5_AVERY	6_MITCHELL	7_YANCEY	8_MADISON	9_BUNCOMBE	10_HAYWOOD	11_SWAIN	12_JACKSON	13_GRAHAM	14_HENDERSON	15_TRANSLYVANIA	16_POLK	17_MACON	18_CHEROKEE	19_CLAY
+2007	0	243	0	0	682	0	0	1254	0	0	575	0	0	0	0	0	0	0	0
+2008	3881	658	3120	2390	158	487	1492	1487	6408	1789	504	1837	206	4992	1055	111	1796	1308	535
+2009	3881	658	3120	2390	158	487	1492	1487	6408	1789	504	1837	206	4992	1055	111	1796	1308	535
+2010	3881	658	3120	2390	158	487	1492	1487	6408	1789	504	1837	206	4992	1055	111	1796	1308	535
+2011	3125	744	2629	2231	196	274	1306	1468	5823	1440	881	2726	355	4500	750	121	1709	2063	639
+2012	3125	744	2629	2231	196	274	1306	1468	5823	1440	881	2726	355	4500	750	121	1709	2063	639
+2013	3125	744	2629	2231	196	274	1306	1468	5823	1440	881	2726	355	4500	750	121	1709	2063	639
+2014	3125	744	2629	2231	196	274	1306	1468	5823	1440	881	2726	355	4500	750	121	1709	2063	639
+...
+</pre>
+
+<h2>EXAMPLES</h2>
+<div class="code"><pre>
+r.futures.demand devel=ash_lc_1976,ash_lc_1985,ash_lc_1995,ash_lc_2006 \
+sub=index2_in observ_pop=ashvile_observed_population.csv \
+proj_pop=ashvile_projected_population.csv simul=`seq -s, 2007 2030` sep=comma \
+demand=demand_sub1.txt plot=regression_lin.pdf method=linear
+</pre></div>
+
+<h2>SEE ALSO</h2>
+
+<em><a href="r.futures.demand.html">r.futures.demand</a></em>
+
+<h2>AUTHOR</h2>
+
+Anna Petrasova, <a href="http://geospatial.ncsu.edu/osgeorel/">NCSU OSGeoREL</a><br>
+
+<p><i>Last changed: $Date: 2015-02-12 14:32:45 -0500 (Thu, 12 Feb 2015) $</i>
