@@ -29,7 +29,7 @@
 #%end
 #%option G_OPT_R_INPUT
 #% key: subregions
-#% description: Raster map of subregions with categories starting with 1
+#% description: Raster map of subregions
 #% guisection: Input maps
 #%end
 #%option G_OPT_F_INPUT
@@ -53,12 +53,12 @@
 #%option
 #% type: string
 #% key: method
-#% multiple: no
+#% multiple: yes
 #% required: yes
 #% description: Relationship between developed cells (dependent) and population (explanatory)
-#% options: best, linear, logarithmic, exponential
-#% descriptions:best;smallest RMSE from linear, logarithmic or exponential;linear;y = A + Bx;logarithmic;y = A + Bln(x);exponential;y = Ae^(BX)
-#% answer: linear
+#% options: linear, logarithmic, exponential
+#% descriptions:linear;y = A + Bx;logarithmic;y = A + Bln(x);exponential;y = Ae^(BX)
+#% answer: linear,logarithmic
 #% guisection: Optional
 #%end
 #%option G_OPT_F_OUTPUT
@@ -91,7 +91,7 @@ def main():
     projected_popul_file = options['projected_population']
     sep = gutils.separator(options['separator'])
     subregions = options['subregions']
-    method = options['method']
+    methods = options['method'].split(',')
     plot = options['plot']
     simulation_times = [float(each) for each in options['simulation_times'].split(',')]
 
@@ -110,6 +110,7 @@ def main():
     table_developed = {}
     subregionIds = set()
     for i in range(len(observed_times)):
+        gcore.percent(i, len(observed_times), 1)
         data = gcore.read_command('r.univar', flags='gt', zones=subregions, map=developments[i])
         for line in data.splitlines():
             stats = line.split('|')
@@ -120,15 +121,15 @@ def main():
             if i == 0:
                 table_developed[subregionId] = []
             table_developed[subregionId].append(developed_cells)
+        gcore.percent(1, 1, 1)
     subregionIds = sorted(list(subregionIds))
-
     # linear interpolation between population points
     population_for_simulated_times = {}
     for subregionId in table_developed.keys():
-            population_for_simulated_times[subregionId] = np.interp(simulation_times,
-                                                                    np.append(observed_times, projected_times),
-            np.append(observed_popul[observed_popul.dtype.names[subregionId]],
-                      projected_popul[projected_popul.dtype.names[subregionId]]))
+        population_for_simulated_times[subregionId] = np.interp(x=simulation_times,
+                                                                xp=np.append(observed_times, projected_times),
+                                                                fp=np.append(observed_popul[str(subregionId)],
+                                                                             projected_popul[str(subregionId)]))
     # regression
     demand = {}
     i = 0
@@ -136,10 +137,7 @@ def main():
         import matplotlib.pyplot as plt
         n_plots = np.ceil(np.sqrt(len(subregionIds)))
         fig = plt.figure(figsize=(5 * n_plots, 5 * n_plots))
-    if method == 'best':
-        methods = ['linear', 'logarithmic', 'exponential']
-    else:
-        methods = [method]
+
     for subregionId in subregionIds:
         i += 1
         rmse = dict()
@@ -148,7 +146,7 @@ def main():
         coeff = dict()
         for method in methods:
             # observed population points for subregion
-            reg_pop = observed_popul[observed_popul.dtype.names[subregionId]]
+            reg_pop = observed_popul[str(subregionId)]
             if method == 'logarithmic':
                 reg_pop = np.log(reg_pop)
             if method == 'exponential':
@@ -173,21 +171,25 @@ def main():
 
         method = min(rmse, key=rmse.get)
         # write demand
-        demand[subregionId] = np.insert(predicted[method], 0, table_developed[subregionId][-1])
+        demand[subregionId] = predicted[method]
         demand[subregionId] = np.diff(demand[subregionId])
         if np.any(demand[subregionId] < 0):
             gcore.warning(_("Subregion {sub} has negative numbers"
-                            " of newly developed cells, changing to zero".format(sub=observed_popul.dtype.names[subregionId])))
+                            " of newly developed cells, changing to zero".format(sub=subregionId)))
             demand[subregionId][demand[subregionId] < 0] = 0
+        if m < 0:
+            demand[subregionId].fill(0)
+            gcore.warning(_("For subregion {sub} population and development are inversely proportional,"
+                            "will result in zero demand".format(sub=subregionId)))
 
         # draw
         if plot:
             ax = fig.add_subplot(n_plots, n_plots, i)
-            ax.set_title(observed_popul.dtype.names[subregionId] + ', RMSE: ' + str(rmse[method]))
+            ax.set_title(str(subregionId) + ', RMSE: ' + str(rmse[method]))
             ax.set_xlabel('population')
             ax.set_ylabel('developed cells')
             # plot known points
-            x = np.array(observed_popul[observed_popul.dtype.names[subregionId]])
+            x = np.array(observed_popul[str(subregionId)])
             y = np.array(table_developed[subregionId])
             ax.plot(x, y, marker='o', linestyle='', markersize=8)
             # plot predicted curve
@@ -218,16 +220,16 @@ def main():
         f.write('\t'.join(observed_popul.dtype.names))
         f.write('\n')
         i = 0
-        for time in simulation_times:
+        for time in simulation_times[1:]:
             f.write(str(int(time)))
             f.write('\t')
             # put 0 where there are more counties but are not in region
-            for sub in range(len(observed_popul.dtype.names)):
-                if sub + 1 not in subregionIds:
+            for sub in subregionIds:
+                if sub not in subregionIds:
                     f.write('0')
                 else:
-                    f.write(str(int(demand[sub + 1][i])))
-                if sub + 1 != subregionIds[-1]:
+                    f.write(str(int(demand[sub][i])))
+                if sub != subregionIds[-1]:
                     f.write('\t')
             f.write('\n')
             i += 1
