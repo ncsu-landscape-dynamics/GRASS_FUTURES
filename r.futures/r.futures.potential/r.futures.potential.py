@@ -56,6 +56,10 @@
 #% required: no
 #% options: 1-20
 #%end
+#%flag
+#% key: d
+#% description: Use dredge fuction to find best model
+#%end
 
 import sys
 import atexit
@@ -77,8 +81,9 @@ option_list = list(
   make_option(c("-o","--output"), action="store", default=NA, type='character', help="output CSV file"),
   make_option(c("-l","--level"), action="store", default=NA, type='character', help="level variable name"),
   make_option(c("-r","--response"), action="store", default=NA, type='character', help="binary response variable name"),
-  make_option(c("-m","--minimum"), action="store", default=NA, type='integer', help="minimum number of variables"),
-  make_option(c("-x","--maximum"), action="store", default=NA, type='integer', help="maximum number of variables")
+  make_option(c("-d","--usedredge"), action="store", default=NA, type='logical', help="use dredge to find best model"),
+  make_option(c("-m","--minimum"), action="store", default=NA, type='integer', help="minimum number of variables for dredge"),
+  make_option(c("-x","--maximum"), action="store", default=NA, type='integer', help="maximum number of variables for dredge")
 )
 
 opt = parse_args(OptionParser(option_list=option_list))
@@ -92,14 +97,16 @@ predictors <- predictors[predictors != opt$response]
 
 interc <- paste("(1|", opt$level, ")")
 fmla <- as.formula(paste(opt$response, " ~ ", paste(c(predictors, interc), collapse= "+")))
-global.model = glmer(formula=fmla, family = binomial, data=input_data, na.action = "na.fail")
+model = glmer(formula=fmla, family = binomial, data=input_data, na.action = "na.fail")
 
-#create all possible models, always include county as the level
-select.model <- dredge(global.model, evaluate=TRUE, rank="AIC", fixed=~(1|opt$level), m.min=opt$minimum, m.max=opt$maximum, trace=FALSE)
+if(opt$usedredge) {
+    #create all possible models, always include county as the level
+    select.model <- dredge(model, evaluate=TRUE, rank="AIC", fixed=~(1|opt$level), m.lim=c(opt$minimum, opt$maximum), trace=FALSE)
 
-# save the best model
-model.best <- get.models(select.model, 1)
-model = glmer(formula(model.best[[1]]), family = binomial, data=input_data, na.action = "na.fail")
+    # save the best model
+    model.best <- get.models(select.model, 1)
+    model = glmer(formula(model.best[[1]]), family = binomial, data=input_data, na.action = "na.fail")
+}
 print(summary(model))
 coefs <- as.data.frame(coef(model)[[1]])
 write.table(cbind(rownames(coefs), coefs), opt$output, row.names=FALSE, sep="\t")
@@ -122,11 +129,12 @@ def main():
     binary = options['developed_column']
     level = options['subregions_column']
     minim = int(options['min_variables'])
+    dredge = flags['d']
     if options['max_variables']:
         maxv = (options['max_variables'])
     else:
         maxv = len(columns) - 2
-    if minim > maxv:
+    if dredge and minim > maxv:
         gscript.fatal(_("Minimum number of predictor variables is larger than maximum number"))
 
     global TMP_CSV, TMP_RSCRIPT, TMP_POT
@@ -136,12 +144,17 @@ def main():
         f.write(rscript)
     TMP_POT = gscript.tempfile(create=False) + '_potential.csv'
 
+    columns += [binary, level]
     gscript.run_command('v.db.select', map=vinput, columns=columns, separator='comma', file=TMP_CSV)
 
-    gscript.info(_("Running automatic model selection ..."))
-    p = subprocess.Popen(['Rscript', TMP_RSCRIPT, '-i', TMP_CSV, '-l', level,  '-r', binary,  '-m', str(minim), '-x', str(maxv), '-o', TMP_POT],
+    if dredge:
+        gscript.info(_("Running automatic model selection ..."))
+    else:
+        gscript.info(_("Computing model..."))
+    p = subprocess.Popen(['Rscript', TMP_RSCRIPT, '-i', TMP_CSV, '-l', level,  '-r', binary,  '-m', str(minim), '-x', str(maxv), '-o', TMP_POT, '-d', 'TRUE' if dredge else 'FALSE'],
                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = p.communicate()
+    print stderr
     if p.returncode != 0:
         print stderr
         gscript.fatal(_("Running R script failed, check messages above"))
