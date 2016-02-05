@@ -107,7 +107,7 @@ extern "C"
 #define _N_ALGORITHM_STOCHASTIC_II 3
 
 #define _MAX_RAND_FIND_SEED_FACTOR 25
-#define maxNumAddVariables 10
+#define maxNumAddVariables 20
 
 /** maximal number of counties allowed */
 #define MAXNUM_COUNTY 200
@@ -154,8 +154,8 @@ typedef struct
     /** multiplicative factor on the probabilities */
     double consWeight;
 
-    /** additional variables */
-    double additionVariable[maxNumAddVariables];
+    /** additional variables, see t_Landscape.predictors */
+    double *additionVariable;
     int index_region;
     float devProba;
 } t_Cell;
@@ -204,6 +204,9 @@ typedef struct
     int parcelSizes;
       std::vector < std::vector < t_Undev > >asUndevs;  //WT
     int num_undevSites[MAXNUM_COUNTY];  //WT
+
+    /** array of predictor variables ordered as p1,p2,p3,p1,p2,p3 */
+    double *predictors;
 } t_Landscape;
 
 typedef struct
@@ -442,6 +445,7 @@ void readData4AdditionalVariables(t_Landscape * pLandscape,
     int ii;
     double val;
 
+    double *predictors = (double *)G_malloc(pParams->numAddVariables * pLandscape->totalCells * sizeof(double));
     for (i = 0; i < pParams->numAddVariables; i++) {
         G_verbose_message("Reading predictor variables %s...", pParams->addVariableFile[i]);
 
@@ -468,6 +472,8 @@ void readData4AdditionalVariables(t_Landscape * pLandscape,
                     pLandscape->asCells[ii].nCellType =
                         _CELL_OUT_OF_COUNTY;
                 }
+                if (i == 0)
+                    pLandscape->asCells[ii].additionVariable = &predictors[pParams->numAddVariables * ii];
                 if (pLandscape->asCells[ii].nCellType == _CELL_VALID)
                     pLandscape->asCells[ii].additionVariable[i] = val;
                 else
@@ -2158,6 +2164,7 @@ int main(int argc, char **argv)
         G_fatal_error("Initialization failed");
     }
     delete sParams.region_map;
+    G_free(sLandscape.predictors);
 
     return EXIT_SUCCESS;
 }
