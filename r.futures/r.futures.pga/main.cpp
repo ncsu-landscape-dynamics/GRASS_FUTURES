@@ -157,7 +157,6 @@ typedef struct
     /** additional variables, see t_Landscape.predictors */
     double *additionVariable;
     int index_region;
-    float devProba;
 } t_Cell;
 
 typedef struct
@@ -2245,7 +2244,6 @@ void findAndSortProbsAll(t_Landscape * pLandscape, t_Params * pParams,
                     pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].
                         logitVal = val;
                     G_debug(2, "logit value %f", val);
-                    pThis->devProba = val;
                     /* lookup table of probabilities is applied before consWeight */
                     if (pParams->nAlgorithm == _N_ALGORITHM_STOCHASTIC_II) {
                         /* replace with value from lookup table */
@@ -2262,9 +2260,6 @@ void findAndSortProbsAll(t_Landscape * pLandscape, t_Params * pParams,
                                                  num_undevSites[id]].
                             logitVal = pParams->adProbLookup[lookupPos];
                     }
-                    pThis->devProba =
-                        pLandscape->asUndevs[id][pLandscape->
-                                                 num_undevSites[id]].logitVal;
                     // discount by a conservation factor
                     pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].logitVal *= pThis->consWeight;
                     /* need to store this to put correct elements near top of list */
