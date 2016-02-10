@@ -408,11 +408,12 @@ void readData4AdditionalVariables(t_Landscape * pLandscape,
         void *buffer = Rast_allocate_buf(data_type);
 
         ii = 0;
-        for (int row = 0; row < pParams->xSize; row++) {
+        int row, col;
+        for (row = 0; row < pParams->xSize; row++) {
             Rast_get_row(fd, buffer, row, data_type);
             void *ptr = buffer;
 
-            for (int col = 0; col < pParams->ySize; col++,
+            for (col = 0; col < pParams->ySize; col++,
                  ptr = G_incr_void_ptr(ptr, Rast_cell_size(data_type))) {
                 if (data_type == DCELL_TYPE)
                     val = *(DCELL *) ptr;
@@ -454,11 +455,12 @@ void readIndexData(t_Landscape * pLandscape, t_Params * pParams)
     G_verbose_message("Reading subregions %s", pParams->indexFile);
     int count_regions = 0;
     int index = 0;
-    for (int row = 0; row < pParams->xSize; row++) {
+    int row, col;
+    for (row = 0; row < pParams->xSize; row++) {
         Rast_get_row(fd, buffer, row, data_type);
         void *ptr = buffer;
 
-        for (int col = 0; col < pParams->ySize; col++,
+        for (col = 0; col < pParams->ySize; col++,
              ptr = G_incr_void_ptr(ptr, Rast_cell_size(data_type))) {
             if (Rast_is_null_value(ptr, data_type))
                 index = _GIS_NO_DATA_INT; // assign FUTURES representation of NULL value
@@ -530,13 +532,13 @@ int readData(t_Landscape * pLandscape, t_Params * pParams)
             bRet = 1;  /* can only get worse from here on in */
             RASTER_MAP_TYPE data_type = Rast_get_map_type(fd);
             void *buffer = Rast_allocate_buf(data_type);
-
-            for (int row = 0; row < pParams->xSize; row++) {
+            int row, col;
+            for (row = 0; row < pParams->xSize; row++) {
                 y = 0;
                 Rast_get_row(fd, buffer, row, data_type);
                 void *ptr = buffer;
 
-                for (int col = 0; col < pParams->ySize; col++,
+                for (col = 0; col < pParams->ySize; col++,
                      ptr = G_incr_void_ptr(ptr, Rast_cell_size(data_type))) {
                     CELL iVal;
 
@@ -669,10 +671,10 @@ void outputDevRasterStep(t_Landscape * pLandscape, t_Params * pParams,
 {
     int out_fd = Rast_open_new(rasterNameBase, CELL_TYPE);
     CELL *out_row = Rast_allocate_c_buf();
-
-    for (int x = 0; x < pLandscape->maxX; x++) {
+    int x, y;
+    for (x = 0; x < pLandscape->maxX; x++) {
         Rast_set_c_null_value(out_row, pLandscape->maxY);
-        for (int y = 0; y < pLandscape->maxY; y++) {
+        for (y = 0; y < pLandscape->maxY; y++) {
             // we don't check return values since we use landscape directly
             int cellId = posFromXY(x, y, pLandscape);
 
@@ -1163,7 +1165,8 @@ void readDevDemand(t_Params * pParams)
     struct ilist *ids = G_new_ilist();
     int count;
     // skip first column which does not contain id of the region
-    for (int i = 1; i < ntokens; i++) {
+    int i;
+    for (i = 1; i < ntokens; i++) {
             G_chop(tokens[i]);
             G_ilist_add(ids, atoi(tokens[i]));
     }
@@ -1176,7 +1179,8 @@ void readDevDemand(t_Params * pParams)
         if (ntokens == 0)
             continue;
         count = 0;
-        for (int i = 1; i < ntokens; i++) {
+        int i;
+        for (i = 1; i < ntokens; i++) {
             // skip first column which is the year which we ignore
             int idx;
             if (KeyValueIntInt_find(pParams->region_map, ids->value[count], &idx)) {
@@ -1761,7 +1765,8 @@ int main(int argc, char **argv)
             readData4AdditionalVariables(&sLandscape, &sParams);
             readIndexData(&sLandscape, &sParams);
             // initialize the overflow demands to zero
-            for (int i = 0; i < sParams.num_Regions; i++) {
+            int i;
+            for (i = 0; i < sParams.num_Regions; i++) {
                 sParams.overflowDevDemands[i] = 0;
             }
             readDevDemand(&sParams);
