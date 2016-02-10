@@ -351,7 +351,7 @@ void readDevPotParams(t_Params * pParams, char *fn)
             pParams->dV4[idx] = d4;
             for (j = 0; j < pParams->numAddVariables; j++) {
                 G_chop(tokens[j + 3]);
-                d4 = atof(tokens[j + 3]);
+                val = atof(tokens[j + 3]);
                 pParams->addParameters[j][idx] = val;
             }
         }
@@ -362,6 +362,7 @@ void readDevPotParams(t_Params * pParams, char *fn)
 
     G_free(buf);
     fclose(fp);
+    //exit(1);
 }
 
 /**
