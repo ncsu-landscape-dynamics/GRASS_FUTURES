@@ -10,11 +10,12 @@
  *               Douglas A. Shoemaker
  *               Jennifer A. Koch
  *               Vaclav Petras <wenzeslaus gmail com>
+ *               Anna Petrasova
  *               (See the manual page for details and references.)
  *
  * PURPOSE:      Simulation of urban-rural landscape structure (FUTURES model)
  *
- * COPYRIGHT:    (C) 2013-2014 by Meentemeyer et al.
+ * COPYRIGHT:    (C) 2013-2016 by Anna Petrasova and Meentemeyer et al.
  *
  *               This program is free software: you can redistribute it and/or
  *               modify it under the terms of the GNU General Public License
@@ -50,18 +51,16 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <math.h>
 #include <sys/time.h>
 
-extern "C"
-{
 #include <grass/gis.h>
 #include <grass/raster.h>
 #include <grass/glocale.h>
 
 #include "keyvalue.h"
-}
 
 //#include "distance.h"
 
@@ -288,7 +287,7 @@ typedef struct
     int overflowDevDemands[MAXNUM_COUNTY];
     /// number of simulation steps
     int nSteps;
-    KeyValueIntInt *region_map;
+    struct KeyValueIntInt *region_map;
 } t_Params;
 
 
