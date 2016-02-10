@@ -362,7 +362,6 @@ void readDevPotParams(t_Params * pParams, char *fn)
 
     G_free(buf);
     fclose(fp);
-    //exit(1);
 }
 
 /**
