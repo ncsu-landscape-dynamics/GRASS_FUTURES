@@ -13,7 +13,8 @@ For these years, user has to provide the population numbers for each subregion
 in parameter <b>observed_population</b> as a CSV file.
 The format is as follows. First column is time
 (matching the time of rasters used in parameter <b>development</b>) and
-first row is the category of the subregion.
+first row is the category of the subregion. The separator can be set
+with parameter <b>separator</b>.
 <pre>
 year	1	2	...
 1985	19860	10980	...
@@ -51,7 +52,6 @@ based on RMSE. Recommended methods are logarithmic or linear.
 <p>
 The format of the output <b>demand</b> table is:
 <pre>
-Years_to_simulate: 24
 year	1	2	...
 2016	2900	243	...
 2017	2790	240	...
@@ -69,6 +69,7 @@ By changing the "Years_to_simulate" number, user can control the simulation.
 <p>
 An optional output <b>plot</b> is a plot of the relations for each subregion.
 It allows to more effectively assess the relation suitable for each subregion.
+Format of the file is determined from the extension and can be for example PNG, PDF, SVG.
 
 <center>
 <img src="r_futures_demand_plot.png">

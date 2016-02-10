@@ -64,7 +64,8 @@
 #%option G_OPT_F_OUTPUT
 #% key: plot
 #% required: no
-#% description: Save plotted relationship between developed cells and population into a file
+#% label: Save plotted relationship between developed cells and population into a file
+#% description: File type is given by extension (.pfd, .png, .svg)
 #% guisection: Output
 #%end
 #%option G_OPT_F_OUTPUT
@@ -75,6 +76,7 @@
 #%option G_OPT_F_SEP
 #% label: Separator used in input CSV files
 #% guisection: Input population
+#% answer: comma
 #%end
 
 
