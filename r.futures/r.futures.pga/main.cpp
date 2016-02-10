@@ -53,12 +53,6 @@
 #include <string.h>
 #include <math.h>
 #include <sys/time.h>
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <vector>
-#include <map>
 
 extern "C"
 {
@@ -116,7 +110,6 @@ extern "C"
 #define MAX_YEARS 100
 /// maximum array size for undev cells (maximum: 1840198 for a county within 16 counties)
 #define MAX_UNDEV_SIZE 2000000
-using namespace std;
 
 
 /* Wenwu Tang */
