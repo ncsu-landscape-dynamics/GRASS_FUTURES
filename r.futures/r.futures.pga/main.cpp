@@ -320,7 +320,7 @@ void readDevPotParams(t_Params * pParams, char *fn)
     const char *td = "\"";
 
     size_t buflen = 4000;
-    char *buf = (char *)G_malloc(buflen);
+    char buf[buflen];
     if (G_getl2(buf, buflen, fp) == 0)
         G_fatal_error(_("Development potential parameters file <%s>"
                         " contains less than one line"), fn);
@@ -360,7 +360,6 @@ void readDevPotParams(t_Params * pParams, char *fn)
         G_free_tokens(tokens);
     }
 
-    G_free(buf);
     fclose(fp);
 }
 
@@ -1481,11 +1480,16 @@ int convertCells(t_Landscape * pLandscape, t_Params * pParams, int nThisID,
 
 void readDevDemand(t_Params * pParams)
 {
-    FILE *fp = fopen(pParams->controlFileAll, "r");
+    FILE *fp;
+    if ((fp = fopen(pParams->controlFileAll, "r")) == NULL)
+        G_fatal_error(_("Cannot open population demand file <%s>"),
+                      pParams->controlFileAll);
 
     size_t buflen = 4000;
-    char *buf = (char *) G_malloc(buflen);
-    G_getl2(buf, buflen, fp);
+    char buf[buflen];
+    if (G_getl2(buf, buflen, fp) == 0)
+        G_fatal_error(_("Population demand file <%s>"
+                        " contains less than one line"), pParams->controlFileAll);
 
     char **tokens;
     int ntokens;
@@ -1500,7 +1504,6 @@ void readDevDemand(t_Params * pParams)
 
     std::vector<int> ids;
     int count;
-    G_message("count id: %d", count);
     // skip first column which does not contain id of the region
     for (int i = 1; i < ntokens; i++) {
             G_chop(tokens[i]);
@@ -1527,11 +1530,10 @@ void readDevDemand(t_Params * pParams)
         // each line is a year
         years++;
     }
-    G_message("years: %d", years);
+    G_verbose_message("Number of steps in demand file: %d", years);
     if (!sParams.nSteps)
         sParams.nSteps = years;
     G_free_tokens(tokens);
-    G_free(buf);
 }
 
 void initializeUnDev(t_Landscape * pLandscape, t_Params * pParams)
