@@ -19,7 +19,7 @@ class TestPGA(TestCase):
         """Remove viewshed map after each test method"""
         # TODO: eventually, removing maps should be handled through testing framework fucntions
         cls.runModule('g.remove', flags='f', type='raster',
-                      name=cls.viewshed)
+                      name=cls.output)
 
     def test_pga_run(self):
         """Test if results is in expected limits"""
