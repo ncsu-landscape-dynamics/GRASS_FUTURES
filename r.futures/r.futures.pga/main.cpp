@@ -203,12 +203,16 @@ typedef struct
 
     /** number in that sample */
     int parcelSizes;
-      std::vector < std::vector < t_Undev > >asUndevs;  //WT
+    //  std::vector < std::vector < t_Undev > >asUndevs;  //WT
+    t_Undev **asUndevs;
+    size_t asUndevs_m;
+    size_t *asUndevs_ns;
     int num_undevSites[MAXNUM_COUNTY];  //WT
 
     /** array of predictor variables ordered as p1,p2,p3,p1,p2,p3 */
     double *predictors;
 } t_Landscape;
+
 
 typedef struct
 {
@@ -313,32 +317,56 @@ int getUnDevIndex1(t_Landscape * pLandscape, int regionID);
 
 void readDevPotParams(t_Params * pParams, char *fn)
 {
-    ifstream f;
-    f.open(fn);
-    if (!f.is_open())
+    FILE *fp;
+    if ((fp = fopen(fn, "r")) == NULL)
         G_fatal_error(_("Cannot open development potential parameters file <%s>"),
                       fn);
 
-    string line;
-    getline(f, line);
-    int idx = 0;
-    int id, j;
-    double di, d4, val;
-    while(f >> id) {
-        f >>  di >> d4;
+    const char *fs = "\t";
+    const char *td = "\"";
+
+    size_t buflen = 4000;
+    char *buf = (char *)G_malloc(buflen);
+    if (G_getl2(buf, buflen, fp) == 0)
+        G_fatal_error(_("Development potential parameters file <%s>"
+                        " contains less than one line"), fn);
+
+    char **tokens;
+    int ntokens;
+
+    while (G_getl2(buf, buflen, fp)) {
+        tokens = G_tokenize2(buf, fs, td);
+        ntokens = G_number_of_tokens(tokens);
+
+        int idx;
+        int id;
+        double di, d4;
+        double val;
+        int j;
+
+        G_chop(tokens[0]);
+        id = atoi(tokens[0]);
+
         if (KeyValueIntInt_find(pParams->region_map, id, &idx)) {
+            G_chop(tokens[1]);
+            di = atof(tokens[1]);
+            G_chop(tokens[2]);
+            d4 = atof(tokens[2]);
             pParams->dIntercepts[idx] = di;
             pParams->dV4[idx] = d4;
             for (j = 0; j < pParams->numAddVariables; j++) {
-                f >> val;
+                G_chop(tokens[j + 3]);
+                val = atof(tokens[j + 3]);
                 pParams->addParameters[j][idx] = val;
             }
         }
-        else
-            for (j = 0; j < pParams->numAddVariables; j++)
-                f >> val;
+        // else ignoring the line with region which is not used
+
+        G_free_tokens(tokens);
     }
-    f.close();
+
+    G_free(buf);
+    fclose(fp);
 }
 
 /**
@@ -1458,58 +1486,83 @@ int convertCells(t_Landscape * pLandscape, t_Params * pParams, int nThisID,
 
 void readDevDemand(t_Params * pParams)
 {
-    ifstream  data(pParams->controlFileAll);
-    string line;
-    // header
-    int count = 0;
-    //    int count_regions = 0;
-    string value;
-    getline(data, line);
-    stringstream  lineStream(line);
+    FILE *fp = fopen(pParams->controlFileAll, "r");
+
+    size_t buflen = 4000;
+    char *buf = (char *) G_malloc(buflen);
+    G_getl2(buf, buflen, fp);
+
+    char **tokens;
+    int ntokens;
+
+    const char *fs = "\t";
+    const char *td = "\"";
+
+    tokens = G_tokenize2(buf, fs, td);
+    ntokens = G_number_of_tokens(tokens);
+    if (ntokens == 0)
+        G_fatal_error("No columns in the header row");
+
     std::vector<int> ids;
-    while(getline(lineStream, value, '\t'))
-    {
-        if (count != 0) {
-            ids.push_back(atoi(value.c_str()));
-        }
-        count++;
+    int count;
+    G_message("count id: %d", count);
+    // skip first column which does not contain id of the region
+    for (int i = 1; i < ntokens; i++) {
+            G_chop(tokens[i]);
+            ids.push_back(atoi(tokens[i]));
     }
 
     int years = 0;
-    while(getline(data, line))
-    {
-        stringstream lineStream2(line);
-        count = -1;
-        while(getline(lineStream2, value, '\t'))
-        {
+    while(G_getl2(buf, buflen, fp)) {
+        tokens = G_tokenize2(buf, fs, td);
+        ntokens = G_number_of_tokens(tokens);
+        // skip empty lines
+        if (ntokens == 0)
+            continue;
+        count = 0;
+        for (int i = 1; i < ntokens; i++) {
+            // skip first column which is the year which we ignore
             int idx;
-            if (count >= 0 && KeyValueIntInt_find(pParams->region_map, ids[count], &idx)) {
-                pParams->devDemands[idx][years] = atoi(value.c_str());
+            if (KeyValueIntInt_find(pParams->region_map, ids[count], &idx)) {
+                G_chop(tokens[i]);
+                pParams->devDemands[idx][years] = atoi(tokens[i]);
             }
             count++;
         }
+        // each line is a year
         years++;
     }
+    G_message("years: %d", years);
     if (!sParams.nSteps)
         sParams.nSteps = years;
-    data.close();
+    G_free_tokens(tokens);
+    G_free(buf);
 }
 
 void initializeUnDev(t_Landscape * pLandscape, t_Params * pParams)
 {
     int i;
 
-    pLandscape->asUndevs.clear();
-    pLandscape->asUndevs.resize(pParams->num_Regions,
-                                std::vector < t_Undev > (MAX_UNDEV_SIZE));
+    pLandscape->asUndevs = (t_Undev **) G_malloc(pParams->num_Regions * sizeof(t_Undev *));
+    pLandscape->asUndevs_m = pParams->num_Regions;
+    pLandscape->asUndevs_ns = (size_t *) G_malloc(pParams->num_Regions * sizeof(t_Undev *));
+
     for (i = 0; i < pParams->num_Regions; i++) {
+        pLandscape->asUndevs[i] = (t_Undev *) G_malloc(MAX_UNDEV_SIZE * sizeof(t_Undev));
+        pLandscape->asUndevs_ns[i] = MAX_UNDEV_SIZE;
         pLandscape->num_undevSites[i] = 0;
     }
 }
 
 void finalizeUnDev(t_Landscape * pLandscape, t_Params * pParams)
 {
+    int i;
 
+    for (i = 0; i < pParams->num_Regions; i++) {
+        G_free(pLandscape->asUndevs[i]);
+    }
+    G_free(pLandscape->asUndevs);
+    G_free(pLandscape->asUndevs_ns);
 }
 
 /*
@@ -2233,12 +2286,9 @@ void findAndSortProbsAll(t_Landscape * pLandscape, t_Params * pParams,
                                       id, pParams->num_Regions - 1,
                                       pThis->index_region);
 
-                    if (pLandscape->num_undevSites[id] >=
-                        pLandscape->asUndevs[id].size())
-                        pLandscape->asUndevs[id].resize(pLandscape->
-                                                        asUndevs[id].size() *
-                                                        2);
-
+                    if (pLandscape->num_undevSites[id] >= pLandscape->asUndevs_ns[id]) {
+                        pLandscape->asUndevs[id] = (t_Undev *) G_realloc(pLandscape->asUndevs[id], pLandscape->asUndevs_ns[id] * 2 * sizeof(t_Undev));
+                    }
                     pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].
                         cellID = i;
                     val = getDevProbability(pThis, pParams);
