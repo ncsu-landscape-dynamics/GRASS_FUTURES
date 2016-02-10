@@ -218,7 +218,6 @@ def main():
 
     # write demand
     with open(options['demand'], 'w') as f:
-        f.write('Years_to_simulate: {sim}\n'.format(sim=len(simulation_times)))
         header = observed_popul.dtype.names  # the order is kept here
         f.write('\t'.join(header))
         f.write('\n')
