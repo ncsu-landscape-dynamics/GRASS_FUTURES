@@ -311,33 +311,57 @@ int getUnDevIndex1(t_Landscape * pLandscape, int regionID);
 
 void readDevPotParams(t_Params * pParams, char *fn)
 {
-    ifstream f;
-    f.open(fn);
-    if (!f.is_open())
+    FILE *fp;
+    if ((fp = fopen(fn, "r")) == NULL)
         G_fatal_error(_("Cannot open development potential parameters file <%s>"),
                       fn);
 
-    string line;
-    getline(f, line);
-    int idx = 0;
-    int id, j;
-    double di, d4, val;
-    while(f >> id) {
-        f >>  di >> d4;
+    const char *fs = "\t";
+    const char *td = "\"";
+
+    size_t buflen = 4000;
+    char *buf = (char *)G_malloc(buflen);
+    if (G_getl2(buf, buflen, fp) == 0)
+        G_fatal_error(_("Development potential parameters file <%s>"
+                        " contains less than one line"), fn);
+
+    char **tokens;
+    int ntokens;
+
+    while (G_getl2(buf, buflen, fp)) {
+        tokens = G_tokenize2(buf, fs, td);
+        ntokens = G_number_of_tokens(tokens);
+
+        int idx;
+        int id;
+        double di, d4;
+        double val;
+        int j;
+
+        G_chop(tokens[0]);
+        id = atoi(tokens[0]);
+
         if (pParams->region_map->count(id) > 0) {
             idx = (*pParams->region_map)[id];
+            G_chop(tokens[1]);
+            di = atof(tokens[1]);
+            G_chop(tokens[2]);
+            d4 = atof(tokens[2]);
             pParams->dIntercepts[idx] = di;
             pParams->dV4[idx] = d4;
             for (j = 0; j < pParams->numAddVariables; j++) {
-                f >> val;
+                G_chop(tokens[j + 3]);
+                d4 = atof(tokens[j + 3]);
                 pParams->addParameters[j][idx] = val;
             }
         }
-        else
-            for (j = 0; j < pParams->numAddVariables; j++)
-                f >> val;
+        // else ignoring the line with region which is not used
+
+        G_free_tokens(tokens);
     }
-    f.close();
+
+    G_free(buf);
+    fclose(fp);
 }
 
 /**
