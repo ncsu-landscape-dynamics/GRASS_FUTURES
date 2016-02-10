@@ -1457,41 +1457,57 @@ int convertCells(t_Landscape * pLandscape, t_Params * pParams, int nThisID,
 
 void readDevDemand(t_Params * pParams)
 {
-    ifstream  data(pParams->controlFileAll);
-    string line;
-    // header
-    int count = 0;
-    //    int count_regions = 0;
-    string value;
-    getline(data, line);
-    stringstream  lineStream(line);
+    FILE *fp = fopen(pParams->controlFileAll, "r");
+
+    size_t buflen = 4000;
+    char *buf = (char *) G_malloc(buflen);
+    G_getl2(buf, buflen, fp);
+
+    char **tokens;
+    int ntokens;
+
+    const char *fs = "\t";
+    const char *td = "\"";
+
+    tokens = G_tokenize2(buf, fs, td);
+    ntokens = G_number_of_tokens(tokens);
+    if (ntokens == 0)
+        G_fatal_error("No columns in the header row");
+
     std::vector<int> ids;
-    while(getline(lineStream, value, '\t'))
-    {
-        if (count != 0) {
-            ids.push_back(atoi(value.c_str()));
-        }
-        count++;
+    int count;
+    G_message("count id: %d", count);
+    // skip first column which does not contain id of the region
+    for (int i = 1; i < ntokens; i++) {
+            G_chop(tokens[i]);
+            ids.push_back(atoi(tokens[i]));
     }
 
     int years = 0;
-    while(getline(data, line))
-    {
-        stringstream lineStream2(line);
-        count = -1;
-        while(getline(lineStream2, value, '\t'))
-        {
-            if (count >= 0 && pParams->region_map->count(ids[count]) > 0) {
+    while(G_getl2(buf, buflen, fp)) {
+        tokens = G_tokenize2(buf, fs, td);
+        ntokens = G_number_of_tokens(tokens);
+        // skip empty lines
+        if (ntokens == 0)
+            continue;
+        count = 0;
+        for (int i = 1; i < ntokens; i++) {
+            // skip first column which is the year which we ignore
+            if (pParams->region_map->count(ids[count]) > 0) {
                 int idx = (*pParams->region_map)[ids[count]];
-                pParams->devDemands[idx][years] = atoi(value.c_str());
+                G_chop(tokens[i]);
+                pParams->devDemands[idx][years] = atoi(tokens[i]);
             }
             count++;
         }
+        // each line is a year
         years++;
     }
+    G_message("years: %d", years);
     if (!sParams.nSteps)
         sParams.nSteps = years;
-    data.close();
+    G_free_tokens(tokens);
+    G_free(buf);
 }
 
 void initializeUnDev(t_Landscape * pLandscape, t_Params * pParams)
