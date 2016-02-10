@@ -1507,12 +1507,12 @@ void readDevDemand(t_Params * pParams)
     if (ntokens == 0)
         G_fatal_error("No columns in the header row");
 
-    std::vector<int> ids;
+    struct ilist *ids = G_new_ilist();
     int count;
     // skip first column which does not contain id of the region
     for (int i = 1; i < ntokens; i++) {
             G_chop(tokens[i]);
-            ids.push_back(atoi(tokens[i]));
+            G_ilist_add(ids, atoi(tokens[i]));
     }
 
     int years = 0;
@@ -1526,7 +1526,7 @@ void readDevDemand(t_Params * pParams)
         for (int i = 1; i < ntokens; i++) {
             // skip first column which is the year which we ignore
             int idx;
-            if (KeyValueIntInt_find(pParams->region_map, ids[count], &idx)) {
+            if (KeyValueIntInt_find(pParams->region_map, ids->value[count], &idx)) {
                 G_chop(tokens[i]);
                 pParams->devDemands[idx][years] = atoi(tokens[i]);
             }
@@ -1538,6 +1538,7 @@ void readDevDemand(t_Params * pParams)
     G_verbose_message("Number of steps in demand file: %d", years);
     if (!sParams.nSteps)
         sParams.nSteps = years;
+    G_free_ilist(ids);
     G_free_tokens(tokens);
 }
 
