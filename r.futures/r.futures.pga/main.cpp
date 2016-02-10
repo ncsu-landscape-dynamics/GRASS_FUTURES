@@ -201,12 +201,16 @@ typedef struct
 
     /** number in that sample */
     int parcelSizes;
-      std::vector < std::vector < t_Undev > >asUndevs;  //WT
+    //  std::vector < std::vector < t_Undev > >asUndevs;  //WT
+    t_Undev **asUndevs;
+    size_t asUndevs_m;
+    size_t *asUndevs_ns;
     int num_undevSites[MAXNUM_COUNTY];  //WT
 
     /** array of predictor variables ordered as p1,p2,p3,p1,p2,p3 */
     double *predictors;
 } t_Landscape;
+
 
 typedef struct
 {
@@ -1498,17 +1502,26 @@ void initializeUnDev(t_Landscape * pLandscape, t_Params * pParams)
 {
     int i;
 
-    pLandscape->asUndevs.clear();
-    pLandscape->asUndevs.resize(pParams->num_Regions,
-                                std::vector < t_Undev > (MAX_UNDEV_SIZE));
+    pLandscape->asUndevs = (t_Undev **) G_malloc(pParams->num_Regions * sizeof(t_Undev *));
+    pLandscape->asUndevs_m = pParams->num_Regions;
+    pLandscape->asUndevs_ns = (size_t *) G_malloc(pParams->num_Regions * sizeof(t_Undev *));
+
     for (i = 0; i < pParams->num_Regions; i++) {
+        pLandscape->asUndevs[i] = (t_Undev *) G_malloc(MAX_UNDEV_SIZE * sizeof(t_Undev));
+        pLandscape->asUndevs_ns[i] = MAX_UNDEV_SIZE;
         pLandscape->num_undevSites[i] = 0;
     }
 }
 
 void finalizeUnDev(t_Landscape * pLandscape, t_Params * pParams)
 {
+    int i;
 
+    for (i = 0; i < pParams->num_Regions; i++) {
+        G_free(pLandscape->asUndevs[i]);
+    }
+    G_free(pLandscape->asUndevs);
+    G_free(pLandscape->asUndevs_ns);
 }
 
 /*
@@ -2232,12 +2245,9 @@ void findAndSortProbsAll(t_Landscape * pLandscape, t_Params * pParams,
                                       id, pParams->num_Regions - 1,
                                       pThis->index_region);
 
-                    if (pLandscape->num_undevSites[id] >=
-                        pLandscape->asUndevs[id].size())
-                        pLandscape->asUndevs[id].resize(pLandscape->
-                                                        asUndevs[id].size() *
-                                                        2);
-
+                    if (pLandscape->num_undevSites[id] >= pLandscape->asUndevs_ns[id]) {
+                        pLandscape->asUndevs[id] = (t_Undev *) G_realloc(pLandscape->asUndevs[id], pLandscape->asUndevs_ns[id] * 2 * sizeof(t_Undev));
+                    }
                     pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].
                         cellID = i;
                     val = getDevProbability(pThis, pParams);
