@@ -65,6 +65,8 @@ extern "C"
 #include <grass/gis.h>
 #include <grass/raster.h>
 #include <grass/glocale.h>
+
+#include "keyvalue.h"
 }
 
 //#include "distance.h"
@@ -293,7 +295,7 @@ typedef struct
     int overflowDevDemands[MAXNUM_COUNTY];
     /// number of simulation steps
     int nSteps;
-    std::map<int,int> *region_map;
+    KeyValueIntInt *region_map;
 } t_Params;
 
 
@@ -345,8 +347,7 @@ void readDevPotParams(t_Params * pParams, char *fn)
         G_chop(tokens[0]);
         id = atoi(tokens[0]);
 
-        if (pParams->region_map->count(id) > 0) {
-            idx = (*pParams->region_map)[id];
+        if (KeyValueIntInt_find(pParams->region_map, id, &idx)) {
             G_chop(tokens[1]);
             di = atof(tokens[1]);
             G_chop(tokens[2]);
@@ -537,10 +538,10 @@ void readIndexData(t_Landscape * pLandscape, t_Params * pParams)
                 index = _GIS_NO_DATA_INT; // assign FUTURES representation of NULL value
             else {
                 val = *(CELL *) ptr;
-                if (pParams->region_map->count(val) > 0)
-                    index = (*pParams->region_map)[val];
+                if (KeyValueIntInt_find(pParams->region_map, val, &index))
+                    ; // pass
                 else {
-                    (*pParams->region_map)[val] = count_regions;
+                    KeyValueIntInt_set(pParams->region_map, val, count_regions);
                     index = count_regions;
                     count_regions++;
                 }
@@ -1524,8 +1525,8 @@ void readDevDemand(t_Params * pParams)
         count = 0;
         for (int i = 1; i < ntokens; i++) {
             // skip first column which is the year which we ignore
-            if (pParams->region_map->count(ids[count]) > 0) {
-                int idx = (*pParams->region_map)[ids[count]];
+            int idx;
+            if (KeyValueIntInt_find(pParams->region_map, ids[count], &idx)) {
                 G_chop(tokens[i]);
                 pParams->devDemands[idx][years] = atoi(tokens[i]);
             }
@@ -2063,7 +2064,7 @@ int main(int argc, char **argv)
 
     /* blank everything out */
     memset(&sParams, 0, sizeof(t_Params));
-    sParams.region_map = new std::map<int,int> ();
+    sParams.region_map = KeyValueIntInt_create();
 
     /* parameters dependednt on region */
     sParams.xSize = Rast_window_rows();
@@ -2217,7 +2218,7 @@ int main(int argc, char **argv)
     else {
         G_fatal_error("Initialization failed");
     }
-    delete sParams.region_map;
+    KeyValueIntInt_free(sParams.region_map);
     G_free(sLandscape.predictors);
 
     return EXIT_SUCCESS;
