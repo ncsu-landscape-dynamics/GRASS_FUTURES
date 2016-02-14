@@ -1817,7 +1817,7 @@ int getUnDevIndex1(t_Landscape * pLandscape, int regionID)
     if (p <= pLandscape->asUndevs[regionID][first].cumulProb)
         return 0;
     if (p >= pLandscape->asUndevs[regionID][last].cumulProb)
-        return pLandscape->num_undevSites[regionID];
+        return last;
     while (first <= last) {
         // TODO: these might not me initialized (says also valgrind)
         if (pLandscape->asUndevs[regionID][middle].cumulProb < p)
