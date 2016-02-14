@@ -1303,17 +1303,15 @@ void updateMap1(t_Landscape * pLandscape, t_Params * pParams, int step,
             if (nRandTries > _MAX_RAND_FIND_SEED_FACTOR * nToConvert) {
                 bAllowTouched = 1;
             }
+            /* give a random undeveloped cell a go */
+            if (sParams.seedSearch == 1)
+                i = (int)(uniformRandom() *
+                          pLandscape->num_undevSites[regionID]);
+            //pick one according to their probability
             else {
-                /* otherwise give a random undeveloped cell a go */
-                if (sParams.seedSearch == 1)
-                    i = (int)(uniformRandom() *
-                              pLandscape->num_undevSites[regionID]);
-                //pick one according to their probability
-                else {
-                    G_debug(3, "Step %d, nDone=%d, toConvert=%d", nStep, nDone,
-                            nToConvert);
-                    i = getUnDevIndex1(pLandscape, regionID);
-                }
+                G_debug(3, "Step %d, nDone=%d, toConvert=%d", nStep, nDone,
+                        nToConvert);
+                i = getUnDevIndex1(pLandscape, regionID);
             }
             pThis =
                     &(pLandscape->asCells
@@ -1332,6 +1330,9 @@ void updateMap1(t_Landscape * pLandscape, t_Params * pParams, int step,
                                              [i].cellID, nStep, bAllowTouched,
                                              0);
                     }
+                }
+                else {
+                    nRandTries++;
                 }
                 pThis->bUntouched = 0;
             }
