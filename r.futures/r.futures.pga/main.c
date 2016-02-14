@@ -1809,15 +1809,27 @@ int getUnDevIndex1(t_Landscape * pLandscape, int regionID)
 
     G_debug(4, _("getUnDevIndex1: regionID=%d, num_undevSites=%d, p=%f"),
                       regionID, pLandscape->num_undevSites[regionID], p);
-    int i;
-
-    for (i = 0; i < pLandscape->num_undevSites[regionID]; i++) {
+    // bisect
+    int first = 0;
+    int last = pLandscape->num_undevSites[regionID] - 1;
+    int middle = (first + last) / 2;
+    if (p <= pLandscape->asUndevs[regionID][first].cumulProb)
+        return 0;
+    if (p >= pLandscape->asUndevs[regionID][last].cumulProb)
+        return pLandscape->num_undevSites[regionID];
+    while (first <= last) {
         // TODO: these might not me initialized (says also valgrind)
-        if (p < pLandscape->asUndevs[regionID][i].cumulProb) {
+        if (pLandscape->asUndevs[regionID][middle].cumulProb < p)
+            first = middle + 1;
+        else if (pLandscape->asUndevs[regionID][middle - 1].cumulProb < p &&
+                 pLandscape->asUndevs[regionID][middle].cumulProb >= p) {
             G_debug(5, _("getUnDevIndex1: cumulProb=%f"),
-                              pLandscape->asUndevs[regionID][i].cumulProb);
-            return i;
+                    pLandscape->asUndevs[regionID][middle].cumulProb);
+            return middle;
         }
+        else
+            last = middle - 1;
+        middle = (first + last)/2;
     }
     // TODO: returning at least something but should be something more meaningful
     return 0;
