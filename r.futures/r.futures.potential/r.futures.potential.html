@@ -1,5 +1,6 @@
 <h2>DESCRIPTION</h2>
-Module <em>r.futures.potential</em> implements POTENTIAL submodel as a part of <a href="r.futures.html">FUTURES</a> land change model.
+Module <em>r.futures.potential</em> implements POTENTIAL submodel
+as a part of <a href="r.futures.html">FUTURES</a> land change model.
 POTENTIAL is implemented using a set of coefficients that
 relate a selection of site suitability factors to the probability
 of a place becoming developed. This is implemented using
@@ -10,7 +11,9 @@ The coefficients are obtained by conducting multilevel logistic regression in R
 with package <a href="https://cran.r-project.org/web/packages/lme4/index.html">lme4</a>
 where the coefficients may vary by county.
 The best model is selected automatically using <tt>dredge</tt>
-function from package <a href="https://cran.r-project.org/web/packages/MuMIn/index.html">MuMIn</a> (which has numerous caveats).
+function from package
+<a href="https://cran.r-project.org/web/packages/MuMIn/index.html">MuMIn</a>
+(which has numerous caveats).
 
 <h2>NOTES</h2>
 Note that this module is designed to automate the FUTURES workflow by brute-force
