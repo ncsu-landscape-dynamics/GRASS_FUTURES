@@ -1866,7 +1866,7 @@ void findAndSortProbsAll(t_Landscape * pLandscape, t_Params * pParams,
                     val = getDevProbability(pThis, pParams);
                     pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].
                         logitVal = val;
-                    G_debug(2, "logit value %f", val);
+                    G_debug(5, "logit value %f", val);
                     /* lookup table of probabilities is applied before consWeight */
                     /* replace with value from lookup table */
                     lookupPos = (int)(pLandscape->asUndevs[id]
