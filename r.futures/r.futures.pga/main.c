@@ -1283,7 +1283,9 @@ void updateMap1(t_Landscape * pLandscape, t_Params * pParams, int step,
     if (nToConvert > 0) {
         /* if not enough cells to convert then alter number required */
         if (nToConvert > pLandscape->num_undevSites[regionID]) {
-            G_warning("Not enough undeveloped sites... converting all");
+            G_warning("Not enough undeveloped sites (requested: %d,"
+                      " available: %d). Converting all available.",
+                       nToConvert, pLandscape->num_undevSites[regionID]);
             nToConvert = pLandscape->num_undevSites[regionID];
         }
         /* update in stochastic fashion */
