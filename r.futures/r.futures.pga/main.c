@@ -435,6 +435,7 @@ void readData4AdditionalVariables(t_Landscape * pLandscape,
                 ii++;
             }
         }
+        G_free(buffer);
         Rast_close(fd);
         G_verbose_message("Done");
     }
@@ -479,6 +480,8 @@ void readIndexData(t_Landscape * pLandscape, t_Params * pParams)
             ii++;
         }
     }
+    G_free(buffer);
+    Rast_close(fd);
     pParams->num_Regions = count_regions;
     G_verbose_message("Done");
 }
@@ -645,6 +648,7 @@ int readData(t_Landscape * pLandscape, t_Params * pParams)
 
                 }
             }
+            G_free(buffer);
             Rast_close(fd);
 
         }
@@ -693,6 +697,7 @@ void outputDevRasterStep(t_Landscape * pLandscape, t_Params * pParams,
         }
         Rast_put_c_row(out_fd, out_row);
     }
+    G_free(out_row);
     Rast_close(out_fd);
 
     struct Colors colors;
