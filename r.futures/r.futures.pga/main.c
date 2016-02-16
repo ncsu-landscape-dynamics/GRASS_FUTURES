@@ -1775,8 +1775,7 @@ int main(int argc, char **argv)
                 sParams.overflowDevDemands[i] = 0;
             }
             readDevDemand(&sParams);
-            if (sParams.num_Regions > 1)
-                readDevPotParams(&sParams, opt.devpotParamsFile->answer);
+            readDevPotParams(&sParams, opt.devpotParamsFile->answer);
             if (readParcelSizes(&sLandscape, &sParams)) {
                 //testDevPressure(&sLandscape, &sParams);
                 /* do calculation and dump result */
