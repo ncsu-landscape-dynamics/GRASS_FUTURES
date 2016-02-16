@@ -173,7 +173,7 @@ typedef struct
     /** array of predictor variables ordered as p1,p2,p3,p1,p2,p3 */
     float *predictors;
     /** multiplicative factor on the probabilities */
-    double *consWeight;
+    float *consWeight;
 } t_Landscape;
 
 
@@ -507,7 +507,7 @@ int readData(t_Landscape * pLandscape, t_Params * pParams)
             if (j == 2) {
                 pLandscape->consWeight = NULL;
                 if (pParams->consWeightFile)
-                    pLandscape->consWeight = (double *)G_malloc(pLandscape->totalCells * sizeof(double));
+                    pLandscape->consWeight = (float *)G_malloc(pLandscape->totalCells * sizeof(float));
                 else
                     continue;
             }
