@@ -1875,7 +1875,11 @@ void findAndSortProbsAll(t_Landscape * pLandscape, t_Params * pParams,
                                       pThis->index_region);
 
                     if (pLandscape->num_undevSites[id] >= pLandscape->asUndevs_ns[id]) {
-                        pLandscape->asUndevs[id] = (t_Undev *) G_realloc(pLandscape->asUndevs[id], pLandscape->asUndevs_ns[id] * 2 * sizeof(t_Undev));
+                        size_t new_size = 2 * pLandscape->asUndevs_ns[id];
+                        pLandscape->asUndevs[id] =
+                            (t_Undev *) G_realloc(pLandscape->asUndevs[id],
+                                                  new_size * sizeof(t_Undev));
+                        pLandscape->asUndevs_ns[id] = new_size;
                     }
                     pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].
                         cellID = i;
