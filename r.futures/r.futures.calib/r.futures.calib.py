@@ -208,7 +208,7 @@
 #% guisection: Calibration
 #%end
 #%rules
-#% collective: demand,num_steps,scaling_factor,gamma,development_pressure_approach,seed_search,num_neighbors,incentive_table,devpot_params,n_dev_neighbourhood,predictors,constrain_weight,development_pressure,calibration_results,discount_factor,compactness_range,compactness_mean,repeat
+#% collective: demand,scaling_factor,gamma,development_pressure_approach,seed_search,num_neighbors,incentive_table,devpot_params,n_dev_neighbourhood,predictors,development_pressure,calibration_results,discount_factor,compactness_range,compactness_mean,repeat
 #% exclusive: -l,demand
 #% exclusive: -l,num_steps
 #% exclusive: -l,scaling_factor
@@ -228,7 +228,6 @@
 #% exclusive: -l,compactness_mean
 #% exclusive: -l,repeat
 #% required: -l,demand
-#% required: -l,num_steps
 #% required: -l,scaling_factor
 #% required: -l,gamma
 #% required: -l,development_pressure_approach
@@ -238,7 +237,6 @@
 #% required: -l,devpot_params
 #% required: -l,n_dev_neighbourhood
 #% required: -l,predictors
-#% required: -l,constrain_weight
 #% required: -l,development_pressure
 #% required: -l,calibration_results
 #% required: -l,discount_factor
