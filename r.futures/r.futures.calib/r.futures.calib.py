@@ -440,8 +440,8 @@ def main():
     gcore.message(_("Analyzing original patches..."))
     diff_development(dev_start, dev_end, options['subregions'], orig_patch_diff)
     patch_analysis(orig_patch_diff, threshold, tmp_patch_vect, tmp_patch_vect2, temp_file.name)
+    write_patches_file(tmp_patch_vect, cell_size, patches_file)
     if only_file:
-        write_patches_file(tmp_patch_vect, cell_size, patches_file)
         return
 
     area, perimeter = np.loadtxt(fname=temp_file.name, unpack=True)
