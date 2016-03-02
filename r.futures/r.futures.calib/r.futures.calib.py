@@ -500,6 +500,7 @@ def main():
                                               str(data['input_compactness_mean']), str(data['input_compactness_range']),
                                               str(data['compactness_distance'])]))
                             f.write('\n')
+                        f.flush()
                         proc_count = 0
                         proc_list = []
                         queue_list = []
