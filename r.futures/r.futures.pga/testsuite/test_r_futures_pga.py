@@ -15,7 +15,7 @@ class TestPGA(TestCase):
     def tearDownClass(cls):
         cls.del_temp_region()
 
-    def tearDown(cls):
+    def xtearDown(cls):
         """Remove viewshed map after each test method"""
         # TODO: eventually, removing maps should be handled through testing framework fucntions
         cls.runModule('g.remove', flags='f', type='raster',
