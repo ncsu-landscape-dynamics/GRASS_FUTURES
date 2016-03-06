@@ -107,7 +107,7 @@
 #% required: no
 #% multiple: no
 #% options: 0-10
-#% label: Transform probability values p by exponentiation p^x to simulate infill vs. sprawl
+#% label: Exponent to transform probability values p to p^x to simulate infill vs. sprawl
 #% description: Values > 1 encourage infill, < 1 urban sprawl
 #% answer: 1
 #% guisection: PGA
