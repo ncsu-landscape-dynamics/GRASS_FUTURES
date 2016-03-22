@@ -511,7 +511,7 @@ int readData(t_Landscape * pLandscape, t_Params * pParams)
     bRet = 0;
     szBuff = (char *) G_malloc(_N_MAX_DYNAMIC_BUFF_LEN * sizeof(char));
     if (szBuff) {
-        for (j = 0; j < 3; j++) {
+        for (j = 0; j < 4; j++) {
             /* workaround to skip loading constraint map so that it can be omitted in input */
             if (j == 2) {
                 pLandscape->consWeight = NULL;
