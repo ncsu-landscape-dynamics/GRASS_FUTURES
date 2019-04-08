@@ -39,7 +39,6 @@
 #% key: repeat
 #% description: How many times is the simulation repeated
 #% required: no
-#% answer: 10
 #% guisection: Calibration
 #%end
 #%option
@@ -147,7 +146,6 @@
 #% required: no
 #% multiple: no
 #% options: 4,8
-#% answer: 4
 #% description: The number of neighbors to be used for patch generation (4 or 8)
 #% guisection: PGA
 #%end
@@ -157,7 +155,6 @@
 #% required: no
 #% multiple: no
 #% options: 1,2
-#% answer: 2
 #% description: The way location of a seed is determined (1: uniform distribution 2: development probability)
 #% guisection: PGA
 #%end
@@ -167,7 +164,6 @@
 #% required: no
 #% multiple: no
 #% options: occurrence,gravity,kernel
-#% answer: gravity
 #% description: Approaches to derive development pressure
 #% guisection: PGA
 #%end
@@ -300,7 +296,7 @@ def run_one_combination(repeat, development_start, compactness_mean, compactness
             run_simulation(development_start=development_start, development_end=simulation_dev_end,
                            compactness_mean=compactness_mean, compactness_range=compactness_range,
                            discount_factor=discount_factor, patches_file=patches_file, fut_options=fut_options)
-        except CalledModuleError, e:
+        except CalledModuleError as e:
             queue.put(None)
             cleanup(tmp=TMP_PROCESS)
             gcore.error(_("Running r.futures.pga failed. Details: {e}").format(e=e))
@@ -344,8 +340,8 @@ def run_simulation(development_start, development_end, compactness_mean, compact
                               output=development_end)
     parameters.update(futures_parameters)
     for not_required in ('constrain_weight', 'num_steps', 'incentive_power'):
-        if options[not_required]:
-            parameters.update({not_required: options[not_required]})
+        if fut_options[not_required]:
+            parameters.update({not_required: fut_options[not_required]})
 
     gcore.run_command('r.futures.pga', flags='s', overwrite=True, **parameters)
 
@@ -475,7 +471,7 @@ def main():
     proc_list = []
     num_all = len(compactness_means) * len(compactness_ranges) * len(discount_factors)
     with open(options['calibration_results'], 'a') as f:
-        f.write(' '.join(['input_discount_factor', 'area_distance',
+        f.write(','.join(['input_discount_factor', 'area_distance',
                           'input_compactness_mean', 'input_compactness_range',
                           'compactness_distance']))
         f.write('\n')
@@ -500,7 +496,7 @@ def main():
                             data = queue_list[i].get()
                             if not data:
                                 continue
-                            f.write(' '.join([str(data['input_discount_factor']), str(data['area_distance']),
+                            f.write(','.join([str(data['input_discount_factor']), str(data['area_distance']),
                                               str(data['input_compactness_mean']), str(data['input_compactness_range']),
                                               str(data['compactness_distance'])]))
                             f.write('\n')
