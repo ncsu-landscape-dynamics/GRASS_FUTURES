@@ -31,7 +31,7 @@ and the code is available at:
 
 The correspong documentation is available at:
 
- * https://grass.osgeo.org/grass70/manuals/addons/r.futures
+ * https://grass.osgeo.org/grass76/manuals/addons/r.futures
 
 If you want the latest code with ongoing development (which might be possibly
 broken) use this repository.
@@ -65,7 +65,7 @@ See the GRASS module manual page for details and references.
 License
 -------
 
-Copyright (C) 2013-2015 Meentemeyer et al.
+Copyright (C) 2013-2019 Meentemeyer et al.
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
