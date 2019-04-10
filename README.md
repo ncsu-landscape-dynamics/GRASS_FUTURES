@@ -8,7 +8,7 @@ This is a repository for FUTURES model as GRASS GIS r.futures module.
 ## Installing r.futures
 
 To get the officially released version
-install GRASS GIS (http://grass.osgeo.org/) and then install an *r.futures*
+first install GRASS GIS (http://grass.osgeo.org/) and then install *r.futures* modules
 from GRASS Addons using GUI (Settings -> Addons extensions -> Install extension from addons) or the following command:
 
     g.extension r.futures
@@ -22,7 +22,7 @@ Once you install R, run in R:
 
     install.packages(c("MuMIn", "lme4", "optparse", "rgrass7"))
 
-For some setting in r.futures.demand, install SciPy:
+Optionally, install SciPy to be used for certain parameters in r.futures.demand:
 
     pip install scipy
  
