@@ -1,24 +1,55 @@
-FUTURES in GRASS GIS
-====================
+# FUTURES in GRASS GIS
 
-This is a repository for FUTURES model port to GRASS GIS,
-namely for r.futures module.
+This is a repository for FUTURES model as GRASS GIS r.futures module.
 
 ![r.futures module, results and manual](readme_grass_r_futures.png)
 
 
-Getting r.futures
------------------
+## Installing r.futures
 
 To get the officially released version
 install GRASS GIS (http://grass.osgeo.org/) and then install an *r.futures*
-from GRASS Addons using GUI or the following command:
+from GRASS Addons using GUI (Settings -> Addons extensions -> Install extension from addons) or the following command:
 
     g.extension r.futures
 
+You will also need r.sample.category addon:
 
-About this repository
----------------------
+    g.extension r.sample.category
+
+To run r.futures.potential, you also need R (>= 3.0.2) and R packages MuMIn, lme4, optparse, rgrass7.
+Once you install R, run in R:
+
+    install.packages(c("MuMIn", "lme4", "optparse", "rgrass7"))
+
+For some setting in r.futures.demand, install SciPy:
+
+    pip install scipy
+ 
+See notes for specific platforms.
+
+### Ubuntu Linux
+Install GRASS GIS from packages:
+
+    sudo add-apt-repository ppa:ubuntugis/ubuntugis-unstable
+    sudo apt-get update
+    sudo apt-get install grass
+
+Install R from packages, minimum version is 3.0.2. Install SciPy using pip.
+
+### Windows
+It is recommended to first install R and then GRASS GIS, so that GRASS knows where to find R executables, because
+typically they are not on your PATH.
+
+Use [OSGeo4W](https://trac.osgeo.org/osgeo4w/) package manager and
+install the latest stable GRASS GIS 7 version and the SciPy Python package using the *Advanced install* option.
+A guide with step by step screen shot instructions is available [here](https://docs.google.com/presentation/d/1yEGpriBne7RvjB35HI6GecNwO1P1y2nRGqDThqoNnCE/present?usp=sharing).
+
+### Mac OS
+Install latest stable GRASS GIS from [downloads page](http://grassmac.wikidot.com/downloads)
+and follow the instruction.
+
+## About this repository
 
 This repository is the primary repository for development of GRASS GIS
 version of FUTURES model implementation.
@@ -46,8 +77,7 @@ this repository and in Addons, create a Git tag using *create_tag_synced.sh*
 script.
 
 
-Authors
--------
+## Authors
 
  * Ross K. Meentemeyer
  * Wenwu Tang
@@ -59,11 +89,10 @@ Authors
  * Vaclav Petras
  * Anna Petrasova
 
-See the GRASS module manual page for details and references.
+See the GRASS module [manual page](https://grass.osgeo.org/grass7/manuals/addons/r.futures.html) for details and references.
 
 
-License
--------
+## License
 
 Copyright (C) 2013-2019 Meentemeyer et al.
 
