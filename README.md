@@ -2,10 +2,21 @@
 
 This is a repository for FUTURES model as GRASS GIS r.futures module.
 
-![r.futures module, results and manual](readme_grass_r_futures.png)
+<img align="right"  height="250" src="readme_grass_r_futures.png">
+
+* [Installation](README.md#installation)
+  * [Ubuntu Linux](README.md#ubuntu-linux)
+  * [Windows](README.md#windows)
+  * [Mac OS](README.md#mac-os)
+* [About this repository](README.md#about-this-repository)
+* [How to cite](README.md#how-to-cite)
+* [Authors](README.md#authors)
+* [License](README.md#license)
 
 
-## Installing r.futures
+
+
+## Installation
 
 To get the officially released version
 first install GRASS GIS (http://grass.osgeo.org/) and then install *r.futures* modules
@@ -52,7 +63,7 @@ and follow the instruction.
 ## About this repository
 
 This repository is the primary repository for development of GRASS GIS
-version of FUTURES model implementation.
+version of FUTURES model implementDescriptionation.
 
 If you want to use latest tested code, use the version in GRASS GIS Addons
 Subversion repository which is installable using *g.extension* in GRASS GIS
