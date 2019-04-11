@@ -12,6 +12,7 @@ This is a repository for FUTURES model as GRASS GIS r.futures module.
 * [How to cite](README.md#how-to-cite)
 * [Authors](README.md#authors)
 * [License](README.md#license)
+* [FAQs](FAQs.md)
 
 
 
@@ -129,3 +130,6 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 GNU General Public License for more details.
 
 See the LICENSE file for details.
+
+## FAQs
+See [FAQs page](FAQs.md)
