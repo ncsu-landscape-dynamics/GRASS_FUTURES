@@ -60,9 +60,9 @@ and the code is available at:
 
  * https://trac.osgeo.org/grass/browser/grass-addons/grass7/raster/r.futures
 
-The correspong documentation is available at:
+The corresponding documentation is available at:
 
- * https://grass.osgeo.org/grass76/manuals/addons/r.futures
+ * https://grass.osgeo.org/grass7/manuals/addons/r.futures
 
 If you want the latest code with ongoing development (which might be possibly
 broken) use this repository.
@@ -77,6 +77,17 @@ this repository and in Addons, create a Git tag using *create_tag_synced.sh*
 script.
 
 
+## How to cite
+If you cite FUTURES as a model concept, please use [1]. If you are referring to the actual software, also use [2].
+For example: *... we projected urban growth using FUTURES model (Meentemeyer et al, 2013) implemented as GRASS GIS r.futures addon (Petrasova et al, 2016) version 1.0.0 ...*
+
+
+[1] Meentemeyer, R. K., Tang, W., Dorning, M. A., Vogler, J. B., Cunniffe, N. J., & Shoemaker, D. A. (2013). FUTURES: Multilevel Simulations of Emerging Urban–Rural Landscape Structure Using a Stochastic Patch-Growing Algorithm. Annals of the Association of American Geographers, 103(4), 785–807. http://doi.org/10.1080/00045608.2012.707591
+
+[2] Petrasova, A., Petras, V., Van Berkel, D., Harmon, B. A., Mitasova, H., & Meentemeyer, R. K. (2016). Open Source Approach To Urban Growth Simulation. Int. Arch. Photogramm. Remote Sens. Spatial Inf. Sci., XLI-B7(July), 953–959. http://doi.org/10.5194/isprsarchives-XLI-B7-953-2016
+
+See the [FUTURES website](https://cnr.ncsu.edu/geospatial/research/landscape-forecasting/futures/) for list of publications.
+
 ## Authors
 
  * Ross K. Meentemeyer
@@ -88,8 +99,8 @@ script.
  * Jennifer A. Koch
  * Vaclav Petras
  * Anna Petrasova
-
-See the GRASS module [manual page](https://grass.osgeo.org/grass7/manuals/addons/r.futures.html) for details and references.
+ 
+Maintainers: Anna Petrasova, Vaclav Petras
 
 
 ## License
