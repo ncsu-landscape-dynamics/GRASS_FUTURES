@@ -102,6 +102,59 @@ We need to collect the following data:
 Figure: FUTURES simulation result
 </center>
 
+<h2>EXAMPLE</h2>
+Simple example using nc_spm_08_grass7 dataset.
+Please see <a href="https://grasswiki.osgeo.org/wiki/FUTURES_land-change_modeling_for_evaluating_innovative_conservation_scenarios">tutorials on GRASS wiki</a>
+ for more realistic examples.
+
+<div class="code"><pre>
+### create raster representing urbanization based on NDVI, exclude lakes
+i.vi red=lsat7_2002_30@PERMANENT output=ndvi_2002 nir=lsat7_2002_40@PERMANENT
+i.vi red=lsat5_1987_30@landsat output=ndvi_1987 nir=lsat5_1987_40@landsat
+r.mapcalc expression="urban_1987 = if(ndvi_1987 <= 0.1 &amp;&amp; isnull(lakes), 1, if(isnull(lakes), 0, null()))"
+r.mapcalc expression="urban_2002 = if(ndvi_2002 <= 0.1 amp;amp; isnull(lakes), 1, if(isnull(lakes), 0, null()))"
+
+### create predictors
+# distance from lakes in km
+r.grow.distance input=lakes distance=lakes_dist
+r.mapcalc "lakes_dist_km = lakes_dist/1000."
+# distance from streets in km
+v.to.rast input=streets_wake output=streets use=val
+r.grow.distance input=streets distance=streets_dist
+r.mapcalc "streets_dist_km = streets_dist/1000."
+# slope
+r.slope.aspect elevation=elevation slope=slope
+# development pressure
+r.futures.devpressure input=urban_2002 output=devpressure method=gravity size=15 -n
+
+### sample predictors
+r.sample.category input=urban_2002 output=sampling sampled=slope,lakes_dist_km,streets_dist_km,devpressure,zipcodes npoints=300,100
+devpressure
+
+### compute potential regression coeffcients, using zipcodes as subregion
+r.futures.potential input=sampling output=potential.csv columns=devpressure,slope,lakes_dist_km,streets_dist_km developed_column=urban_2002 subregions_column=zipcodes
+
+### compute how many cells should be converted in each subregion
+r.futures.demand development=urban_1987,urban_2002 subregions=zipcodes observed_population=pop_projections.csv projected_population=pop_projections2.csv \
+  simulation_times=2004,2005,2006,2007,2008,2009,2010 method=linear,logarithmic,exponential demand=demand.csv
+
+### create a list of patch sizes (here we skip calibration of patch sizes)
+r.futures.calib -l development_start=urban_1987 development_end=urban_2002 patch_threshold=0 patch_sizes=patches.txt subregions=zipcodes --o
+
+### run patch growing to get final results
+r.futures.pga developed=urban_2002 subregions=zipcodes output=futures output_series=futures predictors=slope,lakes_dist_km,streets_dist_km devpot_params=potential.csv \
+  development_pressure=devpressure n_dev_neighbourhood=15 development_pressure_approach=gravity gamma=1.5 scaling_factor=1 demand=demand.csv discount_factor=0.1 \
+  compactness_mean=0.4 compactness_range=0.05 num_neighbors=4 seed_search=2 patch_sizes=patches.txt random_seed=1
+</pre></div>
+
+<div align="center" style="margin: 10px">
+<a href="r_futures_ncsmp.png">
+<img src="r_futures_ncsmp.png" width="600" alt="r.futures example" border="0">
+</a><br>
+<i>Figure: FUTURES simulation result, orange to yellow gradient represents new development
+where yellow is the latest.</i>
+</div>
+
 <h2>REFERENCES</h2>
 
 <ul>
