@@ -778,29 +778,21 @@ char *mapNameForStep(const char *basename, const int step, const int maxSteps)
     Calculate probability of development.
 */
 
-double getDevProbability(t_Cell * pThis, t_Params * pParams)
+double get_development_probability(t_Cell * pThis, t_Params * pParams)
 {
     double probAdd;
     int i;
     int id = pThis->index_region;
 
-    if (id == -9999)
+    if (id == _GIS_NO_DATA_INT)
         return 0;
     probAdd = pParams->dIntercepts[id];
-    //cout<<"intercept\t"<<probAdd<<endl;
     probAdd += pParams->dV4[id] * pThis->devPressure;
-    //cout<<"devPressure: "<<pParams->dV4[id]<<endl;
-    //cout<<"devPressure: "<<pThis->devPressure<<endl;
-    //cout<<"devPressure: "<<pParams->dV4[id] * pThis->devPressure<<endl;
     for (i = 0; i < pParams->numAddVariables; i++) {
         probAdd += pParams->addParameters[i][id] * pThis->additionVariable[i];
-        //cout<<"additionVariable: "<<i<<"\t"<<pParams->addParameters[i][id]<<endl;
-        //cout<<"additionVariable: "<<i<<"\t"<<pThis->additionVariable[i]<<endl;
-        //cout<<"additionVariable: "<<i<<"\t"<<pParams->addParameters[i][id] * pThis->additionVariable[i]<<endl;
     }
     probAdd = 1.0 / (1.0 + exp(-probAdd));
-    //cout<<"The probability:";
-    //cout<<probAdd<<endl;
+
     return probAdd;
 }
 
@@ -823,7 +815,6 @@ typedef struct
 */
 typedef struct
 {
-    double maxProb;
     int nCandidates;
     int nSpace;
     t_candidateNeighbour *aCandidates;
@@ -831,7 +822,7 @@ typedef struct
 
 #define _N_NEIGHBOUR_LIST_BLOCK_SIZE 20
 
-int addNeighbourIfPoss(int x, int y, t_Landscape * pLandscape,
+int add_neighbour_if_possible(int x, int y, t_Landscape * pLandscape,
                        t_neighbourList * pNeighbours, t_Params * pParams)
 {
     int i, thisPos, mustAdd, listChanged, lookupPos;
@@ -878,16 +869,7 @@ int addNeighbourIfPoss(int x, int y, t_Landscape * pLandscape,
                         pNeighbours->aCandidates[pNeighbours->nCandidates].
                             newInList = 1;
 
-                        /* note duplication of effort in here recalculating the probabilities, but didn't store them in an accessible way */
-                        /*
-                           probAdd = pParams->dIntercept;
-                           probAdd += pParams->dDevPressure * pThis->devPressure;
-                           probAdd += pParams->dEmployAttraction * pThis->employAttraction;
-                           probAdd += pParams->dInterchangeDistance * pThis->interchangeDistance;
-                           probAdd += pParams->dRoadDensity * pThis->roadDensity;
-                           probAdd = 1.0/(1.0 + exp(probAdd));
-                         */
-                        probAdd = getDevProbability(pThis, pParams);
+                        probAdd = get_development_probability(pThis, pParams);
                         /* replace with value from lookup table */
                         if (pParams->adProbLookup) {
                             lookupPos =
@@ -903,9 +885,6 @@ int addNeighbourIfPoss(int x, int y, t_Landscape * pLandscape,
                         /* only actually add it if will ever transition */
                         if (probAdd > 0.0) {
                             pNeighbours->nCandidates++;
-                            if (probAdd > pNeighbours->maxProb) {
-                                pNeighbours->maxProb = probAdd;
-                            }
                             listChanged = 1;
                         }
                     }
@@ -948,46 +927,31 @@ static int sortNeighbours(const void *pOne, const void *pTwo)
     return 0;
 }
 
-void findNeighbours(int nThisID, t_Landscape * pLandscape,
+void find_neighbours(int nThisID, t_Landscape * pLandscape,
                     t_neighbourList * pNeighbours, t_Params * pParams)
 {
     t_Cell *pThis;
     int listChanged = 0;
 
-    // int     idmat[4]; idmat[0]=0;idmat[1]=1;idmat[2]=2;idmat[3]=3;
     /* try to add the neighbours of this one */
     pThis = &(pLandscape->asCells[nThisID]);
-    //note: if sorted, then shuffle is no need
-    /*
-       Shuffle4(&idmat[0]);
-       for(i=0;i<4;i++){
-       if(idmat[i]==0)
-       listChanged+=addNeighbourIfPoss(pThis->thisX-1,pThis->thisY,pLandscape,pNeighbours,pParams);
-       else if(idmat[i]==1)
-       listChanged+=addNeighbourIfPoss(pThis->thisX+1,pThis->thisY,pLandscape,pNeighbours,pParams);
-       else if(idmat[i]==2)
-       listChanged+=addNeighbourIfPoss(pThis->thisX,pThis->thisY-1,pLandscape,pNeighbours,pParams);
-       else if (idmat[i]==3)
-       listChanged+=addNeighbourIfPoss(pThis->thisX,pThis->thisY+1,pLandscape,pNeighbours,pParams);
-       }
-     */
 
-    listChanged += addNeighbourIfPoss(pThis->thisX - 1, pThis->thisY, pLandscape, pNeighbours, pParams);  // left
-    listChanged += addNeighbourIfPoss(pThis->thisX + 1, pThis->thisY, pLandscape, pNeighbours, pParams);  // right
-    listChanged += addNeighbourIfPoss(pThis->thisX, pThis->thisY - 1, pLandscape, pNeighbours, pParams);  // down
-    listChanged += addNeighbourIfPoss(pThis->thisX, pThis->thisY + 1, pLandscape, pNeighbours, pParams);  // up 
+    listChanged += add_neighbour_if_possible(pThis->thisX - 1, pThis->thisY, pLandscape, pNeighbours, pParams);  // left
+    listChanged += add_neighbour_if_possible(pThis->thisX + 1, pThis->thisY, pLandscape, pNeighbours, pParams);  // right
+    listChanged += add_neighbour_if_possible(pThis->thisX, pThis->thisY - 1, pLandscape, pNeighbours, pParams);  // down
+    listChanged += add_neighbour_if_possible(pThis->thisX, pThis->thisY + 1, pLandscape, pNeighbours, pParams);  // up 
     if (sParams.numNeighbors == 8) {
         listChanged +=
-            addNeighbourIfPoss(pThis->thisX - 1, pThis->thisY - 1, pLandscape,
+            add_neighbour_if_possible(pThis->thisX - 1, pThis->thisY - 1, pLandscape,
                                pNeighbours, pParams);
         listChanged +=
-            addNeighbourIfPoss(pThis->thisX - 1, pThis->thisY + 1, pLandscape,
+            add_neighbour_if_possible(pThis->thisX - 1, pThis->thisY + 1, pLandscape,
                                pNeighbours, pParams);
         listChanged +=
-            addNeighbourIfPoss(pThis->thisX + 1, pThis->thisY - 1, pLandscape,
+            add_neighbour_if_possible(pThis->thisX + 1, pThis->thisY - 1, pLandscape,
                                pNeighbours, pParams);
         listChanged +=
-            addNeighbourIfPoss(pThis->thisX + 1, pThis->thisY + 1, pLandscape,
+            add_neighbour_if_possible(pThis->thisX + 1, pThis->thisY + 1, pLandscape,
                                pNeighbours, pParams);
     }
     /* if anything has been altered then resort */
@@ -1029,7 +993,7 @@ int newPatchFinder(int nThisID, t_Landscape * pLandscape, t_Params * pParams,
     pLandscape->asCells[nThisID].bUntouched = 0;
     pLandscape->asCells[nThisID].bUndeveloped = 0;
     nFound = 1;
-    findNeighbours(nThisID, pLandscape, &sNeighbours, pParams);
+    find_neighbours(nThisID, pLandscape, &sNeighbours, pParams);
     for (i = 0; i < sNeighbours.nCandidates; i++) {
         sNeighbours.aCandidates[i].distance =
             getDistance(nThisID, sNeighbours.aCandidates[i].cellID,
@@ -1055,16 +1019,9 @@ int newPatchFinder(int nThisID, t_Landscape * pLandscape, t_Params * pParams,
                 }
                 /* reduce the size of the list */
                 sNeighbours.nCandidates--;
-                sNeighbours.maxProb = 0.0;
-                for (j = 0; j < sNeighbours.nCandidates; j++) {
-                    if (sNeighbours.aCandidates[j].probAdd >
-                        sNeighbours.maxProb) {
-                        sNeighbours.maxProb =
-                            sNeighbours.aCandidates[j].probAdd;
-                    }
-                }
+
                 /* add its neighbours */
-                findNeighbours(anToConvert[nFound], pLandscape, &sNeighbours,
+                find_neighbours(anToConvert[nFound], pLandscape, &sNeighbours,
                                pParams);
                 nFound++;
                 bTrying = 0;
@@ -1969,7 +1926,7 @@ void findAndSortProbsAll(t_Landscape * pLandscape, t_Params * pParams,
                     }
                     pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].
                         cellID = i;
-                    val = getDevProbability(pThis, pParams);
+                    val = get_development_probability(pThis, pParams);
                     pLandscape->asUndevs[id][pLandscape->num_undevSites[id]].
                         logitVal = val;
                     G_debug(5, "logit value %f", val);
