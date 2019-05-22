@@ -74,7 +74,45 @@ struct demand
     int max_steps;
 };
 
-void readSubregions(const char *subregions, SEGMENT * segment,
+struct potential
+{
+    const char *filename;
+    double **predictors;
+    double *intercept;
+    double *devpressure;
+    int max_predictors;
+    int max_subregions;
+};
+
+struct segment_memory
+{
+    int rows;
+    int cols;
+    int in_memory;
+};
+
+void rast_segment_open(const char *name, SEGMENT *segment, struct segment_memory segmentInfo, 
+                       RASTER_MAP_TYPE map_type)
+{
+    int row;
+    int rowio = Rast_open_old(name, "");
+    void *raster_row = Rast_allocate_buf(map_type);
+
+    if (Segment_open(segment, G_tempfile(), Rast_window_rows(),
+                     Rast_window_cols(), segmentInfo.rows, segmentInfo.cols,
+                     Rast_cell_size(map_type), segmentInfo.in_memory) != 1)
+        G_fatal_error(_("Cannot create temporary file with segments of a raster map"));
+
+    for (row = 0; row < Rast_window_rows(); row++) {
+        Rast_get_row(rowio, raster_row, row, map_type);
+        Segment_put_row(segment, raster_row, row);
+    }
+    Segment_flush(segment);
+    Rast_close(rowio);          /* we won't need the raster again */
+    G_free(raster_row);
+}
+
+void read_subregions(const char *subregions, SEGMENT * segment,
                     struct KeyValueIntInt *region_map)
 {
     int val;
@@ -122,7 +160,7 @@ void readSubregions(const char *subregions, SEGMENT * segment,
 }
 
 
-void readDemandFile(struct demand *demandInfo, struct KeyValueIntInt *region_map)
+void read_demand_file(struct demand *demandInfo, struct KeyValueIntInt *region_map)
 {
     FILE *fp;
     if ((fp = fopen(demandInfo->filename, "r")) == NULL)
@@ -201,9 +239,71 @@ void readDemandFile(struct demand *demandInfo, struct KeyValueIntInt *region_map
 }
 
 
+void read_potential_file(struct potential *potentialInfo, struct KeyValueIntInt *region_map,
+                         int num_predictors)
+{
+    FILE *fp;
+    if ((fp = fopen(potentialInfo->filename, "r")) == NULL)
+        G_fatal_error(_("Cannot open development potential parameters file <%s>"),
+                      potentialInfo->filename);
 
+    const char *fs = "\t";
+    const char *td = "\"";
 
+    size_t buflen = 4000;
+    char buf[buflen];
+    if (G_getl2(buf, buflen, fp) == 0)
+        G_fatal_error(_("Development potential parameters file <%s>"
+                        " contains less than one line"), potentialInfo->filename);
+    potentialInfo->max_predictors = num_predictors;
+    potentialInfo->intercept = (double *) G_malloc(region_map->nitems * sizeof(double)); 
+    potentialInfo->devpressure = (double *) G_malloc(region_map->nitems * sizeof(double)); 
+    potentialInfo->predictors = (double **) G_malloc(num_predictors * sizeof(double *)); 
+    for (int i = 0; i < num_predictors; i++) {
+        potentialInfo->predictors[i] = (double *) G_malloc(region_map->nitems * sizeof(double)); 
+    }
 
+    char **tokens;
+
+    while (G_getl2(buf, buflen, fp)) {
+        if (!buf || buf[0] == '\0')
+            continue;
+        tokens = G_tokenize2(buf, fs, td);
+        int ntokens = G_number_of_tokens(tokens);
+        if (ntokens == 0)
+            continue;
+        // id + intercept + devpressure + predictores
+        if (ntokens != num_predictors + 3)
+            G_fatal_error(_("Wrong number of columns in line: %s"), buf);
+
+        int idx;
+        int id;
+        double coef_intercept, coef_devpressure;
+        double val;
+        int j;
+
+        G_chop(tokens[0]);
+        id = atoi(tokens[0]);
+        if (KeyValueIntInt_find(region_map, id, &idx)) {
+            G_chop(tokens[1]);
+            coef_intercept = atof(tokens[1]);
+            G_chop(tokens[2]);
+            coef_devpressure = atof(tokens[2]);
+            potentialInfo->intercept[idx] = coef_intercept;
+            potentialInfo->devpressure[idx] = coef_devpressure;
+            for (j = 0; j < num_predictors; j++) {
+                G_chop(tokens[j + 3]);
+                val = atof(tokens[j + 3]);
+                potentialInfo->predictors[j][idx] = val;
+            }
+        }
+        // else ignoring the line with region which is not used
+
+        G_free_tokens(tokens);
+    }
+
+    fclose(fp);
+}
 
 
 int main(int argc, char **argv)
@@ -212,8 +312,8 @@ int main(int argc, char **argv)
     struct
     {
         struct Option
-                *developed, *subregions, *predictors, *devpressure, *demandFile,
-                *output, *seed;
+                *developed, *subregions, *predictors, *devpressure, *potentialFile,
+                *demandFile, *output, *seed;
 
     } opt;
 
@@ -226,7 +326,9 @@ int main(int argc, char **argv)
     int num_predictors;
     struct KeyValueIntInt *region_map;
     //    int devDemands[MAXNUM_COUNTY][MAX_YEARS];
-    struct demand demandInfo;
+    struct demand demand_info;
+    struct potential potential_info;
+    struct segment_memory segment_info;
 
     G_gisinit(argv[0]);
 
@@ -278,6 +380,18 @@ int main(int argc, char **argv)
             _("State of the development at the end of simulation");
     opt.output->guisection = _("Output");
 
+    opt.potentialFile = G_define_standard_option(G_OPT_F_INPUT);
+    opt.potentialFile->key = "devpot_params";
+    opt.potentialFile->required = YES;
+    opt.potentialFile->label =
+        _("Development potential parameters for each region");
+    opt.potentialFile->description =
+        _("Each line should contain region ID followed"
+          " by parameters (intercepts, development pressure, other predictors)."
+          " Values are separated by tabs."
+          " First line is ignored, so it can be used for header");
+    opt.potentialFile->guisection = _("Potential");
+    
     opt.demandFile = G_define_standard_option(G_OPT_F_INPUT);
     opt.demandFile->key = "demand";
     opt.demandFile->required = YES;
@@ -334,16 +448,16 @@ int main(int argc, char **argv)
     SEGMENT developed_segment;
     SEGMENT subregions_segment;
     SEGMENT devpressure_segment;
-    int segment_rows = 64;
-    int segment_cols = 64;
-    int segments_in_memory = 4;
+    segment_info.rows = 64;
+    segment_info.cols = 64;
+    segment_info.in_memory = 4;
 
     //   read developed
     G_verbose_message("Reading input rasters...");
     int rowio = Rast_open_old(opt.developed->answer, "");
     if (Segment_open(&developed_segment, G_tempfile(), Rast_window_rows(),
-                     Rast_window_cols(), segment_rows, segment_cols,
-                     Rast_cell_size(CELL_TYPE), segments_in_memory) != 1)
+                     Rast_window_cols(), segment_info.rows, segment_info.cols,
+                     Rast_cell_size(CELL_TYPE), segment_info.in_memory) != 1)
         G_fatal_error(_("Cannot create temporary file with segments of a raster map"));
     void *raster_row = Rast_allocate_buf(CELL_TYPE);
     for (int row = 0; row < Rast_window_rows(); row++) {
@@ -364,26 +478,15 @@ int main(int argc, char **argv)
 
     //    read Subregions layer
     region_map = KeyValueIntInt_create();
-    readSubregions(opt.subregions->answer, &subregions_segment, region_map);
+    read_subregions(opt.subregions->answer, &subregions_segment, region_map);
 
     //    development pressure
-    rowio = Rast_open_old(opt.devpressure->answer, "");
-    if (Segment_open(&devpressure_segment, G_tempfile(), Rast_window_rows(),
-                     Rast_window_cols(), segment_rows, segment_cols,
-                     Rast_cell_size(FCELL_TYPE), segments_in_memory) != 1)
-        G_fatal_error(_("Cannot create temporary file with segments of a raster map"));
-    raster_row = Rast_allocate_buf(FCELL_TYPE);
-    for (int row = 0; row < Rast_window_rows(); row++) {
-        Rast_get_row(rowio, raster_row, row, FCELL_TYPE);
-        Segment_put_row(&devpressure_segment, raster_row, row);
-    }
-    Segment_flush(&devpressure_segment);
-    Rast_close(rowio);
-    G_free(raster_row);
+    rast_segment_open(opt.devpressure->answer, &devpressure_segment,
+                      segment_info, FCELL_TYPE);
 
-    //    num_predictors = 0;
-    //    for (int i = 0; opt.predictors->answers[i]; i++)
-    //        num_predictors++;
+    num_predictors = 0;
+    for (int i = 0; opt.predictors->answers[i]; i++)
+        num_predictors++;
     
     //    predictors = G_malloc(num_predictors * sizeof(struct input));
     
@@ -395,9 +498,12 @@ int main(int argc, char **argv)
     //            G_fatal_error(_("Unable to open input raster <%s>"), p->name);
     //    }
 
+    /* read Potential file */
+    potential_info.filename = opt.potentialFile->answer;
+    read_potential_file(&potential_info, region_map, num_predictors);
     /* read Demand file */
-    demandInfo.filename = opt.demandFile->answer;
-    readDemandFile(&demandInfo, region_map);
+    demand_info.filename = opt.demandFile->answer;
+    read_demand_file(&demand_info, region_map);
 
     /* here do the modeling */
 
@@ -414,10 +520,17 @@ int main(int argc, char **argv)
     Segment_close(&developed_segment);
 
     KeyValueIntInt_free(region_map);
-    if (demandInfo.table) {
-        for (int i = 0; i < demandInfo.max_subregions; i++)
-            G_free(demandInfo.table[i]);
-        G_free(demandInfo.table);
+    if (demand_info.table) {
+        for (int i = 0; i < demand_info.max_subregions; i++)
+            G_free(demand_info.table[i]);
+        G_free(demand_info.table);
+    }
+    if (potential_info.predictors) {
+        for (int i = 0; i < potential_info.max_predictors; i++)
+            G_free(potential_info.predictors[i]);
+        G_free(potential_info.predictors);
+        G_free(potential_info.devpressure);
+        G_free(potential_info.intercept);
     }
 
     return EXIT_SUCCESS;
