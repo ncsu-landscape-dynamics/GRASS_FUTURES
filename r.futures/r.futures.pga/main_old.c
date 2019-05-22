@@ -1390,7 +1390,7 @@ int readParcelSizes(t_Landscape * pLandscape, t_Params * pParams)
     return pLandscape->parcelSizes;
 }
 
-int main(int argc, char **argv)
+int xxxmain(int argc, char **argv)
 {
 
     struct
