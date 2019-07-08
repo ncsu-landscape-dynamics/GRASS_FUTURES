@@ -58,6 +58,10 @@
 
 #include "keyvalue.h"
 #include "inputs.h"
+#include "patch.h"
+
+
+enum development_pressure {OCCURRENCE, GRAVITY, KERNEL};
 
 
 double get_develop_probability_xy(SEGMENT *predictors, SEGMENT *devpressure,
@@ -123,6 +127,34 @@ void initial_probability(SEGMENT *probability, SEGMENT *developed,
     Segment_flush(probability);
 }
 
+
+void update_development_pressure(int row, int col, SEGMENT *devpressure,
+                                 int neighborhood_size, double gamma, double scaling_factor,
+                                 enum development_pressure devpressure_alg) {
+    int i, j;
+    double dist;
+    double value;
+    float devpressure_value;
+
+    /* this can be precomputed */
+    for (i = row - neighborhood_size; i <= row + neighborhood_size; i++) {
+        for (j = col - neighborhood_size; j <= col + neighborhood_size; col++) {
+            dist = get_distance(row, col, i, j);
+            if (dist > neighborhood_size)
+                continue;
+            if (devpressure_alg == OCCURRENCE)
+                value = 1;
+            else if (devpressure_alg == GRAVITY)
+                value = scaling_factor / pow(dist, gamma);
+            else
+                value = scaling_factor * exp(-2 * dist / gamma);
+            Segment_get(devpressure, (void *)&devpressure_value, row, col);
+            devpressure_value += value;
+            Segment_put(devpressure, (void *)&devpressure_value, row, col);
+            
+        }
+    }
+}
 
 struct Undeveloped *initialize_undeveloped(int num_subregions)
 {
@@ -333,7 +365,14 @@ int main(int argc, char **argv)
                         &devpressure_segment, &subregions_segment, segment_info, &potential_info);
 
     /* here do the modeling */
+    enum slow_grow slow_grow_strategy = FORCE_GROW;
     
+    
+//    int *added_ids;
+//    added_ids = (int *) G_malloc(sizeof(int) * patch_size);
+//    grow_patch();
+//    update_development_pressure();
+//    G_free(added_ids);
     
     /* test predictors */
     int out_fd;
