@@ -3,10 +3,7 @@
 
    \brief Functions to read in input files and rasters
 
-   Derived from the Key_Value (lib/gis/key_value1.c) functions in GRASS
-   GIS library which handled char*-char* pairs.
-
-   (C) 2016 by Vaclav Petras and the GRASS Development Team
+   (C) 2016-2019 by Vaclav Petras and the GRASS Development Team
 
    This program is free software under the GNU General Public License
    (>=v2).  Read the file COPYING that comes with GRASS for details.
@@ -52,7 +49,13 @@ size_t get_idx_from_xy(int row, int col, int cols)
     return cols * row + col;
 }
 
+void get_xy_from_idx(size_t idx, int cols, int *row, int *col)
+{
+    *col = idx % cols;
+    *row = (idx - *col) / cols;
+}
 
+// could be writing initial probability to speed up
 void read_developed(char *filename, SEGMENT *developed_segment, SEGMENT *subregions_segment,
                     struct SegmentMemory segment_info,
                     struct Undeveloped *undev_cells)

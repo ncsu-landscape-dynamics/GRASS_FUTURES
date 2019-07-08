@@ -60,11 +60,10 @@
 #include "inputs.h"
 
 
-
-double get_develop_probability(SEGMENT *predictors, SEGMENT *devpressure,
-                               FCELL *values,
-                               struct Potential *potential_info,
-                               int region_index, int row, int col)
+double get_develop_probability_xy(SEGMENT *predictors, SEGMENT *devpressure,
+                                  FCELL *values,
+                                  struct Potential *potential_info,
+                                  int region_index, int row, int col)
 {
     double probability;
     int i;
@@ -81,6 +80,49 @@ double get_develop_probability(SEGMENT *predictors, SEGMENT *devpressure,
     
     return probability;
 }
+
+
+void compute_develop_probability(SEGMENT *probability, SEGMENT *developed,
+                                 SEGMENT *predictors, SEGMENT *devpressure,
+                                 SEGMENT *subregions,
+                                 struct Potential *potential_info)
+{
+    
+    int row, col;
+    double prob;
+
+    CELL developed_cell;
+    CELL region_index;
+    FCELL *values = G_malloc(potential_info->max_predictors * sizeof(FCELL *));
+    for (row = 0; row < Rast_window_rows(); row++) {
+        for (col = 0; col < Rast_window_cols(); col++) {
+            Segment_get(developed, (void *)&developed_cell, row, col);
+            if (developed_cell == -1) {
+                Segment_get(subregions, (void *)&region_index, row, col);
+                prob = get_develop_probability_xy(predictors, devpressure, values,
+                                                  potential_info, region_index, row, col);
+                Segment_put(probability, (void *)&prob, row, col);
+            }
+        }
+    }
+    Segment_flush(probability);
+}
+
+
+void initial_probability(SEGMENT *probability, SEGMENT *developed,
+                         SEGMENT *predictors, SEGMENT *devpressure,
+                         SEGMENT *subregions, struct SegmentMemory segmentInfo,
+                         struct Potential *potential_info)
+{
+    if (Segment_open(probability, G_tempfile(), Rast_window_rows(),
+                     Rast_window_cols(), segmentInfo.rows, segmentInfo.cols,
+                     Rast_cell_size(FCELL_TYPE), segmentInfo.in_memory) != 1)
+        G_fatal_error(_("Cannot create temporary file with segments of a raster map"));
+    compute_develop_probability(probability, developed, predictors, devpressure,
+                                subregions, potential_info);
+    Segment_flush(probability);
+}
+
 
 struct Undeveloped *initialize_undeveloped(int num_subregions)
 {
@@ -246,7 +288,8 @@ int main(int argc, char **argv)
     SEGMENT developed_segment;
     SEGMENT subregions_segment;
     SEGMENT devpressure_segment;
-    SEGMENT predictors;
+    SEGMENT predictors_segment;
+    SEGMENT probability_segment;
     segment_info.rows = 64;
     segment_info.cols = 64;
     segment_info.in_memory = 4;
@@ -282,8 +325,12 @@ int main(int argc, char **argv)
                    segment_info, undev_cells);
 
     /* read in predictors */
-    read_predictors(opt.predictors->answers, &predictors, &developed_segment,
+    read_predictors(opt.predictors->answers, &predictors_segment, &developed_segment,
                     segment_info, num_predictors);
+
+    /* compute initial probability */
+    initial_probability(&probability_segment, &developed_segment, &predictors_segment,
+                        &devpressure_segment, &subregions_segment, segment_info, &potential_info);
 
     /* here do the modeling */
     
@@ -299,9 +346,9 @@ int main(int argc, char **argv)
     for (int row = 0; row < Rast_window_rows(); row++) {
         for (int col = 0; col < Rast_window_cols(); col++) {
             Segment_get(&subregions_segment, (void *)&reg, row, col);
-            prob = get_develop_probability(&predictors, &devpressure_segment,
-                                           values,
-                                           &potential_info, reg, row, col);
+            prob = get_develop_probability_xy(&predictors_segment, &devpressure_segment,
+                                              values,
+                                              &potential_info, reg, row, col);
             ((FCELL *) row_buffer)[col] = prob;
         }
         Rast_put_row(out_fd, row_buffer, FCELL_TYPE);
@@ -309,7 +356,7 @@ int main(int argc, char **argv)
     Rast_close(out_fd);
     G_free(row_buffer);
     G_free(values);
-    Segment_close(&predictors);
+    Segment_close(&predictors_segment);
 
     /* write */
     int fd = Rast_open_new(opt.output->answer, CELL_TYPE);
@@ -322,6 +369,9 @@ int main(int argc, char **argv)
     Rast_close(fd);
     G_free(out_buffer);
     Segment_close(&developed_segment);
+    Segment_close(&subregions_segment);
+    Segment_close(&devpressure_segment);
+    Segment_close(&probability_segment);
 
     KeyValueIntInt_free(region_map);
     if (demand_info.table) {

@@ -50,6 +50,7 @@ struct Undeveloped
 void rast_segment_open(const char *name, SEGMENT *segment, struct SegmentMemory segmentInfo, 
                        RASTER_MAP_TYPE map_type);
 size_t get_idx_from_xy(int row, int col, int cols);
+void get_xy_from_idx(size_t idx, int cols, int *row, int *col);
 
 void read_developed(char *filename, SEGMENT *developed_segment, SEGMENT *subregions_segment,
                     struct SegmentMemory segment_info, struct Undeveloped *undev_cells);
