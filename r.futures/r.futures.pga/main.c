@@ -81,7 +81,6 @@ double get_develop_probability_xy(SEGMENT *predictors, SEGMENT *devpressure,
         probability += potential_info->predictors[i][region_index] * values[i];
     }
     probability = 1.0 / (1.0 + exp(-probability));
-    
     return probability;
 }
 
@@ -93,7 +92,7 @@ void compute_develop_probability(SEGMENT *probability, SEGMENT *developed,
 {
     
     int row, col;
-    double prob;
+    float prob;
 
     CELL developed_cell;
     CELL region_index;
@@ -101,8 +100,18 @@ void compute_develop_probability(SEGMENT *probability, SEGMENT *developed,
     for (row = 0; row < Rast_window_rows(); row++) {
         for (col = 0; col < Rast_window_cols(); col++) {
             Segment_get(developed, (void *)&developed_cell, row, col);
+            if (Rast_is_null_value(&developed_cell, CELL_TYPE)) {
+                Rast_set_null_value(values, 1, FCELL_TYPE);
+                Segment_put(probability, (void *)values, row, col);
+                continue;
+            }
             if (developed_cell == -1) {
                 Segment_get(subregions, (void *)&region_index, row, col);
+                if (Rast_is_null_value(&region_index, CELL_TYPE)) {
+                    Rast_set_null_value(values, 1, FCELL_TYPE);
+                    Segment_put(probability, (void *)values, row, col);
+                    continue;
+                }
                 prob = get_develop_probability_xy(predictors, devpressure, values,
                                                   potential_info, region_index, row, col);
                 Segment_put(probability, (void *)&prob, row, col);
@@ -110,6 +119,7 @@ void compute_develop_probability(SEGMENT *probability, SEGMENT *developed,
         }
     }
     Segment_flush(probability);
+    G_free(values);
 }
 
 
@@ -134,11 +144,11 @@ void update_development_pressure(int row, int col, SEGMENT *devpressure,
     int i, j;
     double dist;
     double value;
-    float devpressure_value;
+    FCELL devpressure_value;
 
     /* this can be precomputed */
     for (i = row - neighborhood_size; i <= row + neighborhood_size; i++) {
-        for (j = col - neighborhood_size; j <= col + neighborhood_size; col++) {
+        for (j = col - neighborhood_size; j <= col + neighborhood_size; j++) {
             dist = get_distance(row, col, i, j);
             if (dist > neighborhood_size)
                 continue;
@@ -148,9 +158,9 @@ void update_development_pressure(int row, int col, SEGMENT *devpressure,
                 value = scaling_factor / pow(dist, gamma);
             else
                 value = scaling_factor * exp(-2 * dist / gamma);
-            Segment_get(devpressure, (void *)&devpressure_value, row, col);
+            Segment_get(devpressure, (void *)&devpressure_value, i, j);
             devpressure_value += value;
-            Segment_put(devpressure, (void *)&devpressure_value, row, col);
+            Segment_put(devpressure, (void *)&devpressure_value, i, j);
             
         }
     }
@@ -172,11 +182,13 @@ struct Undeveloped *initialize_undeveloped(int num_subregions)
 
 int main(int argc, char **argv)
 {
-    
+
     struct
     {
         struct Option
-                *developed, *subregions, *predictors, *devpressure, *potentialFile,
+                *developed, *subregions, *predictors,
+                *devpressure, *nDevNeighbourhood, *devpressureApproach, *scalingFactor, *gamma,
+                *potentialFile, *numNeighbors,
                 *demandFile, *patchFile, *output, *seed;
 
     } opt;
@@ -186,9 +198,11 @@ int main(int argc, char **argv)
         struct Flag *generateSeed;
     } flg;
 
-    int num_predictors;
+    int num_predictors, num_neighbors;
+    double scaling_factor, gamma;
+    enum development_pressure devpressure_alg;
+    int devpressure_neighborhood;
     struct KeyValueIntInt *region_map;
-    //    int devDemands[MAXNUM_COUNTY][MAX_YEARS];
     struct Undeveloped *undev_cells;
     struct Demand demand_info;
     struct Potential potential_info;
@@ -209,7 +223,7 @@ int main(int argc, char **argv)
     module->description =
             _("Module uses Patch-Growing Algorithm (PGA) to"
               " simulate urban-rural landscape structure development.");
-    
+
     opt.developed = G_define_standard_option(G_OPT_R_INPUT);
     opt.developed->key = "developed";
     opt.developed->required = YES;
@@ -238,6 +252,40 @@ int main(int argc, char **argv)
             _("Raster map of development pressure");
     opt.devpressure->guisection = _("Development pressure");
 
+    opt.nDevNeighbourhood = G_define_option();
+    opt.nDevNeighbourhood->key = "n_dev_neighbourhood";
+    opt.nDevNeighbourhood->type = TYPE_INTEGER;
+    opt.nDevNeighbourhood->required = YES;
+    opt.nDevNeighbourhood->description =
+        _("Size of square used to recalculate development pressure");
+    opt.nDevNeighbourhood->guisection = _("Development pressure");
+
+    opt.devpressureApproach = G_define_option();
+    opt.devpressureApproach->key = "development_pressure_approach";
+    opt.devpressureApproach->type = TYPE_STRING;
+    opt.devpressureApproach->required = YES;
+    opt.devpressureApproach->options = "occurrence,gravity,kernel";
+    opt.devpressureApproach->description =
+        _("Approaches to derive development pressure");
+    opt.devpressureApproach->answer = "gravity";
+    opt.devpressureApproach->guisection = _("Development pressure");
+
+    opt.gamma = G_define_option();
+    opt.gamma->key = "gamma";
+    opt.gamma->type = TYPE_DOUBLE;
+    opt.gamma->required = YES;
+    opt.gamma->description =
+        _("Influence of distance between neighboring cells");
+    opt.gamma->guisection = _("Development pressure");
+
+    opt.scalingFactor = G_define_option();
+    opt.scalingFactor->key = "scaling_factor";
+    opt.scalingFactor->type = TYPE_DOUBLE;
+    opt.scalingFactor->required = YES;
+    opt.scalingFactor->description =
+        _("Scaling factor of development pressure");
+    opt.scalingFactor->guisection = _("Development pressure");
+
     opt.output = G_define_standard_option(G_OPT_R_OUTPUT);
     opt.output->key = "output";
     opt.output->required = YES;
@@ -256,20 +304,30 @@ int main(int argc, char **argv)
           " Values are separated by tabs."
           " First line is ignored, so it can be used for header");
     opt.potentialFile->guisection = _("Potential");
-    
+
     opt.demandFile = G_define_standard_option(G_OPT_F_INPUT);
     opt.demandFile->key = "demand";
     opt.demandFile->required = YES;
     opt.demandFile->description =
             _("Control file with number of cells to convert");
     opt.demandFile->guisection = _("Demand");
-    
+
     opt.patchFile = G_define_standard_option(G_OPT_F_INPUT);
     opt.patchFile->key = "patch_sizes";
     opt.patchFile->required = YES;
     opt.patchFile->description =
         _("File containing list of patch sizes to use");
     opt.patchFile->guisection = _("PGA");
+
+    opt.numNeighbors = G_define_option();
+    opt.numNeighbors->key = "num_neighbors";
+    opt.numNeighbors->type = TYPE_INTEGER;
+    opt.numNeighbors->required = YES;
+    opt.numNeighbors->options = "4,8";
+    opt.numNeighbors->answer = "4";
+    opt.numNeighbors->description =
+        _("The number of neighbors to be used for patch generation (4 or 8)");
+    opt.numNeighbors->guisection = _("PGA");
 
     opt.seed = G_define_option();
     opt.seed->key = "random_seed";
@@ -315,7 +373,20 @@ int main(int argc, char **argv)
     // although GRASS random function is initialized
     // the general one must be done separately
     // TODO: replace all by GRASS random number generator?
-    srand(seed_value);
+//    srand(seed_value);
+
+    num_neighbors = atoi(opt.numNeighbors->answer);
+    scaling_factor = atof(opt.scalingFactor->answer);
+    gamma = atof(opt.gamma->answer);
+    devpressure_neighborhood = atoi(opt.nDevNeighbourhood->answer);
+    if (strcmp(opt.devpressureApproach->answer, "occurrence") == 0)
+        devpressure_alg = OCCURRENCE;
+    else if (strcmp(opt.devpressureApproach->answer, "gravity") == 0)
+        devpressure_alg = GRAVITY;
+    else if (strcmp(opt.devpressureApproach->answer, "kernel") == 0)
+        devpressure_alg = KERNEL;
+    else
+        G_fatal_error(_("Approach doesn't exist"));
 
     SEGMENT developed_segment;
     SEGMENT subregions_segment;
@@ -329,14 +400,6 @@ int main(int argc, char **argv)
     num_predictors = 0;
     for (int i = 0; opt.predictors->answers[i]; i++)
         num_predictors++;
-    
-    //    read Subregions layer
-    region_map = KeyValueIntInt_create();
-    read_subregions(opt.subregions->answer, &subregions_segment, region_map);
-
-    //    development pressure
-    rast_segment_open(opt.devpressure->answer, &devpressure_segment,
-                      segment_info, FCELL_TYPE);
 
     /* read Potential file */
     potential_info.filename = opt.potentialFile->answer;
@@ -350,7 +413,15 @@ int main(int argc, char **argv)
     /* read Patch sizes file */
     patch_info.filename = opt.patchFile->answer;
     read_patch_sizes(&patch_info);
-    
+
+    //    read Subregions layer
+    region_map = KeyValueIntInt_create();
+    read_subregions(opt.subregions->answer, &subregions_segment, region_map);
+
+    //    development pressure
+    rast_segment_open(opt.devpressure->answer, &devpressure_segment,
+                      segment_info, FCELL_TYPE);
+
     //   read developed
     G_verbose_message("Reading input rasters...");
     read_developed(opt.developed->answer, &developed_segment, &subregions_segment,
@@ -365,15 +436,28 @@ int main(int argc, char **argv)
                         &devpressure_segment, &subregions_segment, segment_info, &potential_info);
 
     /* here do the modeling */
-    enum slow_grow slow_grow_strategy = FORCE_GROW;
-    
-    
-//    int *added_ids;
-//    added_ids = (int *) G_malloc(sizeof(int) * patch_size);
-//    grow_patch();
-//    update_development_pressure();
-//    G_free(added_ids);
-    
+    enum slow_grow slow_grow_strategy = SKIP;
+
+
+    int *added_ids;
+    int patch_size = 100;
+    int seed_row = 352;
+    int seed_col = 111;
+    int step = 1;
+    double alpha = 10;
+    int rowx, colx;
+    int found;
+    added_ids = (int *) G_malloc(sizeof(int) * patch_size);
+    found = grow_patch(seed_row, seed_col, added_ids, &developed_segment, &probability_segment,
+                       num_neighbors, alpha, patch_size, step, slow_grow_strategy);
+    for (int i = 0; i < found; i++) {
+        get_xy_from_idx(added_ids[i], Rast_window_cols(), &rowx, &colx);
+        update_development_pressure(rowx, colx, &devpressure_segment, devpressure_neighborhood,
+                                    gamma, scaling_factor, devpressure_alg);
+
+    }
+    G_free(added_ids);
+
     /* test predictors */
     int out_fd;
     double prob;
@@ -385,10 +469,14 @@ int main(int argc, char **argv)
     for (int row = 0; row < Rast_window_rows(); row++) {
         for (int col = 0; col < Rast_window_cols(); col++) {
             Segment_get(&subregions_segment, (void *)&reg, row, col);
-            prob = get_develop_probability_xy(&predictors_segment, &devpressure_segment,
-                                              values,
-                                              &potential_info, reg, row, col);
-            ((FCELL *) row_buffer)[col] = prob;
+            if (Rast_is_null_value(&reg, CELL_TYPE))
+                Rast_set_null_value(&((FCELL *) row_buffer)[col], 1, CELL_TYPE);
+            else {
+                prob = get_develop_probability_xy(&predictors_segment, &devpressure_segment,
+                                                  values,
+                                                  &potential_info, reg, row, col);
+                ((FCELL *) row_buffer)[col] = prob;
+            }
         }
         Rast_put_row(out_fd, row_buffer, FCELL_TYPE);
     }
@@ -400,7 +488,7 @@ int main(int argc, char **argv)
     /* write */
     int fd = Rast_open_new(opt.output->answer, CELL_TYPE);
     void *out_buffer = Rast_allocate_buf(CELL_TYPE);
-
+    Segment_flush(&developed_segment);
     for (int row = 0; row < Rast_window_rows(); row++) {
         Segment_get_row(&developed_segment, out_buffer, row);
         Rast_put_row(fd, out_buffer, CELL_TYPE);

@@ -83,6 +83,8 @@ void read_developed(char *filename, SEGMENT *developed_segment, SEGMENT *subregi
                     size_t idx = get_idx_from_xy(row, col, cols);
                     CELL region_index;
                     Segment_get(subregions_segment, (void *)&region_index, row, col);
+                    if (Rast_is_null_value(&region_index, CELL_TYPE))
+                        continue;
                     size_t current_num_undev = undev_cells->num_undeveloped[region_index];
                     if (current_num_undev > undev_cells->max_undeveloped[region_index])
                     {
@@ -211,10 +213,10 @@ void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_m
         G_fatal_error(_("Cannot open population demand file <%s>"),
                       demandInfo->filename);
     int countlines = 0;
-    // Extract characters from file and store in character c 
-    for (char c = getc(fp); c != EOF; c = getc(fp)) 
-        if (c == '\n') // Increment count if this character is newline 
-            countlines++; 
+    // Extract characters from file and store in character c
+    for (char c = getc(fp); c != EOF; c = getc(fp))
+        if (c == '\n') // Increment count if this character is newline
+            countlines++;
 
     rewind(fp);
 
@@ -245,9 +247,9 @@ void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_m
     }
 
     int years = 0;
-    demandInfo->table = (int **) G_malloc(region_map->nitems * sizeof(int *)); 
+    demandInfo->table = (int **) G_malloc(region_map->nitems * sizeof(int *));
     for (int i = 0; i < region_map->nitems; i++) {
-        demandInfo->table[i] = (int *) G_malloc(countlines * sizeof(int)); 
+        demandInfo->table[i] = (int *) G_malloc(countlines * sizeof(int));
     }
     while(G_getl2(buf, buflen, fp)) {
         if (!buf || buf[0] == '\0')
@@ -300,11 +302,11 @@ void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt 
         G_fatal_error(_("Development potential parameters file <%s>"
                         " contains less than one line"), potentialInfo->filename);
     potentialInfo->max_predictors = num_predictors;
-    potentialInfo->intercept = (double *) G_malloc(region_map->nitems * sizeof(double)); 
-    potentialInfo->devpressure = (double *) G_malloc(region_map->nitems * sizeof(double)); 
-    potentialInfo->predictors = (double **) G_malloc(num_predictors * sizeof(double *)); 
+    potentialInfo->intercept = (double *) G_malloc(region_map->nitems * sizeof(double));
+    potentialInfo->devpressure = (double *) G_malloc(region_map->nitems * sizeof(double));
+    potentialInfo->predictors = (double **) G_malloc(num_predictors * sizeof(double *));
     for (int i = 0; i < num_predictors; i++) {
-        potentialInfo->predictors[i] = (double *) G_malloc(region_map->nitems * sizeof(double)); 
+        potentialInfo->predictors[i] = (double *) G_malloc(region_map->nitems * sizeof(double));
     }
 
     char **tokens;

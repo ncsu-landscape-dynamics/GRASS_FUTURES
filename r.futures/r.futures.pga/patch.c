@@ -122,13 +122,15 @@ int grow_patch(int seed_row, int seed_col, int *added_ids,
                int step, enum slow_grow strategy)
 {
     int i, j, iter;
+    double r, p;
     int found;
     int force, skip;
     int row, col, cols;
 
     struct CandidateNeighborsList candidates;
     candidates.block_size = 20;
-    candidates.max_n = 0;
+    candidates.candidates = (struct CandidateNeighbor *) G_malloc(sizeof(struct CandidateNeighbor) * candidates.block_size);
+    candidates.max_n = candidates.block_size;
     candidates.n = 0;
     
     cols = Rast_window_cols();
@@ -139,11 +141,13 @@ int grow_patch(int seed_row, int seed_col, int *added_ids,
     add_neighbours(seed_row, seed_col, seed_row, seed_col,
                    &candidates, developed, probability, alpha, num_neighbors);
     iter = 0;
-    while (candidates.n > 0 && found <= patch_size && skip == 0) {
+    while (candidates.n > 0 && found < patch_size && skip == 0) {
         i = 0;
         while (1) {
             /* challenge the candidate */
-            if (G_drand48() < candidates.candidates[i].potential || force) {
+            r = G_drand48();
+            p = candidates.candidates[i].potential;
+            if (r < p || force) {
                 /* update list of added IDs */
                 added_ids[found] = candidates.candidates[i].id;
                 /* update to developed */
