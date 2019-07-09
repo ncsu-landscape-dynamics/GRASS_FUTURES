@@ -24,6 +24,11 @@
 #include "patch.h"
 
 
+int get_patch_size(struct PatchSizes *patch_info)
+{
+    return patch_info->patch_sizes[(int)(G_drand48() * patch_info->max_patches)];
+}
+
 void add_neighbour(int row, int col, int seed_row, int seed_col,
                    struct CandidateNeighborsList *candidate_list,
                    SEGMENT *developed, SEGMENT *probability,

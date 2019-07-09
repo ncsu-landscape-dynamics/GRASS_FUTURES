@@ -3,6 +3,8 @@
 
 #include <grass/segment.h>
 
+#include "inputs.h"
+
 
 #define MAX_CANDIDATE_ITER 100
 
@@ -24,7 +26,7 @@ struct CandidateNeighborsList
     
 };
 
-
+int get_patch_size(struct PatchSizes *patch_info);
 void add_neighbour(int row, int col, int seed_row, int seed_col,
                    struct CandidateNeighborsList *candidate_list,
                    SEGMENT *developed, SEGMENT *probability,

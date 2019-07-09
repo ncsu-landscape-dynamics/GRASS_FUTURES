@@ -79,22 +79,23 @@ void read_developed(char *filename, SEGMENT *developed_segment, SEGMENT *subregi
                 CELL c = ((CELL *) raster_row)[col];
                 ((CELL *) raster_row)[col] = c - 1;
                 /* save undeveloped cells by region */
-                if(c == 0){
-                    size_t idx = get_idx_from_xy(row, col, cols);
-                    CELL region_index;
-                    Segment_get(subregions_segment, (void *)&region_index, row, col);
-                    if (Rast_is_null_value(&region_index, CELL_TYPE))
-                        continue;
-                    size_t current_num_undev = undev_cells->num_undeveloped[region_index];
-                    if (current_num_undev > undev_cells->max_undeveloped[region_index])
-                    {
-                        size_t new_size = 2 * undev_cells->max_undeveloped[region_index];
-                        undev_cells->cell[region_index] = (size_t *) G_realloc(undev_cells->cell[region_index], new_size * sizeof(size_t));
-                        undev_cells->max_undeveloped[region_index] = new_size;
-                    }
-                    undev_cells->cell[region_index][current_num_undev] = idx;
-                    undev_cells->num_undeveloped[region_index]++;
-                }
+//                if(c == 0){
+//                    size_t idx = get_idx_from_xy(row, col, cols);
+//                    CELL region_index;
+//                    Segment_get(subregions_segment, (void *)&region_index, row, col);
+//                    if (Rast_is_null_value(&region_index, CELL_TYPE))
+//                        continue;
+//                    size_t current_num_undev = undev_cells->num[region_index];
+//                    if (current_num_undev > undev_cells->max[region_index])
+//                    {
+//                        size_t new_size = 2 * undev_cells->max[region_index];
+//                        undev_cells->cells[region_index] = (struct UndevelopedCell *) G_realloc(undev_cells->cells[region_index],
+//                                                                                                new_size * sizeof(struct UndevelopedCell));
+//                        undev_cells->max[region_index] = new_size;
+//                    }
+//                    undev_cells->cells[region_index][current_num_undev] = idx;
+//                    undev_cells->num[region_index]++;
+//                }
             }
         }
         Segment_put_row(developed_segment, raster_row, row);
@@ -352,11 +353,12 @@ void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt 
 }
 
 
-void read_patch_sizes(struct PatchSizes *patch_info)
+void read_patch_sizes(struct PatchSizes *patch_info, double discount_factor)
 {
     FILE *fin;
     char *size_buffer;
     int n_max_patches;
+    int patch;
 
 
     patch_info->max_patches = 0;
@@ -377,9 +379,11 @@ void read_patch_sizes(struct PatchSizes *patch_info)
                     (int *) G_malloc(sizeof(int) * n_max_patches);
                 if (patch_info->patch_sizes) {
                     while (fgets(size_buffer, 100, fin)) {
-                        patch_info->patch_sizes[patch_info->max_patches] =
-                            atoi(size_buffer);// * pParams->discountFactor;
-                        patch_info->max_patches++;
+                        patch = atoi(size_buffer) * discount_factor;
+                        if (patch > 0) {
+                            patch_info->patch_sizes[patch_info->max_patches] = patch;
+                            patch_info->max_patches++;
+                        }
                     }
                 }
             }

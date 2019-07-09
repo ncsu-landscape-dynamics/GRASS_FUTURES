@@ -38,12 +38,20 @@ struct SegmentMemory
     int in_memory;
 };
 
+struct UndevelopedCell
+{
+
+    size_t id;
+    float probability;
+    float cumulative_probability;
+};
+
 struct Undeveloped
 {
     int max_subregions;
-    size_t *max_undeveloped;
-    size_t *num_undeveloped;
-    size_t **cell;
+    size_t *max;
+    size_t *num;
+    struct UndevelopedCell **cells;
 };
 
 
@@ -62,6 +70,6 @@ void read_subregions(const char *subregions, SEGMENT * segment,
 void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_map);
 void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt *region_map,
                          int num_predictors);
-void read_patch_sizes(struct PatchSizes *patch_info);
+void read_patch_sizes(struct PatchSizes *patch_info, double discount_factor);
 
 #endif // FUTURES_INPUTS_H
