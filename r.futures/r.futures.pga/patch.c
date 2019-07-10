@@ -31,8 +31,7 @@ int get_patch_size(struct PatchSizes *patch_info)
 
 void add_neighbour(int row, int col, int seed_row, int seed_col,
                    struct CandidateNeighborsList *candidate_list,
-                   SEGMENT *developed, SEGMENT *probability,
-                   double alpha)
+                   struct Segments *segments, double alpha)
 {
     int i, shouldAdd;
     double distance;
@@ -40,7 +39,7 @@ void add_neighbour(int row, int col, int seed_row, int seed_col,
     CELL value;
     FCELL prob;
     
-    Segment_get(developed, (void *)&value, row, col);
+    Segment_get(&segments->developed_segment, (void *)&value, row, col);
     if (Rast_is_null_value(&value, CELL_TYPE))
         return;
     if (value == -1) {
@@ -66,7 +65,7 @@ void add_neighbour(int row, int col, int seed_row, int seed_col,
                 }
             }
             candidate_list->candidates[candidate_list->n].id = idx;
-            Segment_get(probability, (void *)&prob, row, col);
+            Segment_get(&segments->probability_segment, (void *)&prob, row, col);
             candidate_list->candidates[candidate_list->n].potential = prob;
             distance = get_distance(seed_row, seed_col, row, col);
             candidate_list->candidates[candidate_list->n].suitability = prob / pow(distance, alpha);
@@ -77,26 +76,26 @@ void add_neighbour(int row, int col, int seed_row, int seed_col,
 
 void add_neighbours(int row, int col, int seed_row, int seed_col,
                     struct CandidateNeighborsList *candidate_list,
-                    SEGMENT *developed, SEGMENT *probability,
+                    struct Segments *segments,
                     double alpha, int num_neighbors)
 {
     add_neighbour(row - 1, col, seed_row, seed_col, candidate_list,
-                  developed, probability, alpha);  // left
+                  segments, alpha);  // left
     add_neighbour(row + 1, col, seed_row, seed_col, candidate_list, 
-                  developed, probability, alpha);  // right
+                  segments, alpha);  // right
     add_neighbour(row, col - 1, seed_row, seed_col, candidate_list, 
-                  developed, probability, alpha);  // down
+                  segments, alpha);  // down
     add_neighbour(row, col + 1, seed_row, seed_col, candidate_list, 
-                  developed, probability, alpha);  // up 
+                  segments, alpha);  // up 
     if (num_neighbors == 8) {
         add_neighbour(row - 1, col - 1, seed_row, seed_col, candidate_list, 
-                      developed, probability, alpha);
+                      segments, alpha);
         add_neighbour(row - 1, col + 1, seed_row, seed_col, candidate_list, 
-                      developed, probability, alpha);
+                      segments, alpha);
         add_neighbour(row + 1, col - 1, seed_row, seed_col, candidate_list, 
-                      developed, probability, alpha);
+                      segments, alpha);
         add_neighbour(row + 1, col + 1, seed_row, seed_col, candidate_list, 
-                      developed, probability, alpha);
+                      segments, alpha);
     }
 }
 
@@ -122,7 +121,7 @@ double get_distance(int row1, int col1, int row2, int col2)
 
 
 int grow_patch(int seed_row, int seed_col, int *added_ids,
-               SEGMENT *developed, SEGMENT *probability,
+               struct Segments *segments,
                int num_neighbors, double alpha, int patch_size,
                int step, enum slow_grow strategy)
 {
@@ -144,7 +143,7 @@ int grow_patch(int seed_row, int seed_col, int *added_ids,
     skip = 0;
 
     add_neighbours(seed_row, seed_col, seed_row, seed_col,
-                   &candidates, developed, probability, alpha, num_neighbors);
+                   &candidates, segments, alpha, num_neighbors);
     iter = 0;
     while (candidates.n > 0 && found < patch_size && skip == 0) {
         i = 0;
@@ -157,7 +156,7 @@ int grow_patch(int seed_row, int seed_col, int *added_ids,
                 added_ids[found] = candidates.candidates[i].id;
                 /* update to developed */
                 get_xy_from_idx(candidates.candidates[i].id, cols, &row, &col);
-                Segment_put(developed, (void *)&step, row, col);
+                Segment_put(&segments->developed_segment, (void *)&step, row, col);
                 /* remove this one from the list by copying down everything above it */
                 for (j = i + 1; j < candidates.n; j++) {
                     candidates.candidates[j - 1].id = candidates.candidates[j].id;
@@ -168,7 +167,7 @@ int grow_patch(int seed_row, int seed_col, int *added_ids,
                 candidates.n--;
                 /* find and add new candidates */
                 add_neighbours(row, col, seed_row, seed_col,
-                               &candidates, developed, probability, alpha, num_neighbors);
+                               &candidates, segments, alpha, num_neighbors);
                 /* sort candidates based on probability */
                 qsort(candidates.candidates, candidates.n, sizeof(struct CandidateNeighbor), sort_neighbours);
                 found++;

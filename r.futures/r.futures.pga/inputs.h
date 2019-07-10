@@ -38,6 +38,15 @@ struct SegmentMemory
     int in_memory;
 };
 
+struct Segments
+{
+    SEGMENT developed_segment;
+    SEGMENT subregions_segment;
+    SEGMENT devpressure_segment;
+    SEGMENT predictors_segment;
+    SEGMENT probability_segment;
+};
+
 struct UndevelopedCell
 {
 
@@ -60,12 +69,12 @@ void rast_segment_open(const char *name, SEGMENT *segment, struct SegmentMemory 
 size_t get_idx_from_xy(int row, int col, int cols);
 void get_xy_from_idx(size_t idx, int cols, int *row, int *col);
 
-void read_developed(char *filename, SEGMENT *developed_segment, SEGMENT *subregions_segment,
-                    struct SegmentMemory segment_info, struct Undeveloped *undev_cells);
+void read_developed(char *filename, struct Segments *segments,
+                    struct SegmentMemory segment_info);
 
-void read_predictors(char **predictor_names, SEGMENT *segment, SEGMENT *output,
+void read_predictors(char **predictor_names, struct Segments *segments,
                      struct SegmentMemory segmentInfo, int ninputs);
-void read_subregions(const char *subregions, SEGMENT * segment,
+void read_subregions(const char *subregions, struct Segments *segments,
                     struct KeyValueIntInt *region_map);
 void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_map);
 void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt *region_map,

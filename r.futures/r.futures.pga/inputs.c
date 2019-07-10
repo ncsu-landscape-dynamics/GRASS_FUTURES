@@ -56,15 +56,14 @@ void get_xy_from_idx(size_t idx, int cols, int *row, int *col)
 }
 
 // could be writing initial probability to speed up
-void read_developed(char *filename, SEGMENT *developed_segment, SEGMENT *subregions_segment,
-                    struct SegmentMemory segment_info,
-                    struct Undeveloped *undev_cells)
+void read_developed(char *filename, struct Segments *segments,
+                    struct SegmentMemory segment_info)
 {
     int row, cols, col, rowio;
     void *raster_row;
 
     rowio = Rast_open_old(filename, "");
-    if (Segment_open(developed_segment, G_tempfile(), Rast_window_rows(),
+    if (Segment_open(&segments->developed_segment, G_tempfile(), Rast_window_rows(),
                      Rast_window_cols(), segment_info.rows, segment_info.cols,
                      Rast_cell_size(CELL_TYPE), segment_info.in_memory) != 1)
         G_fatal_error(_("Cannot create temporary file with segments of a raster map"));
@@ -78,29 +77,11 @@ void read_developed(char *filename, SEGMENT *developed_segment, SEGMENT *subregi
             else {
                 CELL c = ((CELL *) raster_row)[col];
                 ((CELL *) raster_row)[col] = c - 1;
-                /* save undeveloped cells by region */
-//                if(c == 0){
-//                    size_t idx = get_idx_from_xy(row, col, cols);
-//                    CELL region_index;
-//                    Segment_get(subregions_segment, (void *)&region_index, row, col);
-//                    if (Rast_is_null_value(&region_index, CELL_TYPE))
-//                        continue;
-//                    size_t current_num_undev = undev_cells->num[region_index];
-//                    if (current_num_undev > undev_cells->max[region_index])
-//                    {
-//                        size_t new_size = 2 * undev_cells->max[region_index];
-//                        undev_cells->cells[region_index] = (struct UndevelopedCell *) G_realloc(undev_cells->cells[region_index],
-//                                                                                                new_size * sizeof(struct UndevelopedCell));
-//                        undev_cells->max[region_index] = new_size;
-//                    }
-//                    undev_cells->cells[region_index][current_num_undev] = idx;
-//                    undev_cells->num[region_index]++;
-//                }
             }
         }
-        Segment_put_row(developed_segment, raster_row, row);
+        Segment_put_row(&segments->developed_segment, raster_row, row);
     }
-    Segment_flush(developed_segment);
+    Segment_flush(&segments->developed_segment);
     Rast_close(rowio);
     G_free(raster_row);
 }
@@ -109,7 +90,7 @@ void read_developed(char *filename, SEGMENT *developed_segment, SEGMENT *subregi
 
 
 
-void read_predictors(char **predictor_names, SEGMENT *segment, SEGMENT *output,
+void read_predictors(char **predictor_names, struct Segments *segments,
                      struct SegmentMemory segmentInfo, int ninputs)
 {
     int input;
@@ -125,7 +106,7 @@ void read_predictors(char **predictor_names, SEGMENT *segment, SEGMENT *output,
         input_fds[input] = Rast_open_old(predictor_names[input], "");
     }
     
-    if (Segment_open(segment, G_tempfile(),
+    if (Segment_open(&segments->predictors_segment, G_tempfile(),
                      nrows, ncols, segmentInfo.rows, segmentInfo.cols,
                      segment_cell_size, segmentInfo.in_memory) != 1)
         G_fatal_error(_("Unable to create temporary segment file"));
@@ -144,22 +125,22 @@ void read_predictors(char **predictor_names, SEGMENT *segment, SEGMENT *output,
                     if (Rast_is_null_value(&((FCELL *) row_buffer)[col], FCELL_TYPE))
                     {
                         Rast_set_c_null_value(&out_mask, 1);
-                        Segment_put(output, (void *)&out_mask, row, col);
+                        Segment_put(&segments->developed_segment, (void *)&out_mask, row, col);
                     }
                 }
         }
-        if (Segment_put_row(segment, seg_buffer, row) < 1)
+        if (Segment_put_row(&segments->predictors_segment, seg_buffer, row) < 1)
             G_fatal_error(_("Unable to write temporary segment file"));
     }
-    Segment_flush(segment);
-    Segment_flush(output);
+    Segment_flush(&segments->predictors_segment);
+    Segment_flush(&segments->developed_segment);
     for (input = 0; input < ninputs; input++)
         Rast_close(input_fds[input]);
     G_free(input_fds);
     G_free(row_buffer);
     G_free(seg_buffer);
 }
-void read_subregions(const char *subregions, SEGMENT * segment,
+void read_subregions(const char *subregions, struct Segments *segments,
                     struct KeyValueIntInt *region_map)
 {
     int val;
@@ -174,7 +155,7 @@ void read_subregions(const char *subregions, SEGMENT * segment,
     int segment_rows = 64;
     int segment_cols = 64;
     int segments_in_memory = 4;
-    if (Segment_open(segment, G_tempfile(), Rast_window_rows(),
+    if (Segment_open(&segments->subregions_segment, G_tempfile(), Rast_window_rows(),
                      Rast_window_cols(), segment_rows, segment_cols,
                      Rast_cell_size(CELL_TYPE), segments_in_memory) != 1)
         G_fatal_error(_("Cannot create temporary file with segments of a raster map"));
@@ -199,9 +180,9 @@ void read_subregions(const char *subregions, SEGMENT * segment,
                 *(CELL *) ptr = index;
             }
         }
-        Segment_put_row(segment, buffer, row);
+        Segment_put_row(&segments->subregions_segment, buffer, row);
     }
-    Segment_flush(segment);
+    Segment_flush(&segments->subregions_segment);
     G_free(buffer);
     Rast_close(fd);
 }

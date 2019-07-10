@@ -29,15 +29,15 @@ struct CandidateNeighborsList
 int get_patch_size(struct PatchSizes *patch_info);
 void add_neighbour(int row, int col, int seed_row, int seed_col,
                    struct CandidateNeighborsList *candidate_list,
-                   SEGMENT *developed, SEGMENT *probability,
+                   struct Segments *segments,
                    double alpha);
 void add_neighbours(int row, int col, int seed_row, int seed_col,
                     struct CandidateNeighborsList *candidate_list,
-                    SEGMENT *developed, SEGMENT *probability,
+                    struct Segments *segments,
                     double alpha, int num_neighbors);
 double get_distance(int row1, int col1, int row2, int col2);
 int grow_patch(int seed_row, int seed_col, int *added_ids,
-               SEGMENT *developed, SEGMENT *probability,
+               struct Segments *segments,
                int num_neighbors, double alpha, int patch_size,
                int step, enum slow_grow strategy);
 
