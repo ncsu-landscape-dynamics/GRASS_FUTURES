@@ -63,7 +63,7 @@ void read_developed(char *filename, struct Segments *segments,
     void *raster_row;
 
     rowio = Rast_open_old(filename, "");
-    if (Segment_open(&segments->developed_segment, G_tempfile(), Rast_window_rows(),
+    if (Segment_open(&segments->developed, G_tempfile(), Rast_window_rows(),
                      Rast_window_cols(), segment_info.rows, segment_info.cols,
                      Rast_cell_size(CELL_TYPE), segment_info.in_memory) != 1)
         G_fatal_error(_("Cannot create temporary file with segments of a raster map"));
@@ -79,9 +79,9 @@ void read_developed(char *filename, struct Segments *segments,
                 ((CELL *) raster_row)[col] = c - 1;
             }
         }
-        Segment_put_row(&segments->developed_segment, raster_row, row);
+        Segment_put_row(&segments->developed, raster_row, row);
     }
-    Segment_flush(&segments->developed_segment);
+    Segment_flush(&segments->developed);
     Rast_close(rowio);
     G_free(raster_row);
 }
@@ -106,7 +106,7 @@ void read_predictors(char **predictor_names, struct Segments *segments,
         input_fds[input] = Rast_open_old(predictor_names[input], "");
     }
     
-    if (Segment_open(&segments->predictors_segment, G_tempfile(),
+    if (Segment_open(&segments->predictors, G_tempfile(),
                      nrows, ncols, segmentInfo.rows, segmentInfo.cols,
                      segment_cell_size, segmentInfo.in_memory) != 1)
         G_fatal_error(_("Unable to create temporary segment file"));
@@ -125,15 +125,15 @@ void read_predictors(char **predictor_names, struct Segments *segments,
                     if (Rast_is_null_value(&((FCELL *) row_buffer)[col], FCELL_TYPE))
                     {
                         Rast_set_c_null_value(&out_mask, 1);
-                        Segment_put(&segments->developed_segment, (void *)&out_mask, row, col);
+                        Segment_put(&segments->developed, (void *)&out_mask, row, col);
                     }
                 }
         }
-        if (Segment_put_row(&segments->predictors_segment, seg_buffer, row) < 1)
+        if (Segment_put_row(&segments->predictors, seg_buffer, row) < 1)
             G_fatal_error(_("Unable to write temporary segment file"));
     }
-    Segment_flush(&segments->predictors_segment);
-    Segment_flush(&segments->developed_segment);
+    Segment_flush(&segments->predictors);
+    Segment_flush(&segments->developed);
     for (input = 0; input < ninputs; input++)
         Rast_close(input_fds[input]);
     G_free(input_fds);
@@ -155,7 +155,7 @@ void read_subregions(const char *subregions, struct Segments *segments,
     int segment_rows = 64;
     int segment_cols = 64;
     int segments_in_memory = 4;
-    if (Segment_open(&segments->subregions_segment, G_tempfile(), Rast_window_rows(),
+    if (Segment_open(&segments->subregions, G_tempfile(), Rast_window_rows(),
                      Rast_window_cols(), segment_rows, segment_cols,
                      Rast_cell_size(CELL_TYPE), segments_in_memory) != 1)
         G_fatal_error(_("Cannot create temporary file with segments of a raster map"));
@@ -180,9 +180,9 @@ void read_subregions(const char *subregions, struct Segments *segments,
                 *(CELL *) ptr = index;
             }
         }
-        Segment_put_row(&segments->subregions_segment, buffer, row);
+        Segment_put_row(&segments->subregions, buffer, row);
     }
-    Segment_flush(&segments->subregions_segment);
+    Segment_flush(&segments->subregions);
     G_free(buffer);
     Rast_close(fd);
 }
@@ -343,6 +343,7 @@ void read_patch_sizes(struct PatchSizes *patch_info, double discount_factor)
 
 
     patch_info->max_patches = 0;
+    patch_info->max_patch_size = 0;
 
     G_verbose_message("Reading patch sizes...");
     fin = fopen(patch_info->filename, "rb");
@@ -362,6 +363,8 @@ void read_patch_sizes(struct PatchSizes *patch_info, double discount_factor)
                     while (fgets(size_buffer, 100, fin)) {
                         patch = atoi(size_buffer) * discount_factor;
                         if (patch > 0) {
+                            if (patch_info->max_patch_size < patch)
+                                patch_info->max_patch_size = patch;
                             patch_info->patch_sizes[patch_info->max_patches] = patch;
                             patch_info->max_patches++;
                         }

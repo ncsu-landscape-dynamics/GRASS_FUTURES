@@ -6,7 +6,7 @@
 #include "inputs.h"
 
 
-#define MAX_CANDIDATE_ITER 100
+#define MAX_CANDIDATE_ITER 100000
 
 enum slow_grow { FORCE_GROW, SKIP };
 
@@ -26,19 +26,25 @@ struct CandidateNeighborsList
     
 };
 
-int get_patch_size(struct PatchSizes *patch_info);
+struct PatchInfo
+{
+    int num_neighbors;
+    float compactness_mean;
+    float compactness_range;
+    enum slow_grow strategy;
+    
+};
+
+int get_patch_size(struct PatchSizes *patch_sizes);
 void add_neighbour(int row, int col, int seed_row, int seed_col,
                    struct CandidateNeighborsList *candidate_list,
-                   struct Segments *segments,
-                   double alpha);
+                   struct Segments *segments, struct PatchInfo *patch_info);
 void add_neighbours(int row, int col, int seed_row, int seed_col,
                     struct CandidateNeighborsList *candidate_list,
                     struct Segments *segments,
-                    double alpha, int num_neighbors);
+                    struct PatchInfo *patch_info);
 double get_distance(int row1, int col1, int row2, int col2);
-int grow_patch(int seed_row, int seed_col, int *added_ids,
-               struct Segments *segments,
-               int num_neighbors, double alpha, int patch_size,
-               int step, enum slow_grow strategy);
+int grow_patch(int seed_row, int seed_col, int patch_size, int step,
+               struct PatchInfo *patch_info, struct Segments *segments, int *added_ids);
 
 #endif // FUTURES_PATCH_H

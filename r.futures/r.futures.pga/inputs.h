@@ -5,6 +5,9 @@
 
 #include "keyvalue.h"
 
+
+enum development_pressure {OCCURRENCE, GRAVITY, KERNEL};
+
 struct Demand
 {
     const char *filename;
@@ -28,6 +31,7 @@ struct PatchSizes
     const char *filename;
     int max_patches;
     int *patch_sizes;
+    int max_patch_size;
     
 };
 
@@ -40,11 +44,19 @@ struct SegmentMemory
 
 struct Segments
 {
-    SEGMENT developed_segment;
-    SEGMENT subregions_segment;
-    SEGMENT devpressure_segment;
-    SEGMENT predictors_segment;
-    SEGMENT probability_segment;
+    SEGMENT developed;
+    SEGMENT subregions;
+    SEGMENT devpressure;
+    SEGMENT predictors;
+    SEGMENT probability;
+};
+
+struct DevPressure
+{
+    float scaling_factor;
+    float gamma;
+    int neighborhood;
+    enum development_pressure alg;
 };
 
 struct UndevelopedCell

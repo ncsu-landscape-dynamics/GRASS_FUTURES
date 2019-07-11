@@ -64,23 +64,51 @@
 
 
 
-enum development_pressure {OCCURRENCE, GRAVITY, KERNEL};
-enum seed_search {RANDOM, SUITABILITY};
+
+enum seed_search {RANDOM, PROBABILITY};
 
 
+
+int find_probable_seed(struct Undeveloped *undev_cells, int region)
+{
+    int first, last, middle;
+    double p;
+
+    p = G_drand48();
+    // bisect
+    first = 0;
+    last = undev_cells->num[region] - 1;
+    middle = (first + last) / 2;
+    if (p <= undev_cells->cells[region][first].cumulative_probability)
+        return 0;
+    if (p >= undev_cells->cells[region][last].cumulative_probability)
+        return last;
+    while (first <= last) {
+        if (undev_cells->cells[region][middle].cumulative_probability < p)
+            first = middle + 1;
+        else if (undev_cells->cells[region][middle - 1].cumulative_probability < p &&
+                 undev_cells->cells[region][middle].cumulative_probability >= p) {
+            return middle;
+        }
+        else
+            last = middle - 1;
+        middle = (first + last)/2;
+    }
+    // TODO: returning at least something but should be something more meaningful
+    return 0;
+}
 
 
 void get_seed(struct Undeveloped *undev_cells, int region_idx, enum seed_search method,
               int *row, int *col)
 {
-    int i;
-    if (method == RANDOM) {
+    int i, id;
+    if (method == RANDOM)
         i = (int)(G_drand48() * undev_cells->max[region_idx]);
-        get_xy_from_idx(i, Rast_window_cols(), row, col);
-    }
-    else {
-        
-    }
+    else
+        i = find_probable_seed(undev_cells, region_idx);
+    id = undev_cells->cells[region_idx][i].id;
+    get_xy_from_idx(id, Rast_window_cols(), row, col);
 }
 
 
@@ -93,8 +121,8 @@ double get_develop_probability_xy(struct Segments *segments,
     double probability;
     int i;
     FCELL devpressure_val;
-    Segment_get(&segments->devpressure_segment, (void *)&devpressure_val, row, col);
-    Segment_get(&segments->predictors_segment, values, row, col);
+    Segment_get(&segments->devpressure, (void *)&devpressure_val, row, col);
+    Segment_get(&segments->predictors, values, row, col);
     
     probability = potential_info->intercept[region_index];
     probability += potential_info->devpressure[region_index] * devpressure_val;
@@ -106,77 +134,36 @@ double get_develop_probability_xy(struct Segments *segments,
 }
 
 
-void compute_develop_probability(struct Segments *segments,
-                                 struct Potential *potential_info)
-{
-    
-    int row, col;
-    float prob;
-
-    CELL developed_cell;
-    CELL region_index;
-    FCELL *values = G_malloc(potential_info->max_predictors * sizeof(FCELL *));
-    for (row = 0; row < Rast_window_rows(); row++) {
-        for (col = 0; col < Rast_window_cols(); col++) {
-            Segment_get(&segments->developed_segment, (void *)&developed_cell, row, col);
-            if (Rast_is_null_value(&developed_cell, CELL_TYPE)) {
-                Rast_set_null_value(values, 1, FCELL_TYPE);
-                Segment_put(&segments->probability_segment, (void *)values, row, col);
-                continue;
-            }
-            if (developed_cell == -1) {
-                Segment_get(&segments->subregions_segment, (void *)&region_index, row, col);
-                if (Rast_is_null_value(&region_index, CELL_TYPE)) {
-                    Rast_set_null_value(values, 1, FCELL_TYPE);
-                    Segment_put(&segments->probability_segment, (void *)values, row, col);
-                    continue;
-                }
-                prob = get_develop_probability_xy(segments, values,
-                                                  potential_info, region_index, row, col);
-                Segment_put(&segments->probability_segment, (void *)&prob, row, col);
-            }
-        }
-    }
-    Segment_flush(&segments->probability_segment);
-    G_free(values);
-}
-
-
-void initial_probability(struct Segments *segments,  struct SegmentMemory segmentInfo,
-                         struct Potential *potential_info)
-{
-    if (Segment_open(&segments->probability_segment, G_tempfile(), Rast_window_rows(),
-                     Rast_window_cols(), segmentInfo.rows, segmentInfo.cols,
-                     Rast_cell_size(FCELL_TYPE), segmentInfo.in_memory) != 1)
-        G_fatal_error(_("Cannot create temporary file with segments of a raster map"));
-    compute_develop_probability(segments, potential_info);
-    Segment_flush(&segments->probability_segment);
-}
-
-
 void update_development_pressure(int row, int col, struct Segments *segments,
-                                 int neighborhood_size, double gamma, double scaling_factor,
-                                 enum development_pressure devpressure_alg) {
+                                 struct DevPressure *devpressure_info) {
     int i, j;
+    int cols, rows;
     double dist;
     double value;
     FCELL devpressure_value;
+    CELL developed;
 
+    cols = Rast_window_cols();
+    rows = Rast_window_rows();
     /* this can be precomputed */
-    for (i = row - neighborhood_size; i <= row + neighborhood_size; i++) {
-        for (j = col - neighborhood_size; j <= col + neighborhood_size; j++) {
-            dist = get_distance(row, col, i, j);
-            if (dist > neighborhood_size)
+    for (i = row - devpressure_info->neighborhood; i <= row + devpressure_info->neighborhood; i++) {
+        for (j = col - devpressure_info->neighborhood; j <= col + devpressure_info->neighborhood; j++) {
+            if (i < 0 || j < 0 || i >= rows || j >= cols)
                 continue;
-            if (devpressure_alg == OCCURRENCE)
+            dist = get_distance(row, col, i, j);
+            if (dist > devpressure_info->neighborhood)
+                continue;
+            if (devpressure_info->alg == OCCURRENCE)
                 value = 1;
-            else if (devpressure_alg == GRAVITY)
-                value = scaling_factor / pow(dist, gamma);
+            else if (devpressure_info->alg == GRAVITY)
+                value = devpressure_info->scaling_factor / pow(dist, devpressure_info->gamma);
             else
-                value = scaling_factor * exp(-2 * dist / gamma);
-            Segment_get(&segments->devpressure_segment, (void *)&devpressure_value, i, j);
+                value = devpressure_info->scaling_factor * exp(-2 * dist / devpressure_info->gamma);
+            Segment_get(&segments->devpressure, (void *)&devpressure_value, i, j);
+            if (Rast_is_null_value(&devpressure_value, FCELL_TYPE))
+                continue;
             devpressure_value += value;
-            Segment_put(&segments->devpressure_segment, (void *)&devpressure_value, i, j);
+            Segment_put(&segments->devpressure, (void *)&devpressure_value, i, j);
             
         }
     }
@@ -209,6 +196,7 @@ void recompute_probabilities(struct Undeveloped *undeveloped_cells,
     FCELL *values;
     float probability;
     float sum;
+    int test;
     
     cols = Rast_window_cols();
     rows = Rast_window_rows();
@@ -220,12 +208,14 @@ void recompute_probabilities(struct Undeveloped *undeveloped_cells,
     i = 0;
     for (row = 0; row < rows; row++) {
         for (col = 0; col < cols; col++) {
-            Segment_get(&segments->developed_segment, (void *)&developed, row, col);
+            if(row == 26 && col == 453)
+                test++;
+            Segment_get(&segments->developed, (void *)&developed, row, col);
             if (Rast_is_null_value(&developed, CELL_TYPE))
                 continue;
             if (developed != -1)
                 continue;
-            Segment_get(&segments->subregions_segment, (void *)&region, row, col);
+            Segment_get(&segments->subregions, (void *)&region, row, col);
             if (Rast_is_null_value(&region, CELL_TYPE))
                 continue;
             
@@ -244,7 +234,7 @@ void recompute_probabilities(struct Undeveloped *undeveloped_cells,
             /* get probability and update undevs and segment*/
             probability = get_develop_probability_xy(segments, values,
                                                      potential_info, region, row, col);
-            Segment_put(&segments->probability_segment, (void *)&probability, row, col);
+            Segment_put(&segments->probability, (void *)&probability, row, col);
             undeveloped_cells->cells[region][idx].probability = probability;
             
             undeveloped_cells->num[region]++;
@@ -253,17 +243,58 @@ void recompute_probabilities(struct Undeveloped *undeveloped_cells,
     }
 
     for (region_idx = 0; region_idx < undeveloped_cells->max_subregions; region_idx++) {
-        probability = undeveloped_cells->cells[region][0].probability;
-        undeveloped_cells->cells[region][0].cumulative_probability = probability;
-        for (i = 1; i < undeveloped_cells->num[region]; i++) {
-            probability = undeveloped_cells->cells[region][i].probability;
-            undeveloped_cells->cells[region][i].cumulative_probability += probability;
+        probability = undeveloped_cells->cells[region_idx][0].probability;
+        undeveloped_cells->cells[region_idx][0].cumulative_probability = probability;
+        for (i = 1; i < undeveloped_cells->num[region_idx]; i++) {
+            probability = undeveloped_cells->cells[region_idx][i].probability;
+            undeveloped_cells->cells[region_idx][i].cumulative_probability = 
+                    undeveloped_cells->cells[region_idx][i - 1].cumulative_probability + probability;
         }
-        sum = undeveloped_cells->cells[region][i].cumulative_probability;
-        for (i = 0; i < undeveloped_cells->num[region]; i++) {
-            undeveloped_cells->cells[region][i].cumulative_probability /= sum;
+        sum = undeveloped_cells->cells[region_idx][i - 1].cumulative_probability;
+        for (i = 0; i < undeveloped_cells->num[region_idx]; i++) {
+            undeveloped_cells->cells[region_idx][i].cumulative_probability /= sum;
         }
     }
+}
+
+void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
+                  enum seed_search search_alg,
+                  struct Segments *segments,
+                  struct PatchSizes *patch_sizes, struct PatchInfo *patch_info,
+                  struct DevPressure *devpressure_info,
+                  int step, int region)
+{
+    int i;
+    int n_to_convert;
+    int n_done;
+    int found;
+    int seed_row, seed_col;
+    int row, col;
+    int patch_size;
+    FCELL prob;
+    int *added_ids;
+
+
+    added_ids = (int *) G_malloc(sizeof(int) * patch_sizes->max_patch_size);
+    n_to_convert = demand->table[region][step];
+    n_done = 0;
+    
+    while (n_done < n_to_convert) {
+        get_seed(undev_cells, region, search_alg, &seed_row, &seed_col);
+        Segment_get(&segments->probability, (void *)&prob, seed_row, seed_col);
+        if(G_drand48() < prob) {
+            patch_size = get_patch_size(patch_sizes);
+            found = grow_patch(seed_row, seed_col, patch_size, step,
+                               patch_info, segments, added_ids);
+            /* update devpressure for every newly developed cell */
+            for (i = 0; i < found; i++) {
+                get_xy_from_idx(added_ids[i], Rast_window_cols(), &row, &col);
+                update_development_pressure(row, col, segments, devpressure_info);
+            }
+            n_done += found;
+        }
+    }
+    G_free(added_ids);
 }
 
 int main(int argc, char **argv)
@@ -274,8 +305,9 @@ int main(int argc, char **argv)
         struct Option
                 *developed, *subregions, *predictors,
                 *devpressure, *nDevNeighbourhood, *devpressureApproach, *scalingFactor, *gamma,
-                *potentialFile, *numNeighbors, *discountFactor,
-                *demandFile, *patchFile, *output, *seed;
+                *potentialFile, *numNeighbors, *discountFactor, *seedSearch,
+                *patchMean, *patchRange,
+                *demandFile, *patchFile, *numSteps, *output, *seed;
 
     } opt;
 
@@ -284,17 +316,21 @@ int main(int argc, char **argv)
         struct Flag *generateSeed;
     } flg;
 
-    int num_predictors, num_neighbors;
-    double scaling_factor, gamma;
+    int i;
+    int num_predictors;
+    int num_steps;
+    int region;
+    int step;
     double discount_factor;
-    enum development_pressure devpressure_alg;
-    int devpressure_neighborhood;
+    enum seed_search search_alg;
     struct KeyValueIntInt *region_map;
     struct Undeveloped *undev_cells;
     struct Demand demand_info;
     struct Potential potential_info;
     struct SegmentMemory segment_info;
-    struct PatchSizes patch_info;
+    struct PatchSizes patch_sizes;
+    struct PatchInfo patch_info;
+    struct DevPressure devpressure_info;
     struct Segments segments;
 
     G_gisinit(argv[0]);
@@ -424,6 +460,40 @@ int main(int argc, char **argv)
     opt.discountFactor->description = _("Discount factor of patch size");
     opt.discountFactor->guisection = _("PGA");
 
+    opt.seedSearch = G_define_option();
+    opt.seedSearch->key = "seed_search";
+    opt.seedSearch->type = TYPE_STRING;
+    opt.seedSearch->required = YES;
+    opt.seedSearch->options = "random,probability";
+    opt.seedSearch->answer = "probability";
+    opt.seedSearch->description =
+        _("The way location of a seed is determined (1: uniform distribution 2: development probability)");
+    opt.seedSearch->guisection = _("PGA");
+    
+    opt.patchMean = G_define_option();
+    opt.patchMean->key = "compactness_mean";
+    opt.patchMean->type = TYPE_DOUBLE;
+    opt.patchMean->required = YES;
+    opt.patchMean->description =
+        _("Mean value of patch compactness to control patch shapes");
+    opt.patchMean->guisection = _("PGA");
+
+    opt.patchRange = G_define_option();
+    opt.patchRange->key = "compactness_range";
+    opt.patchRange->type = TYPE_DOUBLE;
+    opt.patchRange->required = YES;
+    opt.patchRange->description =
+        _("Range of patch compactness to control patch shapes");
+    opt.patchRange->guisection = _("PGA");
+
+    opt.numSteps = G_define_option();
+    opt.numSteps->key = "num_steps";
+    opt.numSteps->type = TYPE_INTEGER;
+    opt.numSteps->required = NO;
+    opt.numSteps->description =
+        _("Number of steps to be simulated");
+    opt.numSteps->guisection = _("Basic input");
+
     opt.seed = G_define_option();
     opt.seed->key = "random_seed";
     opt.seed->type = TYPE_INTEGER;
@@ -470,26 +540,40 @@ int main(int argc, char **argv)
     // TODO: replace all by GRASS random number generator?
 //    srand(seed_value);
 
-    num_neighbors = atoi(opt.numNeighbors->answer);
-    scaling_factor = atof(opt.scalingFactor->answer);
-    gamma = atof(opt.gamma->answer);
-    devpressure_neighborhood = atoi(opt.nDevNeighbourhood->answer);
+    devpressure_info.scaling_factor = atof(opt.scalingFactor->answer);
+    devpressure_info.gamma = atof(opt.gamma->answer);
+    devpressure_info.neighborhood = atoi(opt.nDevNeighbourhood->answer);
     discount_factor = atof(opt.discountFactor->answer);
     if (strcmp(opt.devpressureApproach->answer, "occurrence") == 0)
-        devpressure_alg = OCCURRENCE;
+        devpressure_info.alg = OCCURRENCE;
     else if (strcmp(opt.devpressureApproach->answer, "gravity") == 0)
-        devpressure_alg = GRAVITY;
+        devpressure_info.alg = GRAVITY;
     else if (strcmp(opt.devpressureApproach->answer, "kernel") == 0)
-        devpressure_alg = KERNEL;
+        devpressure_info.alg = KERNEL;
     else
         G_fatal_error(_("Approach doesn't exist"));
 
+    if (strcmp(opt.seedSearch->answer, "random") == 0)
+        search_alg = RANDOM;
+    else if (strcmp(opt.seedSearch->answer, "probability") == 0)
+        search_alg = PROBABILITY;
+    else
+        G_fatal_error(_("Approach doesn't exist"));
+    patch_info.compactness_mean = atof(opt.patchMean->answer);
+    patch_info.compactness_range = atof(opt.patchRange->answer);
+    patch_info.num_neighbors = atoi(opt.numNeighbors->answer);
+    patch_info.strategy = SKIP;
+    
+    num_steps = 0;
+    if (opt.numSteps->answer)
+        num_steps = atoi(opt.numSteps->answer);
+    
     segment_info.rows = 64;
     segment_info.cols = 64;
     segment_info.in_memory = 1;
 
     num_predictors = 0;
-    for (int i = 0; opt.predictors->answers[i]; i++)
+    for (i = 0; opt.predictors->answers[i]; i++)
         num_predictors++;
 
     //    read Subregions layer
@@ -503,15 +587,19 @@ int main(int argc, char **argv)
     /* read Demand file */
     demand_info.filename = opt.demandFile->answer;
     read_demand_file(&demand_info, region_map);
+ 
+    if (num_steps == 0)
+        num_steps = demand_info.max_steps;
+    
     undev_cells = initialize_undeveloped(region_map->nitems);
 
     /* read Patch sizes file */
-    patch_info.filename = opt.patchFile->answer;
-    read_patch_sizes(&patch_info, discount_factor);
+    patch_sizes.filename = opt.patchFile->answer;
+    read_patch_sizes(&patch_sizes, discount_factor);
 
     G_verbose_message("Reading input rasters...");
     //    development pressure
-    rast_segment_open(opt.devpressure->answer, &segments.devpressure_segment,
+    rast_segment_open(opt.devpressure->answer, &segments.devpressure,
                       segment_info, FCELL_TYPE);
 
     //   read developed
@@ -521,33 +609,23 @@ int main(int argc, char **argv)
     read_predictors(opt.predictors->answers, &segments,
                     segment_info, num_predictors);
 
-    /* compute initial probability */
-    initial_probability(&segments, segment_info, &potential_info);
+    /* create probability segment*/
+    if (Segment_open(&segments.probability, G_tempfile(), Rast_window_rows(),
+                     Rast_window_cols(), segment_info.rows, segment_info.cols,
+                     Rast_cell_size(FCELL_TYPE), segment_info.in_memory) != 1)
+        G_fatal_error(_("Cannot create temporary file with segments of a raster map"));
 
     /* here do the modeling */
-    enum slow_grow slow_grow_strategy = SKIP;
-    
-    recompute_probabilities(undev_cells, &segments, &potential_info);
 
-
-    int *added_ids;
-    int patch_size = 100;
-    int seed_row = 352;
-    int seed_col = 111;
-    int step = 1;
-    double alpha = 10;
-    int rowx, colx;
-    int found;
-    added_ids = (int *) G_malloc(sizeof(int) * patch_size);
-    found = grow_patch(seed_row, seed_col, added_ids, &segments,
-                       num_neighbors, alpha, patch_size, step, slow_grow_strategy);
-    for (int i = 0; i < found; i++) {
-        get_xy_from_idx(added_ids[i], Rast_window_cols(), &rowx, &colx);
-        update_development_pressure(rowx, colx, &segments, devpressure_neighborhood,
-                                    gamma, scaling_factor, devpressure_alg);
-
+    for (step = 0; step < num_steps; step++) {
+        recompute_probabilities(undev_cells, &segments, &potential_info);
+        for (region = 0; region < region_map->nitems; region++) {
+            compute_step(undev_cells, &demand_info, search_alg, &segments,
+                         &patch_sizes, &patch_info, &devpressure_info,
+                         step, region);
+        }
+        
     }
-    G_free(added_ids);
 
     /* test predictors */
     int out_fd;
@@ -559,7 +637,7 @@ int main(int argc, char **argv)
     CELL reg;
     for (int row = 0; row < Rast_window_rows(); row++) {
         for (int col = 0; col < Rast_window_cols(); col++) {
-            Segment_get(&segments.subregions_segment, (void *)&reg, row, col);
+            Segment_get(&segments.subregions, (void *)&reg, row, col);
             if (Rast_is_null_value(&reg, CELL_TYPE))
                 Rast_set_null_value(&((FCELL *) row_buffer)[col], 1, CELL_TYPE);
             else {
@@ -574,22 +652,22 @@ int main(int argc, char **argv)
     Rast_close(out_fd);
     G_free(row_buffer);
     G_free(values);
-    Segment_close(&segments.predictors_segment);
 
     /* write */
     int fd = Rast_open_new(opt.output->answer, CELL_TYPE);
     void *out_buffer = Rast_allocate_buf(CELL_TYPE);
-    Segment_flush(&segments.developed_segment);
+    Segment_flush(&segments.developed);
     for (int row = 0; row < Rast_window_rows(); row++) {
-        Segment_get_row(&segments.developed_segment, out_buffer, row);
+        Segment_get_row(&segments.developed, out_buffer, row);
         Rast_put_row(fd, out_buffer, CELL_TYPE);
     }
     Rast_close(fd);
     G_free(out_buffer);
-    Segment_close(&segments.developed_segment);
-    Segment_close(&segments.subregions_segment);
-    Segment_close(&segments.devpressure_segment);
-    Segment_close(&segments.probability_segment);
+    Segment_close(&segments.developed);
+    Segment_close(&segments.subregions);
+    Segment_close(&segments.devpressure);
+    Segment_close(&segments.probability);
+    Segment_close(&segments.predictors);
 
     KeyValueIntInt_free(region_map);
     if (demand_info.table) {
@@ -613,7 +691,7 @@ int main(int argc, char **argv)
         G_free(undev_cells);
     }
 
-    G_free(patch_info.patch_sizes);
+    G_free(patch_sizes.patch_sizes);
 
     return EXIT_SUCCESS;
 }
