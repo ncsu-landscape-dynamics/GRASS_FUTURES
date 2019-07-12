@@ -212,6 +212,7 @@ int grow_patch(int seed_row, int seed_col, int patch_size, int step,
     force = false;
     skip = false;
     found = 1;  /* seed is the first cell */
+    step += 1;  /* e.g. first step=0 will be saved as 1 */
 
     /* set seed as developed */
     Segment_put(&segments->developed, (void *)&step, seed_row, seed_col);

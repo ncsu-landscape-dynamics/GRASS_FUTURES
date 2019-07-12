@@ -58,6 +58,7 @@
 
 #include "keyvalue.h"
 #include "inputs.h"
+#include "output.h"
 #include "patch.h"
 
 
@@ -357,7 +358,7 @@ int main(int argc, char **argv)
                 *devpressure, *nDevNeighbourhood, *devpressureApproach, *scalingFactor, *gamma,
                 *potentialFile, *numNeighbors, *discountFactor, *seedSearch,
                 *patchMean, *patchRange,
-                *demandFile, *patchFile, *numSteps, *output, *seed;
+                *demandFile, *patchFile, *numSteps, *output, *outputSeries, *seed;
 
     } opt;
 
@@ -383,6 +384,7 @@ int main(int argc, char **argv)
     struct DevPressure devpressure_info;
     struct Segments segments;
     int *patch_overflow;
+    char *name_step;
 
     G_gisinit(argv[0]);
 
@@ -467,6 +469,13 @@ int main(int argc, char **argv)
     opt.output->description =
             _("State of the development at the end of simulation");
     opt.output->guisection = _("Output");
+
+    opt.outputSeries = G_define_standard_option(G_OPT_R_BASENAME_OUTPUT);
+    opt.outputSeries->key = "output_series";
+    opt.outputSeries->required = NO;
+    opt.outputSeries->label =
+        _("Basename for raster maps of development generated after each step");
+    opt.outputSeries->guisection = _("Output");
 
     opt.potentialFile = G_define_standard_option(G_OPT_F_INPUT);
     opt.potentialFile->key = "devpot_params";
@@ -676,7 +685,11 @@ int main(int argc, char **argv)
                          &patch_sizes, &patch_info, &devpressure_info, patch_overflow,
                          step, region);
         }
-        
+        /* export developed for that step */
+        if (opt.outputSeries->answer) {
+            name_step = name_for_step(opt.outputSeries->answer, step, num_steps);
+            output_developed_step(&segments.developed, name_step, num_steps, true, true);
+        }
     }
 
     /* test predictors */
@@ -706,15 +719,8 @@ int main(int argc, char **argv)
     G_free(values);
 
     /* write */
-    int fd = Rast_open_new(opt.output->answer, CELL_TYPE);
-    void *out_buffer = Rast_allocate_buf(CELL_TYPE);
-    Segment_flush(&segments.developed);
-    for (int row = 0; row < Rast_window_rows(); row++) {
-        Segment_get_row(&segments.developed, out_buffer, row);
-        Rast_put_row(fd, out_buffer, CELL_TYPE);
-    }
-    Rast_close(fd);
-    G_free(out_buffer);
+    output_developed_step(&segments.developed, opt.output->answer, num_steps, false, false);
+
     Segment_close(&segments.developed);
     Segment_close(&segments.subregions);
     Segment_close(&segments.devpressure);
