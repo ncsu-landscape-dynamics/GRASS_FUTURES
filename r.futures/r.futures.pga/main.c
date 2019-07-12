@@ -120,10 +120,12 @@ double get_develop_probability_xy(struct Segments *segments,
                                   struct Potential *potential_info,
                                   int region_index, int row, int col)
 {
-    double probability;
+    float probability;
     int i;
     int transformed_idx = 0;
     FCELL devpressure_val;
+    FCELL weight;
+
     Segment_get(&segments->devpressure, (void *)&devpressure_val, row, col);
     Segment_get(&segments->predictors, values, row, col);
     
@@ -139,6 +141,15 @@ double get_develop_probability_xy(struct Segments *segments,
             G_fatal_error("lookup position (%d) out of range [0, %d]",
                           transformed_idx, potential_info->incentive_transform_size - 1);
         probability = potential_info->incentive_transform[transformed_idx];
+    }
+    
+    /* weights if applicable */
+    if (segments->use_weight) {
+        Segment_get(&segments->weight, (void *)&weight, row, col);
+        if (weight < 0)
+            probability *= weight;
+        else if (weight > 0)
+           probability = probability + weight - probability * weight;
     }
     return probability;
 }
@@ -366,7 +377,7 @@ int main(int argc, char **argv)
                 *devpressure, *nDevNeighbourhood, *devpressureApproach, *scalingFactor, *gamma,
                 *potentialFile, *numNeighbors, *discountFactor, *seedSearch,
                 *patchMean, *patchRange,
-                *incentivePower,
+                *incentivePower, *potentialWeight,
                 *demandFile, *patchFile, *numSteps, *output, *outputSeries, *seed;
 
     } opt;
@@ -564,6 +575,16 @@ int main(int argc, char **argv)
         _("Number of steps to be simulated");
     opt.numSteps->guisection = _("Basic input");
 
+    opt.potentialWeight = G_define_standard_option(G_OPT_R_INPUT);
+    opt.potentialWeight->key = "potential_weight";
+    opt.potentialWeight->required = NO;
+    opt.potentialWeight->label =
+            _("Raster map of weights altering development potential");
+    opt.potentialWeight->description =
+            _("Values need to be between -1 and 1, where negative locally reduces"
+              "probability and positive increases probability.");
+    opt.potentialWeight->guisection = _("Scenarios");
+    
     opt.incentivePower = G_define_option();
     opt.incentivePower->key = "incentive_power";
     opt.incentivePower->required = NO;
@@ -695,6 +716,13 @@ int main(int argc, char **argv)
     /* read in predictors */
     read_predictors(opt.predictors->answers, &segments,
                     segment_info, num_predictors);
+    
+    /* read weights */
+    segments.use_weight = false;
+    if (opt.potentialWeight->answer) {
+        segments.use_weight = true;
+        read_weights(opt.potentialWeight->answer, &segments, segment_info);
+    }
 
     /* create probability segment*/
     if (Segment_open(&segments.probability, G_tempfile(), Rast_window_rows(),
@@ -752,6 +780,9 @@ int main(int argc, char **argv)
     Segment_close(&segments.devpressure);
     Segment_close(&segments.probability);
     Segment_close(&segments.predictors);
+    if (opt.potentialWeight->answer) {
+        Segment_close(&segments.weight);
+    }
 
     KeyValueIntInt_free(region_map);
     if (demand_info.table) {

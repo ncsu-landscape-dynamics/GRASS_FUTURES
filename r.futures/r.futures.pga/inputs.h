@@ -52,6 +52,8 @@ struct Segments
     SEGMENT devpressure;
     SEGMENT predictors;
     SEGMENT probability;
+    SEGMENT weight;
+    bool use_weight;
 };
 
 struct DevPressure
@@ -93,6 +95,8 @@ void read_predictors(char **predictor_names, struct Segments *segments,
                      struct SegmentMemory segmentInfo, int ninputs);
 void read_subregions(const char *subregions, struct Segments *segments,
                     struct KeyValueIntInt *region_map);
+void read_weights(const char *weights, struct Segments *segments,
+                  struct SegmentMemory segment_info);
 void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_map);
 void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt *region_map,
                          int num_predictors);

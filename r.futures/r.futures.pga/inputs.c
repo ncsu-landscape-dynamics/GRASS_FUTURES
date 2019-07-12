@@ -202,6 +202,46 @@ void read_subregions(const char *subregions, struct Segments *segments,
     Rast_close(fd);
 }
 
+void read_weights(const char *weights, struct Segments *segments,
+                  struct SegmentMemory segment_info)
+{
+    float val;
+    int fd;
+    void *buffer;
+    void *ptr;
+    int row, col;
+
+    fd = Rast_open_old(weights, "");
+    buffer = Rast_allocate_c_buf();
+
+    G_verbose_message("Reading weights %s", weights);
+
+    if (Segment_open(&segments->weight, G_tempfile(), Rast_window_rows(),
+                     Rast_window_cols(), segment_info.rows, segment_info.cols,
+                     Rast_cell_size(FCELL_TYPE), segment_info.in_memory) != 1)
+        G_fatal_error(_("Cannot create temporary file with segments of a raster map"));
+    for (row = 0; row < Rast_window_rows(); row++) {
+        Rast_get_row(fd, buffer, row, CELL_TYPE);
+        ptr = buffer;
+        for (col = 0; col < Rast_window_cols(); col++,
+             ptr = G_incr_void_ptr(ptr, Rast_cell_size(CELL_TYPE))) {
+            if (Rast_is_null_value(ptr, FCELL_TYPE))
+                *(FCELL *) ptr = 0;
+            else {
+                val = *(FCELL *) ptr;
+                if (val > 1)
+                    val = 1;
+                else if (val < -1)
+                    val = -1;
+                *(FCELL *) ptr = val;
+            }
+        }
+        Segment_put_row(&segments->weight, buffer, row);
+    }
+    Segment_flush(&segments->weight);
+    G_free(buffer);
+    Rast_close(fd);
+}
 
 void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_map)
 {
