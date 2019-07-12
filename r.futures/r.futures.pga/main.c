@@ -269,9 +269,9 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
     int row, col;
     int patch_size;
     int *added_ids;
-    int force_convert_all;
+    bool force_convert_all;
     int extra;
-    int allow_already_tried_ones;
+    bool allow_already_tried_ones;
     int unsuccessful_tries;
     FCELL prob;
     CELL developed;
@@ -280,8 +280,8 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
     added_ids = (int *) G_malloc(sizeof(int) * patch_sizes->max_patch_size);
     n_to_convert = demand->table[region][step];
     n_done = 0;
-    force_convert_all = 0;
-    allow_already_tried_ones = 0;
+    force_convert_all = false;
+    allow_already_tried_ones = false;
     unsuccessful_tries = 0;
     extra = patch_overflow[region];
 
@@ -307,7 +307,7 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
     while (n_done < n_to_convert) {
         /* if we can't find a seed, turn off the restriction to use only untried ones */
         if (!allow_already_tried_ones && unsuccessful_tries > MAX_SEED_ITER * n_to_convert)
-            allow_already_tried_ones = 1;
+            allow_already_tried_ones = true;
 
         /* get seed's row, col and index in undev cells array */
         idx = get_seed(undev_cells, region, search_alg, &seed_row, &seed_col);

@@ -13,6 +13,7 @@
  */
 
 #include <stdlib.h>
+#include <stdbool.h>
 #include <math.h>
 
 #include <grass/gis.h>
@@ -198,7 +199,7 @@ int grow_patch(int seed_row, int seed_col, int patch_size, int step,
     int i, j, iter;
     double r, p;
     int found;
-    int force, skip;
+    bool force, skip;
     int row, col, cols;
 
     struct CandidateNeighborsList candidates;
@@ -208,8 +209,8 @@ int grow_patch(int seed_row, int seed_col, int patch_size, int step,
     candidates.n = 0;
     
     cols = Rast_window_cols();
-    force = 0;
-    skip = 0;
+    force = false;
+    skip = false;
     found = 1;  /* seed is the first cell */
 
     /* set seed as developed */
@@ -220,7 +221,7 @@ int grow_patch(int seed_row, int seed_col, int patch_size, int step,
     add_neighbours(seed_row, seed_col, seed_row, seed_col,
                    &candidates, segments, patch_info);
     iter = 0;
-    while (candidates.n > 0 && found < patch_size && skip == 0) {
+    while (candidates.n > 0 && found < patch_size && !skip) {
         i = 0;
         while (1) {
             /* challenge the candidate */
@@ -248,7 +249,7 @@ int grow_patch(int seed_row, int seed_col, int patch_size, int step,
                 found++;
                 /* restart max iterations when cell found */
                 iter = 0;
-                force = 0;
+                force = false;
                 break;
             }
             else {
@@ -258,10 +259,10 @@ int grow_patch(int seed_row, int seed_col, int patch_size, int step,
                     iter++;
                     if (iter > MAX_CANDIDATE_ITER) {
                         if (patch_info->strategy == FORCE_GROW) {
-                            force = 1;
+                            force = true;
                         }
                         else if (patch_info->strategy == SKIP) {
-                            skip = 1;
+                            skip = true;
                             break;
                         }
                         

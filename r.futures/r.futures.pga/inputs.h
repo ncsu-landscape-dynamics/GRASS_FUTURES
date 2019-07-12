@@ -1,6 +1,7 @@
 #ifndef FUTURES_INPUTS_H
 #define FUTURES_INPUTS_H
 
+#include <stdbool.h>
 #include <grass/segment.h>
 
 #include "keyvalue.h"
@@ -65,7 +66,7 @@ struct UndevelopedCell
     size_t id;
     float probability;
     float cumulative_probability;
-    int tried;
+    bool tried;
 };
 
 struct Undeveloped
