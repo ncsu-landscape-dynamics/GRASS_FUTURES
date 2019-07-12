@@ -141,7 +141,6 @@ void update_development_pressure(int row, int col, struct Segments *segments,
     double dist;
     double value;
     FCELL devpressure_value;
-    CELL developed;
 
     cols = Rast_window_cols();
     rows = Rast_window_rows();
@@ -261,7 +260,7 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
                   enum seed_search search_alg,
                   struct Segments *segments,
                   struct PatchSizes *patch_sizes, struct PatchInfo *patch_info,
-                  struct DevPressure *devpressure_info,
+                  struct DevPressure *devpressure_info, int *patch_overflow,
                   int step, int region)
 {
     int i;
@@ -273,16 +272,39 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
     int patch_size;
     FCELL prob;
     int *added_ids;
+    int force_convert_all;
+    int extra;
 
 
     added_ids = (int *) G_malloc(sizeof(int) * patch_sizes->max_patch_size);
     n_to_convert = demand->table[region][step];
     n_done = 0;
+    force_convert_all = 0;
+    extra = patch_overflow[region];
+
+    if (extra > 0) {
+        if (n_to_convert - extra > 0) {
+            n_to_convert -= extra;
+            extra = 0;
+        }
+        else {
+            extra -= n_to_convert;
+            n_to_convert = 0;
+        }
+    }
+
+    if (n_to_convert > undev_cells->num[region]) {
+        G_warning("Not enough undeveloped cells (requested: %d,"
+                  " available: %d). Converting all available.",
+                   n_to_convert, undev_cells->num[region]);
+        n_to_convert =  undev_cells->num[region];
+        force_convert_all = true;
+    }
     
     while (n_done < n_to_convert) {
         get_seed(undev_cells, region, search_alg, &seed_row, &seed_col);
         Segment_get(&segments->probability, (void *)&prob, seed_row, seed_col);
-        if(G_drand48() < prob) {
+        if(force_convert_all || G_drand48() < prob) {
             patch_size = get_patch_size(patch_sizes);
             found = grow_patch(seed_row, seed_col, patch_size, step,
                                patch_info, segments, added_ids);
@@ -294,6 +316,9 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
             n_done += found;
         }
     }
+    extra += (n_done - n_to_convert);
+    patch_overflow[region] = extra;
+    G_debug(2, "There are %d extra cells for next timestep", extra);
     G_free(added_ids);
 }
 
@@ -332,6 +357,7 @@ int main(int argc, char **argv)
     struct PatchInfo patch_info;
     struct DevPressure devpressure_info;
     struct Segments segments;
+    int *patch_overflow;
 
     G_gisinit(argv[0]);
 
@@ -592,6 +618,7 @@ int main(int argc, char **argv)
         num_steps = demand_info.max_steps;
     
     undev_cells = initialize_undeveloped(region_map->nitems);
+    patch_overflow = G_calloc(region_map->nitems, sizeof(int));
 
     /* read Patch sizes file */
     patch_sizes.filename = opt.patchFile->answer;
@@ -621,7 +648,7 @@ int main(int argc, char **argv)
         recompute_probabilities(undev_cells, &segments, &potential_info);
         for (region = 0; region < region_map->nitems; region++) {
             compute_step(undev_cells, &demand_info, search_alg, &segments,
-                         &patch_sizes, &patch_info, &devpressure_info,
+                         &patch_sizes, &patch_info, &devpressure_info, patch_overflow,
                          step, region);
         }
         
@@ -692,6 +719,7 @@ int main(int argc, char **argv)
     }
 
     G_free(patch_sizes.patch_sizes);
+    G_free(patch_overflow);
 
     return EXIT_SUCCESS;
 }
