@@ -25,6 +25,8 @@ struct Potential
     double *devpressure;
     int max_predictors;
     int max_subregions;
+    float *incentive_transform;
+    int incentive_transform_size;
 };
 
 struct PatchSizes
@@ -78,6 +80,7 @@ struct Undeveloped
 };
 
 
+void initialize_incentive(struct Potential *potential_info, float exponent);
 void rast_segment_open(const char *name, SEGMENT *segment, struct SegmentMemory segmentInfo, 
                        RASTER_MAP_TYPE map_type);
 size_t get_idx_from_xy(int row, int col, int cols);

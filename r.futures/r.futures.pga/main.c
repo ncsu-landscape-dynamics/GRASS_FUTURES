@@ -122,6 +122,7 @@ double get_develop_probability_xy(struct Segments *segments,
 {
     double probability;
     int i;
+    int transformed_idx = 0;
     FCELL devpressure_val;
     Segment_get(&segments->devpressure, (void *)&devpressure_val, row, col);
     Segment_get(&segments->predictors, values, row, col);
@@ -132,6 +133,13 @@ double get_develop_probability_xy(struct Segments *segments,
         probability += potential_info->predictors[i][region_index] * values[i];
     }
     probability = 1.0 / (1.0 + exp(-probability));
+    if (potential_info->incentive_transform) {
+        transformed_idx = (int) (probability * (potential_info->incentive_transform_size - 1));
+        if (transformed_idx >= potential_info->incentive_transform_size || transformed_idx < 0)
+            G_fatal_error("lookup position (%d) out of range [0, %d]",
+                          transformed_idx, potential_info->incentive_transform_size - 1);
+        probability = potential_info->incentive_transform[transformed_idx];
+    }
     return probability;
 }
 
@@ -358,6 +366,7 @@ int main(int argc, char **argv)
                 *devpressure, *nDevNeighbourhood, *devpressureApproach, *scalingFactor, *gamma,
                 *potentialFile, *numNeighbors, *discountFactor, *seedSearch,
                 *patchMean, *patchRange,
+                *incentivePower,
                 *demandFile, *patchFile, *numSteps, *output, *outputSeries, *seed;
 
     } opt;
@@ -373,6 +382,7 @@ int main(int argc, char **argv)
     int region;
     int step;
     double discount_factor;
+    float exponent;
     enum seed_search search_alg;
     struct KeyValueIntInt *region_map;
     struct Undeveloped *undev_cells;
@@ -554,6 +564,18 @@ int main(int argc, char **argv)
         _("Number of steps to be simulated");
     opt.numSteps->guisection = _("Basic input");
 
+    opt.incentivePower = G_define_option();
+    opt.incentivePower->key = "incentive_power";
+    opt.incentivePower->required = NO;
+    opt.incentivePower->type = TYPE_DOUBLE;
+    opt.incentivePower->answer = "1";
+    opt.incentivePower->label =
+        _("Exponent to transform probability values p to p^x to simulate infill vs. sprawl");
+    opt.incentivePower->description =
+        _("Values > 1 encourage infill, < 1 urban sprawl");
+    opt.incentivePower->guisection = _("Scenarios");
+    opt.incentivePower->options = "0-10";
+
     opt.seed = G_define_option();
     opt.seed->key = "random_seed";
     opt.seed->type = TYPE_INTEGER;
@@ -595,10 +617,6 @@ int main(int argc, char **argv)
         G_message("Read random seed from %s option: %ld",
                   opt.seed->key, seed_value);
     }
-    // although GRASS random function is initialized
-    // the general one must be done separately
-    // TODO: replace all by GRASS random number generator?
-//    srand(seed_value);
 
     devpressure_info.scaling_factor = atof(opt.scalingFactor->answer);
     devpressure_info.gamma = atof(opt.gamma->answer);
@@ -635,6 +653,14 @@ int main(int argc, char **argv)
     num_predictors = 0;
     for (i = 0; opt.predictors->answers[i]; i++)
         num_predictors++;
+    
+    potential_info.incentive_transform_size = 0;
+    potential_info.incentive_transform = NULL;
+    if (opt.incentivePower->answer) {
+        exponent = atof(opt.incentivePower->answer);
+        if (exponent !=  1)  /* 1 is no-op */
+            initialize_incentive(&potential_info, exponent);
+    }
 
     //    read Subregions layer
     region_map = KeyValueIntInt_create();
@@ -740,6 +766,8 @@ int main(int argc, char **argv)
         G_free(potential_info.devpressure);
         G_free(potential_info.intercept);
     }
+    if (potential_info.incentive_transform_size > 0)
+        G_free(potential_info.incentive_transform);
     if (undev_cells) {
         G_free(undev_cells->num);
         G_free(undev_cells->max);

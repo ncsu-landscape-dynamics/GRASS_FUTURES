@@ -12,6 +12,7 @@
  */
 
 #include <stdlib.h>
+#include <math.h>
 
 #include <grass/gis.h>
 #include <grass/raster.h>
@@ -21,6 +22,21 @@
 #include "keyvalue.h"
 #include "inputs.h"
 
+
+void initialize_incentive(struct Potential *potential_info, float exponent)
+{
+    int i;
+
+    potential_info->incentive_transform_size = 1001;
+    potential_info->incentive_transform = (float *) G_malloc(sizeof(float) *
+                                                             potential_info->incentive_transform_size);
+    i = 0;
+    double step = 1. / (potential_info->incentive_transform_size - 1);
+    while (i < potential_info->incentive_transform_size) {
+        potential_info->incentive_transform[i] = pow(i * step, exponent);
+        i++;
+    }
+}
 
 void rast_segment_open(const char *name, SEGMENT *segment, struct SegmentMemory segmentInfo, 
                        RASTER_MAP_TYPE map_type)
