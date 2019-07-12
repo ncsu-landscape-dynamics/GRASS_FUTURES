@@ -3,11 +3,12 @@
 
    \brief Functions to grow patches
 
-   (C) 2016-2019 by Vaclav Petras and the GRASS Development Team
+   (C) 2016-2019 by Anna Petrasova, Vaclav Petras and the GRASS Development Team
 
    This program is free software under the GNU General Public License
    (>=v2).  Read the file COPYING that comes with GRASS for details.
 
+   \author Anna Petrasova
    \author Vaclav Petras
  */
 
@@ -38,7 +39,14 @@ static int sort_neighbours(const void *p1, const void *p2)
     return 0;
 }
 
-
+/*!
+ * \brief Computes alpha value influencing patch compactness
+ * 
+ * Alpha is a random (uniform) value in [mean - 0.5 range, mean + 0.5 range)
+ * 
+ * \param[in] patch_info patch parameters
+ * \return alpha
+ */
 static float get_alpha(struct PatchInfo *patch_info)
 {
     float alpha;
@@ -48,17 +56,43 @@ static float get_alpha(struct PatchInfo *patch_info)
     return alpha;
 }
 
-
+/*!
+ * \brief Computes euclidean distance in cells (not meters)
+ * \param row1 row1
+ * \param col1 col1
+ * \param row2 row2
+ * \param col2 col2
+ * \return distance
+ */
 double get_distance(int row1, int col1, int row2, int col2)
 {
     return sqrt((row1 - row2) * (row1 - row2) + (col1 - col2) * (col1 - col2));
 }
 
+/*!
+ * \brief Gets randomly selected patch size from a pool of data-derived sizes
+ * \param patch_sizes patch sizes
+ * \return number of cells
+ */
 int get_patch_size(struct PatchSizes *patch_sizes)
 {
     return patch_sizes->patch_sizes[(int)(G_drand48() * patch_sizes->max_patches)];
 }
-
+/*!
+ * \brief Decides if to add a cell to a candidate list for patch growing
+ * 
+ * Only adds cells if they are not developed yet. Computes cells suitability
+ * based on its probability adjusted by distance from seed in order to
+ * allow for different compactness.
+ * 
+ * \param[in] row row
+ * \param[in] col column
+ * \param[in] seed_row initial seed row
+ * \param[in] seed_col initial seed column
+ * \param[in,out] candidate_list list of candidate cells
+ * \param[in,out] segments segments
+ * \param[in] patch_info patch parameters
+ */
 void add_neighbour(int row, int col, int seed_row, int seed_col,
                    struct CandidateNeighborsList *candidate_list,
                    struct Segments *segments, struct PatchInfo *patch_info)
@@ -101,7 +135,19 @@ void add_neighbour(int row, int col, int seed_row, int seed_col,
         candidate_list->n++;
     }
 }
-
+/*!
+ * \brief Add candidate cells for patch growing
+ * 
+ * Add immediate surrounding cells (4 or 8 neighborhood) to a list of candidates.
+ * 
+ * \param[in] row row
+ * \param[in] col column
+ * \param[in] seed_row initial seed row
+ * \param[in] seed_col initial seed column
+ * \param[in,out] candidate_list list of candidate cells
+ * \param[in,out] segments segments
+ * \param[in] patch_info patch parameters
+ */
 void add_neighbours(int row, int col, int seed_row, int seed_col,
                     struct CandidateNeighborsList *candidate_list,
                     struct Segments *segments, struct PatchInfo *patch_info)
@@ -126,7 +172,25 @@ void add_neighbours(int row, int col, int seed_row, int seed_col,
     }
 }
 
-
+/*!
+ * @brief Grows a patch of given size using given seed
+ * 
+ * For each cell it develops, it adds its neighbors to
+ * a list of candidates. The candidates are sorted based on their suitability
+ * and challenged by a randomly generated number.
+ * If it can't find suitable candidates in reasonable number of iterations,
+ * depending on the strategy, it will either stop growing the patch
+ * or force growing a candidate cell.
+ * 
+ * @param[in] seed_row seed row
+ * @param[in] seed_col seed column
+ * @param[in] patch_size size of patch in number of cells
+ * @param[in] step current simulation step
+ * @param[in] patch_info patch parameters
+ * @param[in,out] segments segments
+ * @param[out] added_ids array of ids of grown cells
+ * @return number of grown cells including seed
+ */
 int grow_patch(int seed_row, int seed_col, int patch_size, int step,
                struct PatchInfo *patch_info, struct Segments *segments,
                int *added_ids)
@@ -144,10 +208,15 @@ int grow_patch(int seed_row, int seed_col, int patch_size, int step,
     candidates.n = 0;
     
     cols = Rast_window_cols();
-    found = 0;
     force = 0;
     skip = 0;
+    found = 1;  /* seed is the first cell */
 
+    /* set seed as developed */
+    Segment_put(&segments->developed, (void *)&step, seed_row, seed_col);
+    added_ids[found] = get_idx_from_xy(seed_row, seed_col, Rast_window_cols());
+
+    /* add surrounding neighbors */
     add_neighbours(seed_row, seed_col, seed_row, seed_col,
                    &candidates, segments, patch_info);
     iter = 0;

@@ -99,7 +99,7 @@ int find_probable_seed(struct Undeveloped *undev_cells, int region)
 }
 
 
-void get_seed(struct Undeveloped *undev_cells, int region_idx, enum seed_search method,
+int get_seed(struct Undeveloped *undev_cells, int region_idx, enum seed_search method,
               int *row, int *col)
 {
     int i, id;
@@ -109,6 +109,7 @@ void get_seed(struct Undeveloped *undev_cells, int region_idx, enum seed_search 
         i = find_probable_seed(undev_cells, region_idx);
     id = undev_cells->cells[region_idx][i].id;
     get_xy_from_idx(id, Rast_window_cols(), row, col);
+    return i;
 }
 
 
@@ -195,7 +196,6 @@ void recompute_probabilities(struct Undeveloped *undeveloped_cells,
     FCELL *values;
     float probability;
     float sum;
-    int test;
     
     cols = Rast_window_cols();
     rows = Rast_window_rows();
@@ -204,11 +204,8 @@ void recompute_probabilities(struct Undeveloped *undeveloped_cells,
     for (region_idx = 0; region_idx < undeveloped_cells->max_subregions; region_idx++) {
         undeveloped_cells->num[region_idx] = 0;
     }
-    i = 0;
     for (row = 0; row < rows; row++) {
         for (col = 0; col < cols; col++) {
-            if(row == 26 && col == 453)
-                test++;
             Segment_get(&segments->developed, (void *)&developed, row, col);
             if (Rast_is_null_value(&developed, CELL_TYPE))
                 continue;
@@ -226,10 +223,10 @@ void recompute_probabilities(struct Undeveloped *undeveloped_cells,
                                                              new_size * sizeof(struct UndevelopedCell));
                 undeveloped_cells->max[region] = new_size;
             }
-            
             id = get_idx_from_xy(row, col, cols);
             idx = undeveloped_cells->num[region];
             undeveloped_cells->cells[region][idx].id = id;
+            undeveloped_cells->cells[region][idx].tried = 0;
             /* get probability and update undevs and segment*/
             probability = get_develop_probability_xy(segments, values,
                                                      potential_info, region, row, col);
@@ -241,6 +238,7 @@ void recompute_probabilities(struct Undeveloped *undeveloped_cells,
         }
     }
 
+    i = 0;
     for (region_idx = 0; region_idx < undeveloped_cells->max_subregions; region_idx++) {
         probability = undeveloped_cells->cells[region_idx][0].probability;
         undeveloped_cells->cells[region_idx][0].cumulative_probability = probability;
@@ -263,23 +261,28 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
                   struct DevPressure *devpressure_info, int *patch_overflow,
                   int step, int region)
 {
-    int i;
+    int i, idx;
     int n_to_convert;
     int n_done;
     int found;
     int seed_row, seed_col;
     int row, col;
     int patch_size;
-    FCELL prob;
     int *added_ids;
     int force_convert_all;
     int extra;
+    int allow_already_tried_ones;
+    int unsuccessful_tries;
+    FCELL prob;
+    CELL developed;
 
 
     added_ids = (int *) G_malloc(sizeof(int) * patch_sizes->max_patch_size);
     n_to_convert = demand->table[region][step];
     n_done = 0;
     force_convert_all = 0;
+    allow_already_tried_ones = 0;
+    unsuccessful_tries = 0;
     extra = patch_overflow[region];
 
     if (extra > 0) {
@@ -302,10 +305,32 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
     }
     
     while (n_done < n_to_convert) {
-        get_seed(undev_cells, region, search_alg, &seed_row, &seed_col);
+        /* if we can't find a seed, turn off the restriction to use only untried ones */
+        if (!allow_already_tried_ones && unsuccessful_tries > MAX_SEED_ITER * n_to_convert)
+            allow_already_tried_ones = 1;
+
+        /* get seed's row, col and index in undev cells array */
+        idx = get_seed(undev_cells, region, search_alg, &seed_row, &seed_col);
+        /* skip if seed was already tried unless we switched of this check because we can't get any seed */
+        if (!allow_already_tried_ones && undev_cells->cells[region][idx].tried) {
+            unsuccessful_tries++;
+            continue;
+        }
+        /* mark as tried */
+        undev_cells->cells[region][idx].tried = 1;
+        /* see if seed was already developed during this time step */
+        Segment_get(&segments->developed, (void *)&developed, seed_row, seed_col);
+        if (developed != -1) {
+            unsuccessful_tries++;
+            continue;
+        }
+        /* get probability */
         Segment_get(&segments->probability, (void *)&prob, seed_row, seed_col);
+        /* challenge probability unless we need to convert all */
         if(force_convert_all || G_drand48() < prob) {
+            /* ger random patch size */
             patch_size = get_patch_size(patch_sizes);
+            /* grow patch and return the actual grown size which could be smaller */
             found = grow_patch(seed_row, seed_col, patch_size, step,
                                patch_info, segments, added_ids);
             /* update devpressure for every newly developed cell */

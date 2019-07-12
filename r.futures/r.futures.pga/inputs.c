@@ -59,7 +59,7 @@ void get_xy_from_idx(size_t idx, int cols, int *row, int *col)
 void read_developed(char *filename, struct Segments *segments,
                     struct SegmentMemory segment_info)
 {
-    int row, cols, col, rowio;
+    int row, col, rowio;
     void *raster_row;
 
     rowio = Rast_open_old(filename, "");
@@ -68,7 +68,6 @@ void read_developed(char *filename, struct Segments *segments,
                      Rast_cell_size(CELL_TYPE), segment_info.in_memory) != 1)
         G_fatal_error(_("Cannot create temporary file with segments of a raster map"));
     raster_row = Rast_allocate_buf(CELL_TYPE);
-    cols = Rast_window_cols();
     for (row = 0; row < Rast_window_rows(); row++) {
         Rast_get_row(rowio, raster_row, row, CELL_TYPE);
         for (col = 0; col < Rast_window_cols(); col++) {

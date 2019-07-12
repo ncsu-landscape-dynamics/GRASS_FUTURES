@@ -65,6 +65,7 @@ struct UndevelopedCell
     size_t id;
     float probability;
     float cumulative_probability;
+    int tried;
 };
 
 struct Undeveloped

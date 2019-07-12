@@ -6,7 +6,8 @@
 #include "inputs.h"
 
 
-#define MAX_CANDIDATE_ITER 100000
+#define MAX_CANDIDATE_ITER 100
+#define MAX_SEED_ITER 20
 
 enum slow_grow { FORCE_GROW, SKIP };
 
