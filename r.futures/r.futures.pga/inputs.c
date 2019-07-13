@@ -221,10 +221,10 @@ void read_weights(const char *weights, struct Segments *segments,
                      Rast_cell_size(FCELL_TYPE), segment_info.in_memory) != 1)
         G_fatal_error(_("Cannot create temporary file with segments of a raster map"));
     for (row = 0; row < Rast_window_rows(); row++) {
-        Rast_get_row(fd, buffer, row, CELL_TYPE);
+        Rast_get_row(fd, buffer, row, FCELL_TYPE);
         ptr = buffer;
         for (col = 0; col < Rast_window_cols(); col++,
-             ptr = G_incr_void_ptr(ptr, Rast_cell_size(CELL_TYPE))) {
+             ptr = G_incr_void_ptr(ptr, Rast_cell_size(FCELL_TYPE))) {
             if (Rast_is_null_value(ptr, FCELL_TYPE))
                 *(FCELL *) ptr = 0;
             else {
