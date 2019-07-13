@@ -746,32 +746,6 @@ int main(int argc, char **argv)
         }
     }
 
-    /* test predictors */
-    int out_fd;
-    double prob;
-    out_fd = Rast_open_new("test_predictors", FCELL_TYPE);
-    void *row_buffer = Rast_allocate_buf(FCELL_TYPE);
-
-    FCELL *values = G_malloc(potential_info.max_predictors * sizeof(FCELL *));
-    CELL reg;
-    for (int row = 0; row < Rast_window_rows(); row++) {
-        for (int col = 0; col < Rast_window_cols(); col++) {
-            Segment_get(&segments.subregions, (void *)&reg, row, col);
-            if (Rast_is_null_value(&reg, CELL_TYPE))
-                Rast_set_null_value(&((FCELL *) row_buffer)[col], 1, CELL_TYPE);
-            else {
-                prob = get_develop_probability_xy(&segments,
-                                                  values,
-                                                  &potential_info, reg, row, col);
-                ((FCELL *) row_buffer)[col] = prob;
-            }
-        }
-        Rast_put_row(out_fd, row_buffer, FCELL_TYPE);
-    }
-    Rast_close(out_fd);
-    G_free(row_buffer);
-    G_free(values);
-
     /* write */
     output_developed_step(&segments.developed, opt.output->answer, num_steps, false, false);
 
