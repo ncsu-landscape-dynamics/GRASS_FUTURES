@@ -24,6 +24,7 @@
 #include "keyvalue.h"
 #include "inputs.h"
 #include "patch.h"
+#include "utils.h"
 
 
 
@@ -57,18 +58,6 @@ static float get_alpha(struct PatchInfo *patch_info)
     return alpha;
 }
 
-/*!
- * \brief Computes euclidean distance in cells (not meters)
- * \param row1 row1
- * \param col1 col1
- * \param row2 row2
- * \param col2 col2
- * \return distance
- */
-double get_distance(int row1, int col1, int row2, int col2)
-{
-    return sqrt((row1 - row2) * (row1 - row2) + (col1 - col2) * (col1 - col2));
-}
 
 /*!
  * \brief Gets randomly selected patch size from a pool of data-derived sizes

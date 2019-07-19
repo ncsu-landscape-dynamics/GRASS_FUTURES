@@ -7,8 +7,6 @@
 #include "keyvalue.h"
 
 
-enum development_pressure {OCCURRENCE, GRAVITY, KERNEL};
-
 struct Demand
 {
     const char *filename;
@@ -65,14 +63,6 @@ struct RasterInputs
     const char *weights;
 };
 
-struct DevPressure
-{
-    float scaling_factor;
-    float gamma;
-    int neighborhood;
-    float **matrix;
-    enum development_pressure alg;
-};
 
 struct UndevelopedCell
 {
