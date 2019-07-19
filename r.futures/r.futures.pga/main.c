@@ -374,6 +374,7 @@ static int manage_memory(struct SegmentMemory *memory, float input_memory,
     int cols, rows;
     int undev_size;
     int size;
+    int estimate;
 
     memory->rows = 64;
     memory->cols = 64;
@@ -381,6 +382,7 @@ static int manage_memory(struct SegmentMemory *memory, float input_memory,
     cols = Rast_window_cols();
 
     undev_size = (sizeof(size_t) + sizeof(float) * 2 + sizeof(bool)) * rows * cols;
+    estimate = undev_size;
 
     if (input_memory > 0 && undev_size > 1e9 * input_memory)
         G_warning(_("Not sufficient memory, will attempt to use more "
@@ -388,6 +390,7 @@ static int manage_memory(struct SegmentMemory *memory, float input_memory,
 
     size = sizeof(FCELL) * (n_predictors + (has_weights ? 3 : 2));
     size += sizeof(CELL) * 2;
+    estimate += size * rows * cols;
     size *= memory->rows * memory->cols;
 
     nseg = (1e9 * input_memory - undev_size) / size;
@@ -400,7 +403,8 @@ static int manage_memory(struct SegmentMemory *memory, float input_memory,
 	nseg = nseg_total;
     G_verbose_message(_("Number of segments in memory: %d of %d total"),
                       nseg, nseg_total);
-
+    G_verbose_message(_("Estimated minimum memory footprint without using disk cache: %d MB"),
+                      (int) (estimate / 1.0e6));
     return nseg;
 }
 
