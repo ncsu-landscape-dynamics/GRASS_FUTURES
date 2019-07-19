@@ -11,7 +11,7 @@
    \author Anna Petrasova
    \author Vaclav Petras
  */
-
+#include <stdlib.h>
 #include <math.h>
 
 /*!
@@ -25,4 +25,15 @@
 double get_distance(int row1, int col1, int row2, int col2)
 {
     return sqrt((row1 - row2) * (row1 - row2) + (col1 - col2) * (col1 - col2));
+}
+
+size_t get_idx_from_xy(int row, int col, int cols)
+{
+    return cols * row + col;
+}
+
+void get_xy_from_idx(size_t idx, int cols, int *row, int *col)
+{
+    *col = idx % cols;
+    *row = (idx - *col) / cols;
 }

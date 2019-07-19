@@ -60,18 +60,6 @@ void rast_segment_open(const char *name, SEGMENT *segment, struct SegmentMemory 
 }
 
 
-size_t get_idx_from_xy(int row, int col, int cols)
-{
-    return cols * row + col;
-}
-
-void get_xy_from_idx(size_t idx, int cols, int *row, int *col)
-{
-    *col = idx % cols;
-    *row = (idx - *col) / cols;
-}
-
-
 // could be writing initial probability to speed up
 void read_developed(char *filename, struct Segments *segments,
                     struct SegmentMemory segment_info)
