@@ -216,7 +216,7 @@ int grow_patch(int seed_row, int seed_col, int patch_size, int step,
 
     /* set seed as developed */
     Segment_put(&segments->developed, (void *)&step, seed_row, seed_col);
-    added_ids[found] = get_idx_from_xy(seed_row, seed_col, Rast_window_cols());
+    added_ids[0] = get_idx_from_xy(seed_row, seed_col, Rast_window_cols());
 
     /* add surrounding neighbors */
     add_neighbours(seed_row, seed_col, seed_row, seed_col,
