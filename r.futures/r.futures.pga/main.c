@@ -189,6 +189,60 @@ void update_development_pressure(int row, int col, struct Segments *segments,
     }
 }
 
+void update_development_pressure_precomputed(int row, int col, struct Segments *segments,
+                                             struct DevPressure *devpressure_info) {
+    int i, j, mi, mj;
+    int cols, rows;
+    float value;
+    FCELL devpressure_value;
+
+    cols = Rast_window_cols();
+    rows = Rast_window_rows();
+    for (i = row - devpressure_info->neighborhood; i <= row + devpressure_info->neighborhood; i++) {
+        for (j = col - devpressure_info->neighborhood; j <= col + devpressure_info->neighborhood; j++) {
+            if (i < 0 || j < 0 || i >= rows || j >= cols)
+                continue;
+            mi = devpressure_info->neighborhood - (row - i);
+            mj = devpressure_info->neighborhood - (col - j);
+            value = devpressure_info->matrix[mi][mj];
+            if (value > 0) {
+                Segment_get(&segments->devpressure, (void *)&devpressure_value, i, j);
+                if (Rast_is_null_value(&devpressure_value, FCELL_TYPE))
+                    continue;
+                devpressure_value += value;
+                Segment_put(&segments->devpressure, (void *)&devpressure_value, i, j);
+            }
+        }
+    }
+}
+
+void initialize_devpressure_matrix(struct DevPressure *devpressure_info)
+{
+    int i, j;
+    double dist;
+    double value;
+
+    devpressure_info->matrix = G_malloc(sizeof(float *) * (devpressure_info->neighborhood * 2 + 1));
+    for (i = 0; i < devpressure_info->neighborhood * 2 + 1; i++)
+        devpressure_info->matrix[i] = G_malloc(sizeof(float) * (devpressure_info->neighborhood * 2 + 1));
+    /* this can be precomputed */
+    for (i = 0; i < 2 * devpressure_info->neighborhood + 1; i++) {
+        for (j = 0; j < 2 * devpressure_info->neighborhood + 1; j++) {
+            dist = get_distance(i, j, devpressure_info->neighborhood, devpressure_info->neighborhood);
+            if (dist > devpressure_info->neighborhood)
+                value = 0;
+            else if (devpressure_info->alg == OCCURRENCE)
+                value = 1;
+            else if (devpressure_info->alg == GRAVITY)
+                value = devpressure_info->scaling_factor / pow(dist, devpressure_info->gamma);
+            else
+                value = devpressure_info->scaling_factor * exp(-2 * dist / devpressure_info->gamma);
+            devpressure_info->matrix[i][j] = value;
+        }
+    }
+}
+
+
 struct Undeveloped *initialize_undeveloped(int num_subregions)
 {
     struct Undeveloped *undev = (struct Undeveloped *) G_malloc(sizeof(struct Undeveloped));
@@ -356,7 +410,7 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
             /* update devpressure for every newly developed cell */
             for (i = 0; i < found; i++) {
                 get_xy_from_idx(added_ids[i], Rast_window_cols(), &row, &col);
-                update_development_pressure(row, col, segments, devpressure_info);
+                update_development_pressure_precomputed(row, col, segments, devpressure_info);
             }
             n_done += found;
         }
@@ -701,6 +755,7 @@ int main(int argc, char **argv)
         devpressure_info.alg = KERNEL;
     else
         G_fatal_error(_("Approach doesn't exist"));
+    initialize_devpressure_matrix(&devpressure_info);
 
     if (strcmp(opt.seedSearch->answer, "random") == 0)
         search_alg = RANDOM;
@@ -834,6 +889,9 @@ int main(int argc, char **argv)
         G_free(potential_info.devpressure);
         G_free(potential_info.intercept);
     }
+    for (int i = 0; i < devpressure_info.neighborhood * 2 + 1; i++)
+        G_free(devpressure_info.matrix[i]);
+    G_free(devpressure_info.matrix);
     if (potential_info.incentive_transform_size > 0)
         G_free(potential_info.incentive_transform);
     if (undev_cells) {

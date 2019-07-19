@@ -70,6 +70,7 @@ struct DevPressure
     float scaling_factor;
     float gamma;
     int neighborhood;
+    float **matrix;
     enum development_pressure alg;
 };
 
