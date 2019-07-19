@@ -317,9 +317,9 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
     }
 
     if (n_to_convert > undev_cells->num[region]) {
-        G_warning("Not enough undeveloped cells (requested: %d,"
+        G_warning("Not enough undeveloped cells in region %d (requested: %d,"
                   " available: %d). Converting all available.",
-                   n_to_convert, undev_cells->num[region]);
+                   region, n_to_convert, undev_cells->num[region]);
         n_to_convert =  undev_cells->num[region];
         force_convert_all = true;
     }
@@ -367,6 +367,43 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
     G_free(added_ids);
 }
 
+static int manage_memory(struct SegmentMemory *memory, float input_memory,
+                         int n_predictors, bool has_weights)
+{
+    int nseg, nseg_total;
+    int cols, rows;
+    int undev_size;
+    int size;
+
+    memory->rows = 64;
+    memory->cols = 64;
+    rows = Rast_window_rows();
+    cols = Rast_window_cols();
+
+    undev_size = (sizeof(size_t) + sizeof(float) * 2 + sizeof(bool)) * rows * cols;
+
+    if (input_memory > 0 && undev_size > 1e9 * input_memory)
+        G_warning(_("Not sufficient memory, will attempt to use more "
+                    "than specified. Will need at least %d MB"), (int) (undev_size / 1.0e6));
+
+    size = sizeof(FCELL) * (n_predictors + (has_weights ? 3 : 2));
+    size += sizeof(CELL) * 2;
+    size *= memory->rows * memory->cols;
+
+    nseg = (1e9 * input_memory - undev_size) / size;
+    if (nseg <= 0)
+        nseg = 1;
+    nseg_total = (rows / memory->rows + (rows % memory->rows > 0)) *
+                 (cols / memory->cols + (cols % memory->cols > 0));
+
+    if (nseg > nseg_total || input_memory < 0)
+	nseg = nseg_total;
+    G_verbose_message(_("Number of segments in memory: %d of %d total"),
+                      nseg, nseg_total);
+
+    return nseg;
+}
+
 int main(int argc, char **argv)
 {
 
@@ -378,7 +415,7 @@ int main(int argc, char **argv)
                 *potentialFile, *numNeighbors, *discountFactor, *seedSearch,
                 *patchMean, *patchRange,
                 *incentivePower, *potentialWeight,
-                *demandFile, *patchFile, *numSteps, *output, *outputSeries, *seed;
+                *demandFile, *patchFile, *numSteps, *output, *outputSeries, *seed, *memory;
 
     } opt;
 
@@ -390,11 +427,14 @@ int main(int argc, char **argv)
     int i;
     int num_predictors;
     int num_steps;
+    int nseg;
     int region;
     int step;
+    float memory;
     double discount_factor;
     float exponent;
     enum seed_search search_alg;
+    struct RasterInputs raster_inputs;
     struct KeyValueIntInt *region_map;
     struct Undeveloped *undev_cells;
     struct Demand demand_info;
@@ -616,6 +656,12 @@ int main(int argc, char **argv)
               " generator (use when you don't want to provide the seed option)");
     flg.generateSeed->guisection = _("Random numbers");
 
+    opt.memory = G_define_option();
+    opt.memory->key = "memory";
+    opt.memory->type = TYPE_DOUBLE;
+    opt.memory->required = NO;
+    opt.memory->description = _("Memory in GB");
+
     // TODO: add mutually exclusive?
     // TODO: add flags or options to control values in series and final rasters
 
@@ -667,14 +713,21 @@ int main(int argc, char **argv)
     if (opt.numSteps->answer)
         num_steps = atoi(opt.numSteps->answer);
     
-    segment_info.rows = 64;
-    segment_info.cols = 64;
-    segment_info.in_memory = 1;
-
     num_predictors = 0;
     for (i = 0; opt.predictors->answers[i]; i++)
         num_predictors++;
     
+    segments.use_weight = false;
+    if (opt.potentialWeight->answer) {
+        segments.use_weight = true;
+    }
+    memory = -1;
+    if (opt.memory->answer)
+        memory = atof(opt.memory->answer);
+    nseg = manage_memory(&segment_info, memory,
+                         num_predictors, segments.use_weight);
+    segment_info.in_memory = nseg;
+
     potential_info.incentive_transform_size = 0;
     potential_info.incentive_transform = NULL;
     if (opt.incentivePower->answer) {
@@ -683,9 +736,17 @@ int main(int argc, char **argv)
             initialize_incentive(&potential_info, exponent);
     }
 
+    raster_inputs.developed = opt.developed->answer;
+    raster_inputs.regions = opt.subregions->answer;
+    raster_inputs.devpressure = opt.devpressure->answer;
+    raster_inputs.predictors = opt.predictors->answers;
+    if (opt.potentialWeight->answer) {
+        raster_inputs.weights = opt.potentialWeight->answer;
+    }
     //    read Subregions layer
     region_map = KeyValueIntInt_create();
-    read_subregions(opt.subregions->answer, &segments, region_map);
+    read_subregions(opt.subregions->answer, &segments,
+                    segment_info, region_map);
     
     /* read Potential file */
     potential_info.filename = opt.potentialFile->answer;
@@ -718,9 +779,7 @@ int main(int argc, char **argv)
                     segment_info, num_predictors);
     
     /* read weights */
-    segments.use_weight = false;
     if (opt.potentialWeight->answer) {
-        segments.use_weight = true;
         read_weights(opt.potentialWeight->answer, &segments, segment_info);
     }
 

@@ -56,6 +56,15 @@ struct Segments
     bool use_weight;
 };
 
+struct RasterInputs
+{
+    const char *developed;
+    const char *regions;
+    char **predictors;
+    const char *devpressure;
+    const char *weights;
+};
+
 struct DevPressure
 {
     float scaling_factor;
@@ -92,9 +101,9 @@ void read_developed(char *filename, struct Segments *segments,
                     struct SegmentMemory segment_info);
 
 void read_predictors(char **predictor_names, struct Segments *segments,
-                     struct SegmentMemory segmentInfo, int ninputs);
+                     struct SegmentMemory segment_info, int ninputs);
 void read_subregions(const char *subregions, struct Segments *segments,
-                    struct KeyValueIntInt *region_map);
+                     struct SegmentMemory segment_info, struct KeyValueIntInt *region_map);
 void read_weights(const char *weights, struct Segments *segments,
                   struct SegmentMemory segment_info);
 void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_map);

@@ -71,6 +71,7 @@ void get_xy_from_idx(size_t idx, int cols, int *row, int *col)
     *row = (idx - *col) / cols;
 }
 
+
 // could be writing initial probability to speed up
 void read_developed(char *filename, struct Segments *segments,
                     struct SegmentMemory segment_info)
@@ -106,7 +107,7 @@ void read_developed(char *filename, struct Segments *segments,
 
 
 void read_predictors(char **predictor_names, struct Segments *segments,
-                     struct SegmentMemory segmentInfo, int ninputs)
+                     struct SegmentMemory segment_info, int ninputs)
 {
     int input;
     int row;
@@ -122,8 +123,8 @@ void read_predictors(char **predictor_names, struct Segments *segments,
     }
     
     if (Segment_open(&segments->predictors, G_tempfile(),
-                     nrows, ncols, segmentInfo.rows, segmentInfo.cols,
-                     segment_cell_size, segmentInfo.in_memory) != 1)
+                     nrows, ncols, segment_info.rows, segment_info.cols,
+                     segment_cell_size, segment_info.in_memory) != 1)
         G_fatal_error(_("Unable to create temporary segment file"));
     
     /* allocate input buffer */
@@ -156,7 +157,7 @@ void read_predictors(char **predictor_names, struct Segments *segments,
     G_free(seg_buffer);
 }
 void read_subregions(const char *subregions, struct Segments *segments,
-                    struct KeyValueIntInt *region_map)
+                     struct SegmentMemory segment_info, struct KeyValueIntInt *region_map)
 {
     int val;
 
@@ -167,12 +168,9 @@ void read_subregions(const char *subregions, struct Segments *segments,
     int count_regions = 0;
     int index = 0;
     int row, col;
-    int segment_rows = 64;
-    int segment_cols = 64;
-    int segments_in_memory = 4;
     if (Segment_open(&segments->subregions, G_tempfile(), Rast_window_rows(),
-                     Rast_window_cols(), segment_rows, segment_cols,
-                     Rast_cell_size(CELL_TYPE), segments_in_memory) != 1)
+                     Rast_window_cols(), segment_info.rows, segment_info.cols,
+                     Rast_cell_size(CELL_TYPE), segment_info.in_memory) != 1)
         G_fatal_error(_("Cannot create temporary file with segments of a raster map"));
     for (row = 0; row < Rast_window_rows(); row++) {
         Rast_get_row(fd, buffer, row, CELL_TYPE);
