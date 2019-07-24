@@ -22,7 +22,15 @@
 #include "devpressure.h"
 #include "utils.h"
 
-
+/*!
+ * \brief Update development pressure for neighborhood of a single cell
+ *
+ *
+ * \param row cell row
+ * \param col cell column
+ * \param segments segments
+ * \param devpressure_info Development pressure parameters
+ */
 void update_development_pressure(int row, int col, struct Segments *segments,
                                  struct DevPressure *devpressure_info) {
     int i, j;
@@ -57,6 +65,16 @@ void update_development_pressure(int row, int col, struct Segments *segments,
     }
 }
 
+/*!
+ * \brief Update development pressure for neighborhood of a single cell
+ *
+ * Uses precomputed matrix to speed up computation.
+ *
+ * \param row cell row
+ * \param col cell column
+ * \param segments segments
+ * \param devpressure_info Development pressure parameters
+ */
 void update_development_pressure_precomputed(int row, int col, struct Segments *segments,
                                              struct DevPressure *devpressure_info) {
     int i, j, mi, mj;
@@ -84,6 +102,10 @@ void update_development_pressure_precomputed(int row, int col, struct Segments *
     }
 }
 
+/*!
+ * \brief Precompute development pressure matrix to speed up.
+ * \param devpressure_info Development pressure parameters and matrix
+ */
 void initialize_devpressure_matrix(struct DevPressure *devpressure_info)
 {
     int i, j;

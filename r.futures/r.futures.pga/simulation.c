@@ -25,7 +25,18 @@
 #include "devpressure.h"
 #include "simulation.h"
 
-
+/*!
+ * \brief Find a seed cell based on cumulative probability.
+ *
+ * Cumulative probability increases chances to pick cells
+ * with higher probability, because the intervals are longer
+ * and therefore more likely to be picked by a random number
+ * from uniform distribution.
+ *
+ * \param[in] undev_cells array of undeveloped cells
+ * \param[in] region region index
+ * \return index in undev_cells (that's not cell id)
+ */
 int find_probable_seed(struct Undeveloped *undev_cells, int region)
 {
     int first, last, middle;
@@ -55,7 +66,15 @@ int find_probable_seed(struct Undeveloped *undev_cells, int region)
     return 0;
 }
 
-
+/*!
+ * \brief Get seed for growing a patch.
+ * \param[in] undev_cells array for undeveloped cells
+ * \param[in] region_idx region index
+ * \param[in] method method to pick seed (RANDOM, PROBABILITY)
+ * \param[out] row row
+ * \param[out] col column
+ * \return index in undev_cells (not id of a cell)
+ */
 int get_seed(struct Undeveloped *undev_cells, int region_idx, enum seed_search method,
               int *row, int *col)
 {
@@ -70,7 +89,16 @@ int get_seed(struct Undeveloped *undev_cells, int region_idx, enum seed_search m
 }
 
 
-
+/*!
+ * \brief Compute development probability for a cell
+ * \param[in] segments segments
+ * \param[in] values allocated buffer
+ * \param[in] potential_info potential parameters
+ * \param[in] region_index region id
+ * \param[in] row row
+ * \param[in] col column
+ * \return probability
+ */
 double get_develop_probability_xy(struct Segments *segments,
                                   FCELL *values,
                                   struct Potential *potential_info,
@@ -110,7 +138,17 @@ double get_develop_probability_xy(struct Segments *segments,
     return probability;
 }
 
-
+/*!
+ * \brief Recompute development probabilities.
+ *
+ * Compute probabilities for each cell and update
+ * probability segment and undev_cells.
+ * Also recompute cumulative probability
+ *
+ * \param undeveloped_cells array of undeveloped cells
+ * \param segments segments
+ * \param potential_info potential parameters
+ */
 void recompute_probabilities(struct Undeveloped *undeveloped_cells,
                              struct Segments *segments,
                              struct Potential *potential_info)
@@ -180,7 +218,19 @@ void recompute_probabilities(struct Undeveloped *undeveloped_cells,
         }
     }
 }
-
+/*!
+ * \brief Compute step of the simulation
+ * \param undev_cells array of undeveloped cells
+ * \param demand Demand parameters
+ * \param search_alg seed search method
+ * \param segments segments
+ * \param patch_sizes list of patch sizes to pick from
+ * \param patch_info patch parameters
+ * \param devpressure_info development presure parameters
+ * \param patch_overflow overflow of cells to next step
+ * \param step step number
+ * \param region region index
+ */
 void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
                   enum seed_search search_alg,
                   struct Segments *segments,
