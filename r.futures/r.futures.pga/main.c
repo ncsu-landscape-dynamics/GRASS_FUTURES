@@ -462,43 +462,8 @@ int main(int argc, char **argv)
     }
     //    read Subregions layer
     region_map = KeyValueIntInt_create();
-    read_subregions(opt.subregions->answer, &segments,
-                    segment_info, region_map);
-    
-    /* read Potential file */
-    potential_info.filename = opt.potentialFile->answer;
-    read_potential_file(&potential_info, region_map, num_predictors);
-
-    /* read Demand file */
-    demand_info.filename = opt.demandFile->answer;
-    read_demand_file(&demand_info, region_map);
- 
-    if (num_steps == 0)
-        num_steps = demand_info.max_steps;
-    
-    undev_cells = initialize_undeveloped(region_map->nitems);
-    patch_overflow = G_calloc(region_map->nitems, sizeof(int));
-
-    /* read Patch sizes file */
-    patch_sizes.filename = opt.patchFile->answer;
-    read_patch_sizes(&patch_sizes, discount_factor);
-
     G_verbose_message("Reading input rasters...");
-    //    development pressure
-    rast_segment_open(opt.devpressure->answer, &segments.devpressure,
-                      segment_info, FCELL_TYPE);
-
-    //   read developed
-    read_developed(opt.developed->answer, &segments, segment_info);
-
-    /* read in predictors */
-    read_predictors(opt.predictors->answers, &segments,
-                    segment_info, num_predictors);
-    
-    /* read weights */
-    if (opt.potentialWeight->answer) {
-        read_weights(opt.potentialWeight->answer, &segments, segment_info);
-    }
+    read_input_rasters(raster_inputs, &segments, segment_info, region_map, num_predictors);
 
     /* create probability segment*/
     if (Segment_open(&segments.probability, G_tempfile(), Rast_window_rows(),
@@ -506,8 +471,27 @@ int main(int argc, char **argv)
                      Rast_cell_size(FCELL_TYPE), segment_info.in_memory) != 1)
         G_fatal_error(_("Cannot create temporary file with segments of a raster map"));
 
-    /* here do the modeling */
+    /* read Potential file */
+    G_verbose_message("Reading potential file...");
+    potential_info.filename = opt.potentialFile->answer;
+    read_potential_file(&potential_info, region_map, num_predictors);
 
+    /* read Demand file */
+    G_verbose_message("Reading demand file...");
+    demand_info.filename = opt.demandFile->answer;
+    read_demand_file(&demand_info, region_map);
+    if (num_steps == 0)
+        num_steps = demand_info.max_steps;
+
+    /* read Patch sizes file */
+    G_verbose_message("Reading patch size file...");
+    patch_sizes.filename = opt.patchFile->answer;
+    read_patch_sizes(&patch_sizes, discount_factor);
+
+    undev_cells = initialize_undeveloped(region_map->nitems);
+    patch_overflow = G_calloc(region_map->nitems, sizeof(int));
+    /* here do the modeling */
+    G_verbose_message("Starting simulation...");
     for (step = 0; step < num_steps; step++) {
         recompute_probabilities(undev_cells, &segments, &potential_info);
         for (region = 0; region < region_map->nitems; region++) {

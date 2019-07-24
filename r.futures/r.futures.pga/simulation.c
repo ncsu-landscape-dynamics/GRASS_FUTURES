@@ -23,6 +23,7 @@
 
 #include "inputs.h"
 #include "devpressure.h"
+#include "utils.h"
 #include "simulation.h"
 
 
@@ -139,8 +140,6 @@ void recompute_probabilities(struct Undeveloped *undeveloped_cells,
             if (developed != -1)
                 continue;
             Segment_get(&segments->subregions, (void *)&region, row, col);
-            if (Rast_is_null_value(&region, CELL_TYPE))
-                continue;
             
             /* realloc if needed */
             if (undeveloped_cells->num[region] >= undeveloped_cells->max[region]) {

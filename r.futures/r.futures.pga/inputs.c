@@ -38,195 +38,184 @@ void initialize_incentive(struct Potential *potential_info, float exponent)
     }
 }
 
-void rast_segment_open(const char *name, SEGMENT *segment, struct SegmentMemory segmentInfo, 
-                       RASTER_MAP_TYPE map_type)
+void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
+                        struct SegmentMemory segment_info, struct KeyValueIntInt *region_map,
+                        int num_predictors)
 {
-    int row;
-    int rowio = Rast_open_old(name, "");
-    void *raster_row = Rast_allocate_buf(map_type);
-
-    if (Segment_open(segment, G_tempfile(), Rast_window_rows(),
-                     Rast_window_cols(), segmentInfo.rows, segmentInfo.cols,
-                     Rast_cell_size(map_type), segmentInfo.in_memory) != 1)
-        G_fatal_error(_("Cannot create temporary file with segments of a raster map"));
-
-    for (row = 0; row < Rast_window_rows(); row++) {
-        Rast_get_row(rowio, raster_row, row, map_type);
-        Segment_put_row(segment, raster_row, row);
-    }
-    Segment_flush(segment);
-    Rast_close(rowio);          /* we won't need the raster again */
-    G_free(raster_row);
-}
-
-
-// could be writing initial probability to speed up
-void read_developed(char *filename, struct Segments *segments,
-                    struct SegmentMemory segment_info)
-{
-    int row, col, rowio;
-    void *raster_row;
-
-    rowio = Rast_open_old(filename, "");
-    if (Segment_open(&segments->developed, G_tempfile(), Rast_window_rows(),
-                     Rast_window_cols(), segment_info.rows, segment_info.cols,
-                     Rast_cell_size(CELL_TYPE), segment_info.in_memory) != 1)
-        G_fatal_error(_("Cannot create temporary file with segments of a raster map"));
-    raster_row = Rast_allocate_buf(CELL_TYPE);
-    for (row = 0; row < Rast_window_rows(); row++) {
-        Rast_get_row(rowio, raster_row, row, CELL_TYPE);
-        for (col = 0; col < Rast_window_cols(); col++) {
-            if (Rast_is_null_value(&((CELL *) raster_row)[col], CELL_TYPE))
-                ;
-            else {
-                CELL c = ((CELL *) raster_row)[col];
-                ((CELL *) raster_row)[col] = c - 1;
-            }
-        }
-        Segment_put_row(&segments->developed, raster_row, row);
-    }
-    Segment_flush(&segments->developed);
-    Rast_close(rowio);
-    G_free(raster_row);
-}
-
-
-
-
-
-void read_predictors(char **predictor_names, struct Segments *segments,
-                     struct SegmentMemory segment_info, int ninputs)
-{
-    int input;
-    int row;
-    int col;
-    int nrows = Rast_window_rows();
-    int ncols = Rast_window_cols();
-    size_t segment_cell_size = sizeof(FCELL) * ninputs;
-
-    int *input_fds = G_malloc(ninputs * sizeof(int));
-    /* open existing raster maps for reading */
-    for (input = 0; input < ninputs; input++) {
-        input_fds[input] = Rast_open_old(predictor_names[input], "");
-    }
-    
-    if (Segment_open(&segments->predictors, G_tempfile(),
-                     nrows, ncols, segment_info.rows, segment_info.cols,
-                     segment_cell_size, segment_info.in_memory) != 1)
-        G_fatal_error(_("Unable to create temporary segment file"));
-    
-    /* allocate input buffer */
-    FCELL *row_buffer = Rast_allocate_f_buf();
-    FCELL *seg_buffer = G_malloc(ncols * ninputs * sizeof(FCELL));
-    CELL out_mask;
-    
-    for (row = 0; row < nrows; row++) {
-        for (input = 0; input < ninputs; input++) {
-            Rast_get_f_row(input_fds[input], row_buffer, row);
-            for (col = 0; col < ncols; col++) {
-                    seg_buffer[col * ninputs + input] = row_buffer[col];
-                    /* collect all nulls in predictors and set it in output raster */
-                    if (Rast_is_null_value(&((FCELL *) row_buffer)[col], FCELL_TYPE))
-                    {
-                        Rast_set_c_null_value(&out_mask, 1);
-                        Segment_put(&segments->developed, (void *)&out_mask, row, col);
-                    }
-                }
-        }
-        if (Segment_put_row(&segments->predictors, seg_buffer, row) < 1)
-            G_fatal_error(_("Unable to write temporary segment file"));
-    }
-    Segment_flush(&segments->predictors);
-    Segment_flush(&segments->developed);
-    for (input = 0; input < ninputs; input++)
-        Rast_close(input_fds[input]);
-    G_free(input_fds);
-    G_free(row_buffer);
-    G_free(seg_buffer);
-}
-void read_subregions(const char *subregions, struct Segments *segments,
-                     struct SegmentMemory segment_info, struct KeyValueIntInt *region_map)
-{
-    int val;
-
-    int fd = Rast_open_old(subregions, "");
-    void *buffer = Rast_allocate_c_buf();
-
-    G_verbose_message("Reading subregions %s", subregions);
-    int count_regions = 0;
-    int index = 0;
+    int i;
     int row, col;
-    if (Segment_open(&segments->subregions, G_tempfile(), Rast_window_rows(),
-                     Rast_window_cols(), segment_info.rows, segment_info.cols,
-                     Rast_cell_size(CELL_TYPE), segment_info.in_memory) != 1)
-        G_fatal_error(_("Cannot create temporary file with segments of a raster map"));
-    for (row = 0; row < Rast_window_rows(); row++) {
-        Rast_get_row(fd, buffer, row, CELL_TYPE);
-        void *ptr = buffer;
+    int rows, cols;
+    int fd_developed, fd_reg, fd_devpressure, fd_weights;
+    int *fds_predictors;
+    int count_regions;
+    int region_index;
+    CELL c;
+    FCELL fc;
+    bool isnull;
 
-        for (col = 0; col < Rast_window_cols(); col++,
-             ptr = G_incr_void_ptr(ptr, Rast_cell_size(CELL_TYPE))) {
-            if (Rast_is_null_value(ptr, CELL_TYPE))
-                ;
-            //Rast_set_c_null_value(ptr, 1);
-            else {
-                val = *(CELL *) ptr;
-                if (KeyValueIntInt_find(region_map, val, &index))
-                    ; // pass
-                else {
-                    KeyValueIntInt_set(region_map, val, count_regions);
-                    index = count_regions;
+    size_t predictor_segment_cell_size;
+
+    CELL *developed_row;
+    CELL *subregions_row;
+    FCELL *devpressure_row;
+    FCELL *predictor_row;
+    FCELL *weights_row;
+    FCELL *predictor_seg_row;
+
+
+    rows = Rast_window_rows();
+    cols = Rast_window_cols();
+    count_regions = region_index = 0;
+
+    fds_predictors = G_malloc(num_predictors * sizeof(int));
+
+    /* open existing raster maps for reading */
+    fd_developed = Rast_open_old(inputs.developed, "");
+    fd_reg = Rast_open_old(inputs.regions, "");
+    fd_devpressure = Rast_open_old(inputs.devpressure, "");
+    if (segments->use_weight)
+        fd_weights = Rast_open_old(inputs.weights, "");
+    for (i = 0; i < num_predictors; i++) {
+        fds_predictors[i] = Rast_open_old(inputs.predictors[i], "");
+    }
+
+    predictor_segment_cell_size = sizeof(FCELL) * num_predictors;
+    /* Segment open developed */
+    if (Segment_open(&segments->developed, G_tempfile(), rows,
+                     cols, segment_info.rows, segment_info.cols,
+                     Rast_cell_size(CELL_TYPE), segment_info.in_memory) != 1)
+        G_fatal_error(_("Cannot create temporary file with segments of a raster map of development"));
+    /* Segment open subregions */
+    if (Segment_open(&segments->subregions, G_tempfile(), rows,
+                     cols, segment_info.rows, segment_info.cols,
+                     Rast_cell_size(CELL_TYPE), segment_info.in_memory) != 1)
+        G_fatal_error(_("Cannot create temporary file with segments of a raster map of subregions"));
+    /* Segment open development pressure */
+    if (Segment_open(&segments->devpressure, G_tempfile(), rows,
+                     cols, segment_info.rows, segment_info.cols,
+                     Rast_cell_size(FCELL_TYPE), segment_info.in_memory) != 1)
+        G_fatal_error(_("Cannot create temporary file with segments of a raster map of development pressure"));
+    /* Segment open predictors */
+    if (Segment_open(&segments->predictors, G_tempfile(), rows,
+                     cols, segment_info.rows, segment_info.cols,
+                     predictor_segment_cell_size, segment_info.in_memory) != 1)
+        G_fatal_error(_("Cannot create temporary file with segments of predictor raster maps"));
+    /* Segment open weights */
+    if (segments->use_weight)
+        if (Segment_open(&segments->weight, G_tempfile(), rows,
+                         cols, segment_info.rows, segment_info.cols,
+                         Rast_cell_size(FCELL_TYPE), segment_info.in_memory) != 1)
+            G_fatal_error(_("Cannot create temporary file with segments of a raster map of weights"));
+
+    developed_row = Rast_allocate_buf(CELL_TYPE);
+    subregions_row = Rast_allocate_buf(CELL_TYPE);
+    devpressure_row = Rast_allocate_buf(FCELL_TYPE);
+    predictor_row = Rast_allocate_buf(FCELL_TYPE);
+    predictor_seg_row = G_malloc(cols * num_predictors * sizeof(FCELL));
+    if (segments->use_weight)
+        weights_row = Rast_allocate_buf(FCELL_TYPE);
+
+
+    for (row = 0; row < rows; row++) {
+        /* read developed row */
+        Rast_get_row(fd_developed, developed_row, row, CELL_TYPE);
+        Rast_get_row(fd_devpressure, devpressure_row, row, FCELL_TYPE);
+        Rast_get_row(fd_reg, subregions_row, row, CELL_TYPE);
+        if (segments->use_weight)
+            Rast_get_row(fd_weights, weights_row, row, FCELL_TYPE);
+        for (col = 0; col < cols; col++) {
+            isnull = false;
+            /* developed */
+            /* undeveloped 0 -> -1, developed 1 -> 0 */
+            if (!Rast_is_null_value(&((CELL *) developed_row)[col], CELL_TYPE)) {
+                c = ((CELL *) developed_row)[col];
+                ((CELL *) developed_row)[col] = c - 1;
+            }
+            else
+                isnull = true;
+            /* subregions */
+            if (!Rast_is_null_value(&((CELL *) subregions_row)[col], CELL_TYPE)) {
+                c = ((CELL *) subregions_row)[col];
+                if (!KeyValueIntInt_find(region_map, c, &region_index)) {
+                    KeyValueIntInt_set(region_map, c, count_regions);
+                    region_index = count_regions;
                     count_regions++;
                 }
-                *(CELL *) ptr = index;
+                ((CELL *) subregions_row)[col] = region_index;
+            }
+            else
+                isnull = true;
+            /* devpressure - just check nulls */
+            if (Rast_is_null_value(&((FCELL *) devpressure_row)[col], FCELL_TYPE))
+                isnull = true;
+            /* weights - must be in range -1, 1*/
+            if (segments->use_weight) {
+                if (Rast_is_null_value(&((FCELL *) weights_row)[col], FCELL_TYPE)) {
+                    ((FCELL *) weights_row)[col] = 0;
+                    isnull = true;
+                }
+                else {
+                    fc = ((FCELL *) weights_row)[col];
+                    if (fc > 1) {
+                        G_warning(_("Probability weights are > 1, truncating..."));
+                        fc = 1;
+                    }
+                    else if (fc < -1) {
+                        fc = -1;
+                        G_warning(_("Probability weights are < -1, truncating..."));
+                    }
+                    ((FCELL *) weights_row)[col] = fc;
+                }
+            }
+            /* if in developed, subregions, devpressure or weights are any nulls
+               propagate them into developed */
+            if (isnull)
+                Rast_set_c_null_value(&((CELL *) developed_row)[col], 1);
+        }
+        /* handle predictors separately */
+        for (i = 0; i < num_predictors; i++) {
+            Rast_get_row(fds_predictors[i], predictor_row, row, FCELL_TYPE);
+            for (col = 0; col < cols; col++) {
+                isnull = false;
+                predictor_seg_row[col * num_predictors + i] = predictor_row[col];
+                /* collect all nulls in predictors and set it in output raster */
+                if (Rast_is_null_value(&((FCELL *) predictor_row)[col], FCELL_TYPE))
+                    Rast_set_c_null_value(&((CELL *) developed_row)[col], 1);
             }
         }
-        Segment_put_row(&segments->subregions, buffer, row);
+        Segment_put_row(&segments->developed, developed_row, row);
+        Segment_put_row(&segments->devpressure, devpressure_row, row);
+        Segment_put_row(&segments->subregions, subregions_row, row);
+        Segment_put_row(&segments->predictors, predictor_seg_row, row);
+        if (segments->use_weight)
+            Segment_put_row(&segments->weight, weights_row, row);
     }
+
+    /* flush all segments */
+    Segment_flush(&segments->developed);
     Segment_flush(&segments->subregions);
-    G_free(buffer);
-    Rast_close(fd);
-}
+    Segment_flush(&segments->devpressure);
+    Segment_flush(&segments->predictors);
+    if (segments->use_weight)
+        Segment_flush(&segments->weight);
 
-void read_weights(const char *weights, struct Segments *segments,
-                  struct SegmentMemory segment_info)
-{
-    float val;
-    int fd;
-    void *buffer;
-    void *ptr;
-    int row, col;
+    /* close raster maps */
+    Rast_close(fd_developed);
+    Rast_close(fd_reg);
+    Rast_close(fd_devpressure);
+    if (segments->use_weight)
+        Rast_close(fd_weights);
+    for (i = 0; i < num_predictors; i++)
+        Rast_close(fds_predictors[i]);
 
-    fd = Rast_open_old(weights, "");
-    buffer = Rast_allocate_c_buf();
-
-    G_verbose_message("Reading weights %s", weights);
-
-    if (Segment_open(&segments->weight, G_tempfile(), Rast_window_rows(),
-                     Rast_window_cols(), segment_info.rows, segment_info.cols,
-                     Rast_cell_size(FCELL_TYPE), segment_info.in_memory) != 1)
-        G_fatal_error(_("Cannot create temporary file with segments of a raster map"));
-    for (row = 0; row < Rast_window_rows(); row++) {
-        Rast_get_row(fd, buffer, row, FCELL_TYPE);
-        ptr = buffer;
-        for (col = 0; col < Rast_window_cols(); col++,
-             ptr = G_incr_void_ptr(ptr, Rast_cell_size(FCELL_TYPE))) {
-            if (Rast_is_null_value(ptr, FCELL_TYPE))
-                *(FCELL *) ptr = 0;
-            else {
-                val = *(FCELL *) ptr;
-                if (val > 1)
-                    val = 1;
-                else if (val < -1)
-                    val = -1;
-                *(FCELL *) ptr = val;
-            }
-        }
-        Segment_put_row(&segments->weight, buffer, row);
-    }
-    Segment_flush(&segments->weight);
-    G_free(buffer);
-    Rast_close(fd);
+    G_free(fds_predictors);
+    G_free(developed_row);
+    G_free(subregions_row);
+    G_free(devpressure_row);
+    G_free(predictor_row);
+    G_free(predictor_seg_row);
+    if (segments->use_weight)
+        G_free(weights_row);
 }
 
 void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_map)
@@ -307,7 +296,6 @@ void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_m
     G_free_tokens(tokens);
 }
 
-
 void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt *region_map,
                          int num_predictors)
 {
@@ -374,7 +362,6 @@ void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt 
     fclose(fp);
 }
 
-
 void read_patch_sizes(struct PatchSizes *patch_info, double discount_factor)
 {
     FILE *fin;
@@ -386,7 +373,6 @@ void read_patch_sizes(struct PatchSizes *patch_info, double discount_factor)
     patch_info->max_patches = 0;
     patch_info->max_patch_size = 0;
 
-    G_verbose_message("Reading patch sizes...");
     fin = fopen(patch_info->filename, "rb");
     if (fin) {
         size_buffer = (char *) G_malloc(100 * sizeof(char));

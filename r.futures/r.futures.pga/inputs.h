@@ -83,20 +83,9 @@ struct Undeveloped
 
 
 void initialize_incentive(struct Potential *potential_info, float exponent);
-void rast_segment_open(const char *name, SEGMENT *segment, struct SegmentMemory segmentInfo, 
-                       RASTER_MAP_TYPE map_type);
-size_t get_idx_from_xy(int row, int col, int cols);
-void get_xy_from_idx(size_t idx, int cols, int *row, int *col);
-
-void read_developed(char *filename, struct Segments *segments,
-                    struct SegmentMemory segment_info);
-
-void read_predictors(char **predictor_names, struct Segments *segments,
-                     struct SegmentMemory segment_info, int ninputs);
-void read_subregions(const char *subregions, struct Segments *segments,
-                     struct SegmentMemory segment_info, struct KeyValueIntInt *region_map);
-void read_weights(const char *weights, struct Segments *segments,
-                  struct SegmentMemory segment_info);
+void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
+                        struct SegmentMemory segment_info, struct KeyValueIntInt *region_map, 
+                        int num_predictors);
 void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_map);
 void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt *region_map,
                          int num_predictors);
