@@ -24,7 +24,13 @@
 #include "output.h"
 
 
-
+/*!
+ * \brief Create an output name from basename and step
+ * \param basename basename specified by user
+ * \param step step of simulation
+ * \param nsteps total number of steps to add zero padding
+ * \return output name
+ */
 char *name_for_step(const char *basename, const int step, const int nsteps)
 {
     int digits;
@@ -33,16 +39,16 @@ char *name_for_step(const char *basename, const int step, const int nsteps)
     return G_generate_basename(basename, step, digits, 0);
 }
 
+
 /*!
-    Write current state of developed areas.
-
-    Called at end and dumps tDeveloped for all valid cells (NULL for all others)
-
-    \param undevelopedAsNull Represent undeveloped areas as NULLs instead of -1
-    \param developmentAsOne Represent all developed areas as 1 instead of number
-        representing the step when are was developed
+ * \brief Write current state of developed areas.
+ * \param developed_segment segment of developed cells
+ * \param name name for output map
+ * \param nsteps total number of steps (needed for color table)
+ * \param undeveloped_as_null Represent undeveloped areas as NULLs instead of -1
+ * \param developed_as_one Represent all developed areas as 1 instead of number
+        representing the step when it was developed
  */
-// TODO: add timestamp to maps
 void output_developed_step(SEGMENT *developed_segment, const char *name,
                            int nsteps, bool undeveloped_as_null, bool developed_as_one)
 {
