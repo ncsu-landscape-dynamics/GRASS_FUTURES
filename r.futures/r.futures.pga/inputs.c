@@ -22,7 +22,11 @@
 #include "keyvalue.h"
 #include "inputs.h"
 
-
+/*!
+ * \brief Initialize arrays for transformation of probability values
+ * \param potential_info
+ * \param exponent
+ */
 void initialize_incentive(struct Potential *potential_info, float exponent)
 {
     int i;
@@ -38,6 +42,14 @@ void initialize_incentive(struct Potential *potential_info, float exponent)
     }
 }
 
+/*!
+ * \brief Read input rasters into segments.
+ * \param inputs
+ * \param segments
+ * \param segment_info
+ * \param region_map
+ * \param num_predictors
+ */
 void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                         struct SegmentMemory segment_info, struct KeyValueIntInt *region_map,
                         int num_predictors)
