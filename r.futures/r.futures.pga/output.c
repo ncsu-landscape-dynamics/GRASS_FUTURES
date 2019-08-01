@@ -26,8 +26,9 @@
 
 /*!
  * \brief Create an output name from basename and step
+ *
  * \param basename basename specified by user
- * \param step step of simulation
+ * \param step step of simulation (0 is first step)
  * \param nsteps total number of steps to add zero padding
  * \return output name
  */
@@ -36,7 +37,7 @@ char *name_for_step(const char *basename, const int step, const int nsteps)
     int digits;
     digits = log10(nsteps) + 1;
 
-    return G_generate_basename(basename, step, digits, 0);
+    return G_generate_basename(basename, step + 1, digits, 0);
 }
 
 
