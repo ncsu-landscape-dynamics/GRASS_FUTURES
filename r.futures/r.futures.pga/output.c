@@ -24,6 +24,18 @@
 #include "output.h"
 
 
+static void create_timestamp(int day, int month, int year, struct TimeStamp* timestamp)
+{
+    struct DateTime date_time;
+    datetime_set_type(&date_time, DATETIME_ABSOLUTE,
+                      DATETIME_YEAR, DATETIME_DAY, 0);
+    datetime_set_year(&date_time, year);
+    datetime_set_month(&date_time, month);
+    datetime_set_day(&date_time, day);
+    G_init_timestamp(timestamp);
+    G_set_timestamp(timestamp, &date_time);
+}
+
 /*!
  * \brief Create an output name from basename and step
  *
@@ -51,7 +63,7 @@ char *name_for_step(const char *basename, const int step, const int nsteps)
         representing the step when it was developed
  */
 void output_developed_step(SEGMENT *developed_segment, const char *name,
-                           int nsteps, bool undeveloped_as_null, bool developed_as_one)
+                           int year, int nsteps, bool undeveloped_as_null, bool developed_as_one)
 {
     int out_fd;
     int row, col, rows, cols;
@@ -127,6 +139,9 @@ void output_developed_step(SEGMENT *developed_segment, const char *name,
     Rast_command_history(&hist);
     // TODO: store also random seed value (need to get it here, global? in Params?)
     Rast_write_history(name, &hist);
+    struct TimeStamp timestamp;
+    create_timestamp(31, 12, year, &timestamp);
+    G_write_raster_timestamp(name, &timestamp);
 
     G_message(_("Raster map <%s> created"), name);
 

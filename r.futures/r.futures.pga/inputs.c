@@ -275,6 +275,7 @@ void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_m
     for (int i = 0; i < region_map->nitems; i++) {
         demandInfo->table[i] = (int *) G_malloc(countlines * sizeof(int));
     }
+    demandInfo->years = (int *) G_malloc(countlines * sizeof(int));
     while(G_getl2(buf, buflen, fp)) {
         if (!buf || buf[0] == '\0')
             continue;
@@ -287,6 +288,7 @@ void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_m
 
         count = 0;
         int i;
+        demandInfo->years[years] = atoi(tokens[0]);
         for (i = 1; i < ntokens; i++) {
             // skip first column which is the year which we ignore
             int idx;

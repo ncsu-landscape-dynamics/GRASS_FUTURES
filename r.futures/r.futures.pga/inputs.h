@@ -11,6 +11,7 @@ struct Demand
 {
     const char *filename;
     int **table;
+    int *years;
     int max_subregions;
     int max_steps;
 };

@@ -502,12 +502,14 @@ int main(int argc, char **argv)
         /* export developed for that step */
         if (opt.outputSeries->answer) {
             name_step = name_for_step(opt.outputSeries->answer, step, num_steps);
-            output_developed_step(&segments.developed, name_step, num_steps, true, true);
+            output_developed_step(&segments.developed, name_step, demand_info.years[step],
+                                  num_steps, true, true);
         }
     }
 
     /* write */
-    output_developed_step(&segments.developed, opt.output->answer, num_steps, false, false);
+    output_developed_step(&segments.developed, opt.output->answer, demand_info.years[step-1],
+                          num_steps, false, false);
 
     /* close segments and free memory */
     Segment_close(&segments.developed);
@@ -524,6 +526,7 @@ int main(int argc, char **argv)
         for (int i = 0; i < demand_info.max_subregions; i++)
             G_free(demand_info.table[i]);
         G_free(demand_info.table);
+        G_free(demand_info.years);
     }
     if (potential_info.predictors) {
         for (int i = 0; i < potential_info.max_predictors; i++)
