@@ -24,16 +24,28 @@
 #include "output.h"
 
 
-static void create_timestamp(int day, int month, int year, struct TimeStamp* timestamp)
+static void create_timestamp(int year, struct TimeStamp* timestamp)
 {
     struct DateTime date_time;
     datetime_set_type(&date_time, DATETIME_ABSOLUTE,
-                      DATETIME_YEAR, DATETIME_DAY, 0);
+                      DATETIME_YEAR, DATETIME_YEAR, 0);
     datetime_set_year(&date_time, year);
-    datetime_set_month(&date_time, month);
-    datetime_set_day(&date_time, day);
     G_init_timestamp(timestamp);
     G_set_timestamp(timestamp, &date_time);
+}
+static void create_timestamp_range(int year_from, int year_to,
+                                   struct TimeStamp* timestamp)
+{
+    struct DateTime date_time1;
+    struct DateTime date_time2;
+    datetime_set_type(&date_time1, DATETIME_ABSOLUTE,
+                      DATETIME_YEAR, DATETIME_YEAR, 0);
+    datetime_set_type(&date_time2, DATETIME_ABSOLUTE,
+                      DATETIME_YEAR, DATETIME_YEAR, 0);
+    datetime_set_year(&date_time1, year_from);
+    datetime_set_year(&date_time2, year_to);
+    G_init_timestamp(timestamp);
+    G_set_timestamp_range(timestamp, &date_time1, &date_time2);
 }
 
 /*!
@@ -57,13 +69,15 @@ char *name_for_step(const char *basename, const int step, const int nsteps)
  * \brief Write current state of developed areas.
  * \param developed_segment segment of developed cells
  * \param name name for output map
+ * \param year_from year to put as timestamp
+ * \param year_to if > 0 it is end year of timestamp interval
  * \param nsteps total number of steps (needed for color table)
  * \param undeveloped_as_null Represent undeveloped areas as NULLs instead of -1
  * \param developed_as_one Represent all developed areas as 1 instead of number
         representing the step when it was developed
  */
 void output_developed_step(SEGMENT *developed_segment, const char *name,
-                           int year, int nsteps, bool undeveloped_as_null, bool developed_as_one)
+                           int year_from, int year_to, int nsteps, bool undeveloped_as_null, bool developed_as_one)
 {
     int out_fd;
     int row, col, rows, cols;
@@ -140,7 +154,10 @@ void output_developed_step(SEGMENT *developed_segment, const char *name,
     // TODO: store also random seed value (need to get it here, global? in Params?)
     Rast_write_history(name, &hist);
     struct TimeStamp timestamp;
-    create_timestamp(31, 12, year, &timestamp);
+    if (year_to < 0)
+        create_timestamp(year_from, &timestamp);
+    else
+        create_timestamp_range(year_from, year_to, &timestamp);
     G_write_raster_timestamp(name, &timestamp);
 
     G_message(_("Raster map <%s> created"), name);
