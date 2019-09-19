@@ -126,7 +126,7 @@ int main(int argc, char **argv)
     struct
     {
         struct Option
-                *developed, *subregions, *predictors,
+                *developed, *subregions, *potentialSubregions, *predictors,
                 *devpressure, *nDevNeighbourhood, *devpressureApproach, *scalingFactor, *gamma,
                 *potentialFile, *numNeighbors, *discountFactor, *seedSearch,
                 *patchMean, *patchRange,
@@ -152,6 +152,7 @@ int main(int argc, char **argv)
     enum seed_search search_alg;
     struct RasterInputs raster_inputs;
     struct KeyValueIntInt *region_map;
+    struct KeyValueIntInt *potential_region_map;
     struct Undeveloped *undev_cells;
     struct Demand demand_info;
     struct Potential potential_info;
@@ -190,6 +191,13 @@ int main(int argc, char **argv)
     opt.subregions->required = YES;
     opt.subregions->description = _("Raster map of subregions");
     opt.subregions->guisection = _("Basic input");
+
+    opt.potentialSubregions = G_define_standard_option(G_OPT_R_INPUT);
+    opt.potentialSubregions->key = "subregions_potential";
+    opt.potentialSubregions->required = NO;
+    opt.potentialSubregions->label = _("Raster map of subregions used with potential file");
+    opt.potentialSubregions->description = _("If not specified, the raster specified in subregions parameter is used");
+    opt.potentialSubregions->guisection = _("Potential");
 
     opt.predictors = G_define_standard_option(G_OPT_R_INPUTS);
     opt.predictors->key = "predictors";
@@ -438,6 +446,10 @@ int main(int argc, char **argv)
     if (opt.potentialWeight->answer) {
         segments.use_weight = true;
     }
+    segments.use_potential_subregions = false;
+    if (opt.potentialSubregions->answer) {
+        segments.use_potential_subregions = true;
+    }
     memory = -1;
     if (opt.memory->answer)
         memory = atof(opt.memory->answer);
@@ -457,13 +469,16 @@ int main(int argc, char **argv)
     raster_inputs.regions = opt.subregions->answer;
     raster_inputs.devpressure = opt.devpressure->answer;
     raster_inputs.predictors = opt.predictors->answers;
-    if (opt.potentialWeight->answer) {
+    if (opt.potentialWeight->answer)
         raster_inputs.weights = opt.potentialWeight->answer;
-    }
+    if (opt.potentialSubregions->answer)
+        raster_inputs.potential_regions = opt.potentialSubregions->answer;
+
     //    read Subregions layer
     region_map = KeyValueIntInt_create();
+    potential_region_map = KeyValueIntInt_create();
     G_verbose_message("Reading input rasters...");
-    read_input_rasters(raster_inputs, &segments, segment_info, region_map, num_predictors);
+    read_input_rasters(raster_inputs, &segments, segment_info, region_map, potential_region_map, num_predictors);
 
     /* create probability segment*/
     if (Segment_open(&segments.probability, G_tempfile(), Rast_window_rows(),
@@ -474,7 +489,7 @@ int main(int argc, char **argv)
     /* read Potential file */
     G_verbose_message("Reading potential file...");
     potential_info.filename = opt.potentialFile->answer;
-    read_potential_file(&potential_info, region_map, num_predictors);
+    read_potential_file(&potential_info, opt.potentialSubregions->answer ? potential_region_map : region_map, num_predictors);
 
     /* read Demand file */
     G_verbose_message("Reading demand file...");
@@ -521,6 +536,8 @@ int main(int argc, char **argv)
     if (opt.potentialWeight->answer) {
         Segment_close(&segments.weight);
     }
+    if (opt.potentialSubregions->answer)
+        Segment_close(&segments.potential_subregions);
 
     KeyValueIntInt_free(region_map);
     if (demand_info.table) {

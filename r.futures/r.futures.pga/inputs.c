@@ -52,15 +52,15 @@ void initialize_incentive(struct Potential *potential_info, float exponent)
  */
 void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                         struct SegmentMemory segment_info, struct KeyValueIntInt *region_map,
-                        int num_predictors)
+                        struct KeyValueIntInt *potential_region_map, int num_predictors)
 {
     int i;
     int row, col;
     int rows, cols;
-    int fd_developed, fd_reg, fd_devpressure, fd_weights;
+    int fd_developed, fd_reg, fd_devpressure, fd_weights, fd_pot_reg;
     int *fds_predictors;
-    int count_regions;
-    int region_index;
+    int count_regions, pot_count_regions;
+    int region_index, pot_region_index;
     CELL c;
     FCELL fc;
     bool isnull;
@@ -69,6 +69,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
 
     CELL *developed_row;
     CELL *subregions_row;
+    CELL *pot_subregions_row;
     FCELL *devpressure_row;
     FCELL *predictor_row;
     FCELL *weights_row;
@@ -78,12 +79,15 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
     rows = Rast_window_rows();
     cols = Rast_window_cols();
     count_regions = region_index = 0;
+    pot_count_regions = pot_region_index = 0;
 
     fds_predictors = G_malloc(num_predictors * sizeof(int));
 
     /* open existing raster maps for reading */
     fd_developed = Rast_open_old(inputs.developed, "");
     fd_reg = Rast_open_old(inputs.regions, "");
+    if (segments->use_potential_subregions)
+        fd_pot_reg = Rast_open_old(inputs.potential_regions, "");
     fd_devpressure = Rast_open_old(inputs.devpressure, "");
     if (segments->use_weight)
         fd_weights = Rast_open_old(inputs.weights, "");
@@ -118,7 +122,12 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                          cols, segment_info.rows, segment_info.cols,
                          Rast_cell_size(FCELL_TYPE), segment_info.in_memory) != 1)
             G_fatal_error(_("Cannot create temporary file with segments of a raster map of weights"));
-
+    /* Segment open potential_subregions */
+    if (segments->use_potential_subregions)
+        if (Segment_open(&segments->potential_subregions, G_tempfile(), rows,
+                         cols, segment_info.rows, segment_info.cols,
+                         Rast_cell_size(CELL_TYPE), segment_info.in_memory) != 1)
+            G_fatal_error(_("Cannot create temporary file with segments of a raster map of weights"));
     developed_row = Rast_allocate_buf(CELL_TYPE);
     subregions_row = Rast_allocate_buf(CELL_TYPE);
     devpressure_row = Rast_allocate_buf(FCELL_TYPE);
@@ -126,7 +135,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
     predictor_seg_row = G_malloc(cols * num_predictors * sizeof(FCELL));
     if (segments->use_weight)
         weights_row = Rast_allocate_buf(FCELL_TYPE);
-
+    if (segments->use_potential_subregions)
+        pot_subregions_row = Rast_allocate_buf(CELL_TYPE);
 
     for (row = 0; row < rows; row++) {
         /* read developed row */
@@ -135,6 +145,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         Rast_get_row(fd_reg, subregions_row, row, CELL_TYPE);
         if (segments->use_weight)
             Rast_get_row(fd_weights, weights_row, row, FCELL_TYPE);
+        if (segments->use_potential_subregions)
+            Rast_get_row(fd_pot_reg, pot_subregions_row, row, CELL_TYPE);
         for (col = 0; col < cols; col++) {
             isnull = false;
             /* developed */
@@ -157,6 +169,19 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
             }
             else
                 isnull = true;
+            if (segments->use_potential_subregions) {
+                if (!Rast_is_null_value(&((CELL *) pot_subregions_row)[col], CELL_TYPE)) {
+                    c = ((CELL *) pot_subregions_row)[col];
+                    if (!KeyValueIntInt_find(potential_region_map, c, &pot_region_index)) {
+                        KeyValueIntInt_set(potential_region_map, c, pot_count_regions);
+                        pot_region_index = pot_count_regions;
+                        pot_count_regions++;
+                    }
+                    ((CELL *) pot_subregions_row)[col] = pot_region_index;
+                }
+                else
+                    isnull = true;
+            }
             /* devpressure - just check nulls */
             if (Rast_is_null_value(&((FCELL *) devpressure_row)[col], FCELL_TYPE))
                 isnull = true;
@@ -201,6 +226,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         Segment_put_row(&segments->predictors, predictor_seg_row, row);
         if (segments->use_weight)
             Segment_put_row(&segments->weight, weights_row, row);
+        if (segments->use_potential_subregions)
+            Segment_put_row(&segments->potential_subregions, pot_subregions_row, row);
     }
 
     /* flush all segments */
@@ -210,6 +237,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
     Segment_flush(&segments->predictors);
     if (segments->use_weight)
         Segment_flush(&segments->weight);
+    if (segments->use_potential_subregions)
+        Segment_flush(&segments->potential_subregions);
 
     /* close raster maps */
     Rast_close(fd_developed);
@@ -217,6 +246,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
     Rast_close(fd_devpressure);
     if (segments->use_weight)
         Rast_close(fd_weights);
+    if (segments->use_potential_subregions)
+        Rast_close(fd_pot_reg);
     for (i = 0; i < num_predictors; i++)
         Rast_close(fds_predictors[i]);
 
@@ -228,6 +259,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
     G_free(predictor_seg_row);
     if (segments->use_weight)
         G_free(weights_row);
+    if (segments->use_potential_subregions)
+        G_free(pot_subregions_row);
 }
 
 void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_map)

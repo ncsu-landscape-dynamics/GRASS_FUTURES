@@ -110,14 +110,19 @@ double get_develop_probability_xy(struct Segments *segments,
     int transformed_idx = 0;
     FCELL devpressure_val;
     FCELL weight;
+    CELL pot_index;
 
     Segment_get(&segments->devpressure, (void *)&devpressure_val, row, col);
     Segment_get(&segments->predictors, values, row, col);
+    if (segments->use_potential_subregions)
+        Segment_get(&segments->potential_subregions, (void *)&pot_index, row, col);
+    else
+        pot_index = region_index;
     
-    probability = potential_info->intercept[region_index];
-    probability += potential_info->devpressure[region_index] * devpressure_val;
+    probability = potential_info->intercept[pot_index];
+    probability += potential_info->devpressure[pot_index] * devpressure_val;
     for (i = 0; i < potential_info->max_predictors; i++) {
-        probability += potential_info->predictors[i][region_index] * values[i];
+        probability += potential_info->predictors[i][pot_index] * values[i];
     }
     probability = 1.0 / (1.0 + exp(-probability));
     if (potential_info->incentive_transform) {
