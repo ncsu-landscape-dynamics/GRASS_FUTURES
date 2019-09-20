@@ -219,7 +219,7 @@ def main():
                 else:
                     y = table_developed[subregionId]
                 A = np.vstack((reg_pop, np.ones(len(reg_pop)))).T
-                m, c = np.linalg.lstsq(A, y)[0]  # y = mx + c
+                m, c = np.linalg.lstsq(A, y, rcond=None)[0]  # y = mx + c
                 coeff[method] = m, c
 
                 if method == 'logarithmic':
