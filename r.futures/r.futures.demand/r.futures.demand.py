@@ -207,7 +207,10 @@ def main():
                         predicted[method] = globals()[method](simulated[method] / magn, *popt) * magn
                         r = globals()[method](x, *popt) * magn - table_developed[subregionId]
                         coeff[method] = popt
-                        rmse[method] = np.sqrt((np.sum(r * r) / (len(reg_pop) - 2)))
+                        if len(reg_pop) > 3:
+                            rmse[method] = np.sqrt((np.sum(r * r) / (len(reg_pop) - 3)))
+                        else:
+                            rmse[method] = 0
             else:
                 if method == 'logarithmic':
                     reg_pop = np.log(reg_pop)
@@ -229,7 +232,10 @@ def main():
                     predicted[method] = simulated[method] * m + c
                     r = (reg_pop * m + c) - table_developed[subregionId]
                 # RMSE
-                rmse[method] = np.sqrt((np.sum(r * r) / (len(reg_pop) - 2)))
+                if len(reg_pop) > 2:
+                    rmse[method] = np.sqrt((np.sum(r * r) / (len(reg_pop) - 2)))
+                else:
+                    rmse[method] = 0
 
         method = min(rmse, key=rmse.get)
         gcore.verbose(_("Method '{meth}' was selected for subregion {reg}").format(meth=method, reg=subregionId))
