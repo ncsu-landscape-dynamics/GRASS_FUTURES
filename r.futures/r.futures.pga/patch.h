@@ -45,7 +45,7 @@ void add_neighbours(int row, int col, int seed_row, int seed_col,
                     struct Segments *segments,
                     struct PatchInfo *patch_info);
 double get_distance(int row1, int col1, int row2, int col2);
-int grow_patch(int seed_row, int seed_col, int patch_size, int step,
-               struct PatchInfo *patch_info, struct Segments *segments, int *added_ids);
+int grow_patch(int seed_row, int seed_col, int patch_size, int step, int region,
+               struct PatchInfo *patch_info, struct Segments *segments, int *patch_overflow, int *added_ids);
 
 #endif // FUTURES_PATCH_H

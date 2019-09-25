@@ -163,6 +163,7 @@ int main(int argc, char **argv)
     struct Segments segments;
     int *patch_overflow;
     char *name_step;
+    bool overgrow;
 
     G_gisinit(argv[0]);
 
@@ -506,13 +507,16 @@ int main(int argc, char **argv)
     undev_cells = initialize_undeveloped(region_map->nitems);
     patch_overflow = G_calloc(region_map->nitems, sizeof(int));
     /* here do the modeling */
+    overgrow = true;
     G_verbose_message("Starting simulation...");
     for (step = 0; step < num_steps; step++) {
         recompute_probabilities(undev_cells, &segments, &potential_info);
+        if (step == num_steps - 1)
+            overgrow = false;
         for (region = 0; region < region_map->nitems; region++) {
             compute_step(undev_cells, &demand_info, search_alg, &segments,
                          &patch_sizes, &patch_info, &devpressure_info, patch_overflow,
-                         step, region);
+                         step, region, overgrow);
         }
         /* export developed for that step */
         if (opt.outputSeries->answer) {

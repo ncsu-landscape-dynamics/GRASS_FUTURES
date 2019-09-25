@@ -176,20 +176,23 @@ void add_neighbours(int row, int col, int seed_row, int seed_col,
  * @param[in] seed_col seed column
  * @param[in] patch_size size of patch in number of cells
  * @param[in] step current simulation step
+ * @param[in] region currently processed region
  * @param[in] patch_info patch parameters
  * @param[in,out] segments segments
+ * @param[in,out] patch_overflow to track grown cells overflowing to adjacent regions
  * @param[out] added_ids array of ids of grown cells
  * @return number of grown cells including seed
  */
-int grow_patch(int seed_row, int seed_col, int patch_size, int step,
+int grow_patch(int seed_row, int seed_col, int patch_size, int step, int region,
                struct PatchInfo *patch_info, struct Segments *segments,
-               int *added_ids)
+                int *patch_overflow, int *added_ids)
 {
     int i, j, iter;
     double r, p;
     int found;
     bool force, skip;
     int row, col, cols;
+    CELL test_region;
 
     struct CandidateNeighborsList candidates;
     candidates.block_size = 20;
@@ -236,7 +239,12 @@ int grow_patch(int seed_row, int seed_col, int patch_size, int step,
                                &candidates, segments, patch_info);
                 /* sort candidates based on probability */
                 qsort(candidates.candidates, candidates.n, sizeof(struct CandidateNeighbor), sort_neighbours);
-                found++;
+                Segment_get(&segments->subregions, (void *)&test_region, row, col);
+                /* if growing outside of region, account for that, increase number of cells outside of region */
+                if (test_region != region)
+                    patch_overflow[test_region]++;
+                else
+                    found++;
                 /* restart max iterations when cell found */
                 iter = 0;
                 force = false;

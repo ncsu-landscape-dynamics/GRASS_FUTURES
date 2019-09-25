@@ -224,6 +224,13 @@ void recompute_probabilities(struct Undeveloped *undeveloped_cells,
 }
 /*!
  * \brief Compute step of the simulation
+ *
+ * Note: The specified number of cells to grow will be respected
+ * but the final number may be slightly different because the end-year
+ * balance for the final year is not accounted for. We allow to grow patches
+ * outside of currently processed region and we account for the number of cells
+ * of the patch grown inside and outside of the region.
+ *
  * \param undev_cells array of undeveloped cells
  * \param demand Demand parameters
  * \param search_alg seed search method
@@ -234,13 +241,14 @@ void recompute_probabilities(struct Undeveloped *undeveloped_cells,
  * \param patch_overflow overflow of cells to next step
  * \param step step number
  * \param region region index
+ * \param overgrow allow patches to grow bigger than demand allows
  */
 void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
                   enum seed_search search_alg,
                   struct Segments *segments,
                   struct PatchSizes *patch_sizes, struct PatchInfo *patch_info,
                   struct DevPressure *devpressure_info, int *patch_overflow,
-                  int step, int region)
+                  int step, int region, bool overgrow)
 {
     int i, idx;
     int n_to_convert;
@@ -311,9 +319,12 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
         if(force_convert_all || G_drand48() < prob) {
             /* ger random patch size */
             patch_size = get_patch_size(patch_sizes);
+            /* last year: we shouldn't grow bigger patches than we have space for */
+            if (!overgrow && patch_size + n_done > n_to_convert)
+                patch_size = n_to_convert - n_done;
             /* grow patch and return the actual grown size which could be smaller */
-            found = grow_patch(seed_row, seed_col, patch_size, step,
-                               patch_info, segments, added_ids);
+            found = grow_patch(seed_row, seed_col, patch_size, step, region,
+                               patch_info, segments, patch_overflow, added_ids);
             /* update devpressure for every newly developed cell */
             for (i = 0; i < found; i++) {
                 get_xy_from_idx(added_ids[i], Rast_window_cols(), &row, &col);
