@@ -522,7 +522,7 @@ int main(int argc, char **argv)
         if (opt.outputSeries->answer) {
             name_step = name_for_step(opt.outputSeries->answer, step, num_steps);
             output_developed_step(&segments.developed, name_step,
-                                  demand_info.years[step], -1, -num_steps, true, true);
+                                  demand_info.years[step], -1, num_steps, true, true);
         }
     }
 

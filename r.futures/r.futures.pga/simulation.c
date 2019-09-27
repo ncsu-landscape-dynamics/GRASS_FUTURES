@@ -25,6 +25,7 @@
 #include "devpressure.h"
 #include "utils.h"
 #include "simulation.h"
+#include "output.h"
 
 /*!
  * \brief Find a seed cell based on cumulative probability.
@@ -325,6 +326,10 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
             /* grow patch and return the actual grown size which could be smaller */
             found = grow_patch(seed_row, seed_col, patch_size, step, region,
                                patch_info, segments, patch_overflow, added_ids);
+            /* for development testing */
+            /*output_developed_step(&segments->developed, "debug",
+                                  2000, -1, step, false, false);
+            */
             /* update devpressure for every newly developed cell */
             for (i = 0; i < found; i++) {
                 get_xy_from_idx(added_ids[i], Rast_window_cols(), &row, &col);

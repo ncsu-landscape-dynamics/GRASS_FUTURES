@@ -181,7 +181,7 @@ void add_neighbours(int row, int col, int seed_row, int seed_col,
  * @param[in,out] segments segments
  * @param[in,out] patch_overflow to track grown cells overflowing to adjacent regions
  * @param[out] added_ids array of ids of grown cells
- * @return number of grown cells including seed
+ * @return number of grown cells including seed grown inside this region
  */
 int grow_patch(int seed_row, int seed_col, int patch_size, int step, int region,
                struct PatchInfo *patch_info, struct Segments *segments,
@@ -189,7 +189,7 @@ int grow_patch(int seed_row, int seed_col, int patch_size, int step, int region,
 {
     int i, j, iter;
     double r, p;
-    int found;
+    int found, found_in_this_region;
     bool force, skip;
     int row, col, cols;
     CELL test_region;
@@ -204,6 +204,7 @@ int grow_patch(int seed_row, int seed_col, int patch_size, int step, int region,
     force = false;
     skip = false;
     found = 1;  /* seed is the first cell */
+    found_in_this_region = 1;
     step += 1;  /* e.g. first step=0 will be saved as 1 */
 
     /* set seed as developed */
@@ -244,7 +245,9 @@ int grow_patch(int seed_row, int seed_col, int patch_size, int step, int region,
                 if (test_region != region)
                     patch_overflow[test_region]++;
                 else
-                    found++;
+                    found_in_this_region++;
+                /* total found inside and outside of this region */
+                found++;
                 /* restart max iterations when cell found */
                 iter = 0;
                 force = false;
@@ -273,6 +276,6 @@ int grow_patch(int seed_row, int seed_col, int patch_size, int step, int region,
     if (candidates.max_n > 0)
         G_free(candidates.candidates);
 
-    return found;
+    return found_in_this_region;
 }
 
