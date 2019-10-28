@@ -52,6 +52,7 @@ void initialize_incentive(struct Potential *potential_info, float exponent)
  */
 void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                         struct SegmentMemory segment_info, struct KeyValueIntInt *region_map,
+                        struct KeyValueIntInt *region_map_reversed,
                         struct KeyValueIntInt *potential_region_map, int num_predictors)
 {
     int i;
@@ -162,6 +163,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                 c = ((CELL *) subregions_row)[col];
                 if (!KeyValueIntInt_find(region_map, c, &region_index)) {
                     KeyValueIntInt_set(region_map, c, count_regions);
+                    KeyValueIntInt_set(region_map_reversed, count_regions, c);
                     region_index = count_regions;
                     count_regions++;
                 }

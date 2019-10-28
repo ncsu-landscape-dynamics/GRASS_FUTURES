@@ -62,6 +62,7 @@
 #include "patch.h"
 #include "devpressure.h"
 #include "simulation.h"
+#include "redistribute.h"
 
 
 struct Undeveloped *initialize_undeveloped(int num_subregions)
@@ -144,7 +145,7 @@ int main(int argc, char **argv)
     int num_predictors;
     int num_steps;
     int nseg;
-    int region;
+    int region_idx, region_ID;
     int step;
     float memory;
     double discount_factor;
@@ -152,6 +153,7 @@ int main(int argc, char **argv)
     enum seed_search search_alg;
     struct RasterInputs raster_inputs;
     struct KeyValueIntInt *region_map;
+    struct KeyValueIntInt *region_map_reversed;
     struct KeyValueIntInt *potential_region_map;
     struct Undeveloped *undev_cells;
     struct Demand demand_info;
@@ -161,6 +163,7 @@ int main(int argc, char **argv)
     struct PatchInfo patch_info;
     struct DevPressure devpressure_info;
     struct Segments segments;
+    struct RedistributionMatrix redistr_matrix;
     int *patch_overflow;
     char *name_step;
     bool overgrow;
@@ -475,11 +478,17 @@ int main(int argc, char **argv)
     if (opt.potentialSubregions->answer)
         raster_inputs.potential_regions = opt.potentialSubregions->answer;
 
+//    redistr_matrix.filename = "nc_mig_probability.csv";
+    redistr_matrix.filename = "matrix.csv";
+    read_redistribution_matrix(&redistr_matrix);
+
     //    read Subregions layer
     region_map = KeyValueIntInt_create();
+    region_map_reversed = KeyValueIntInt_create();
     potential_region_map = KeyValueIntInt_create();
     G_verbose_message("Reading input rasters...");
-    read_input_rasters(raster_inputs, &segments, segment_info, region_map, potential_region_map, num_predictors);
+    read_input_rasters(raster_inputs, &segments, segment_info, region_map,
+                       region_map_reversed, potential_region_map, num_predictors);
 
     /* create probability segment*/
     if (Segment_open(&segments.probability, G_tempfile(), Rast_window_rows(),
@@ -513,10 +522,12 @@ int main(int argc, char **argv)
         recompute_probabilities(undev_cells, &segments, &potential_info);
         if (step == num_steps - 1)
             overgrow = false;
-        for (region = 0; region < region_map->nitems; region++) {
+        for (region_idx = 0; region_idx < region_map->nitems; region_idx++) {
+            KeyValueIntInt_find(region_map_reversed, region_idx, &region_ID);
             compute_step(undev_cells, &demand_info, search_alg, &segments,
                          &patch_sizes, &patch_info, &devpressure_info, patch_overflow,
-                         step, region, overgrow);
+                         &redistr_matrix, region_map,
+                         step, region_idx, region_ID, overgrow);
         }
         /* export developed for that step */
         if (opt.outputSeries->answer) {
@@ -544,6 +555,8 @@ int main(int argc, char **argv)
         Segment_close(&segments.potential_subregions);
 
     KeyValueIntInt_free(region_map);
+    KeyValueIntInt_free(region_map_reversed);
+    KeyValueIntInt_free(potential_region_map);
     if (demand_info.table) {
         for (int i = 0; i < demand_info.max_subregions; i++)
             G_free(demand_info.table[i]);
@@ -570,7 +583,7 @@ int main(int argc, char **argv)
         G_free(undev_cells->cells);
         G_free(undev_cells);
     }
-
+    free_redistribution_matrix(&redistr_matrix);
     G_free(patch_sizes.patch_sizes);
     G_free(patch_overflow);
 

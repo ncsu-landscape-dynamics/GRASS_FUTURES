@@ -5,6 +5,8 @@
 
 #include "inputs.h"
 #include "patch.h"
+#include "redistribute.h"
+
 
 enum seed_search {RANDOM, PROBABILITY};
 
@@ -23,6 +25,7 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
                   struct Segments *segments,
                   struct PatchSizes *patch_sizes, struct PatchInfo *patch_info,
                   struct DevPressure *devpressure_info, int *patch_overflow,
-                  int step, int region, bool overgrow);
+                  struct RedistributionMatrix *redistr_matrix, struct KeyValueIntInt *region_map,
+                  int step, int region_idx, int region_ID, bool overgrow);
 
 #endif // FUTURES_SIMULATION_H

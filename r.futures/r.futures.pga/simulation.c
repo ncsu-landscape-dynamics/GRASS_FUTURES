@@ -26,6 +26,7 @@
 #include "utils.h"
 #include "simulation.h"
 #include "output.h"
+#include "redistribute.h"
 
 /*!
  * \brief Find a seed cell based on cumulative probability.
@@ -249,7 +250,9 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
                   struct Segments *segments,
                   struct PatchSizes *patch_sizes, struct PatchInfo *patch_info,
                   struct DevPressure *devpressure_info, int *patch_overflow,
-                  int step, int region, bool overgrow)
+                  struct RedistributionMatrix *redistr_matrix,
+                  struct KeyValueIntInt *region_map,
+                  int step, int region_idx, int region_ID, bool overgrow)
 {
     int i, idx;
     int n_to_convert;
@@ -263,17 +266,18 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
     int extra;
     bool allow_already_tried_ones;
     int unsuccessful_tries;
+    int to_ID, to_idx;
     FCELL prob;
     CELL developed;
 
 
     added_ids = (int *) G_malloc(sizeof(int) * patch_sizes->max_patch_size);
-    n_to_convert = demand->table[region][step];
+    n_to_convert = demand->table[region_idx][step];
     n_done = 0;
     force_convert_all = false;
     allow_already_tried_ones = false;
     unsuccessful_tries = 0;
-    extra = patch_overflow[region];
+    extra = patch_overflow[region_idx];
 
     if (extra > 0) {
         if (n_to_convert - extra > 0) {
@@ -286,11 +290,11 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
         }
     }
 
-    if (n_to_convert > undev_cells->num[region]) {
+    if (n_to_convert > undev_cells->num[region_idx]) {
         G_warning("Not enough undeveloped cells in region %d (requested: %d,"
                   " available: %d). Converting all available.",
-                   region, n_to_convert, undev_cells->num[region]);
-        n_to_convert =  undev_cells->num[region];
+                   region_idx, n_to_convert, undev_cells->num[region_idx]);
+        n_to_convert =  undev_cells->num[region_idx];
         force_convert_all = true;
     }
     
@@ -300,14 +304,14 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
             allow_already_tried_ones = true;
 
         /* get seed's row, col and index in undev cells array */
-        idx = get_seed(undev_cells, region, search_alg, &seed_row, &seed_col);
+        idx = get_seed(undev_cells, region_idx, search_alg, &seed_row, &seed_col);
         /* skip if seed was already tried unless we switched of this check because we can't get any seed */
-        if (!allow_already_tried_ones && undev_cells->cells[region][idx].tried) {
+        if (!allow_already_tried_ones && undev_cells->cells[region_idx][idx].tried) {
             unsuccessful_tries++;
             continue;
         }
         /* mark as tried */
-        undev_cells->cells[region][idx].tried = 1;
+        undev_cells->cells[region_idx][idx].tried = 1;
         /* see if seed was already developed during this time step */
         Segment_get(&segments->developed, (void *)&developed, seed_row, seed_col);
         if (developed != -1) {
@@ -324,7 +328,7 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
             if (!overgrow && patch_size + n_done > n_to_convert)
                 patch_size = n_to_convert - n_done;
             /* grow patch and return the actual grown size which could be smaller */
-            found = grow_patch(seed_row, seed_col, patch_size, step, region,
+            found = grow_patch(seed_row, seed_col, patch_size, step, region_idx,
                                patch_info, segments, patch_overflow, added_ids);
             /* for development testing */
             /*output_developed_step(&segments->developed, "debug",
@@ -337,9 +341,18 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
             }
             n_done += found;
         }
+        else {
+            // just example/testing code here
+            to_ID = redistribute(redistr_matrix, region_ID);
+            if (to_ID == -1)
+                continue;
+            KeyValueIntInt_find(region_map, to_ID, &to_idx);
+//            patch_overflow[to_idx]++;
+            G_message("Redistributing cell from %d to %d", region_ID, to_ID);
+        }
     }
     extra += (n_done - n_to_convert);
-    patch_overflow[region] = extra;
+    patch_overflow[region_idx] = extra;
     G_debug(2, "There are %d extra cells for next timestep", extra);
     G_free(added_ids);
 }
