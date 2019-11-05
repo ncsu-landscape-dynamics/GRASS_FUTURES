@@ -132,6 +132,7 @@ int main(int argc, char **argv)
                 *potentialFile, *numNeighbors, *discountFactor, *seedSearch,
                 *patchMean, *patchRange,
                 *incentivePower, *potentialWeight,
+                *redistributionMatrix,
                 *demandFile, *patchFile, *numSteps, *output, *outputSeries, *seed, *memory;
 
     } opt;
@@ -291,6 +292,12 @@ int main(int argc, char **argv)
     opt.patchFile->description =
         _("File containing list of patch sizes to use");
     opt.patchFile->guisection = _("PGA");
+
+    opt.redistributionMatrix = G_define_standard_option(G_OPT_F_INPUT);
+    opt.redistributionMatrix->key = "redistribution_matrix";
+    opt.redistributionMatrix->required = NO;
+    opt.redistributionMatrix->description = _("Matrix containing probabilities of moving from one subregion to another");
+    opt.redistributionMatrix->guisection = _("Climate scenarios");
 
     opt.numNeighbors = G_define_option();
     opt.numNeighbors->key = "num_neighbors";
@@ -478,9 +485,10 @@ int main(int argc, char **argv)
     if (opt.potentialSubregions->answer)
         raster_inputs.potential_regions = opt.potentialSubregions->answer;
 
-//    redistr_matrix.filename = "nc_mig_probability.csv";
-    redistr_matrix.filename = "matrix.csv";
-    read_redistribution_matrix(&redistr_matrix);
+    if (opt.redistributionMatrix->answer) {
+        redistr_matrix.filename = opt.redistributionMatrix->answer;
+        read_redistribution_matrix(&redistr_matrix);
+    }
 
     //    read Subregions layer
     region_map = KeyValueIntInt_create();
@@ -583,7 +591,8 @@ int main(int argc, char **argv)
         G_free(undev_cells->cells);
         G_free(undev_cells);
     }
-    free_redistribution_matrix(&redistr_matrix);
+    if (opt.redistributionMatrix->answer)
+        free_redistribution_matrix(&redistr_matrix);
     G_free(patch_sizes.patch_sizes);
     G_free(patch_overflow);
 
