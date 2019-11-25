@@ -112,10 +112,16 @@ double get_develop_probability_xy(struct Segments *segments,
     int transformed_idx = 0;
     FCELL devpressure_val;
     FCELL weight;
+    FCELL disturbance;
     CELL pot_index;
 
     Segment_get(&segments->devpressure, (void *)&devpressure_val, row, col);
     Segment_get(&segments->predictors, values, row, col);
+    if (segments->use_disturbance) {
+        Segment_get(&segments->disturbance_effect, (void *)&disturbance, row, col);
+        if (disturbance <= 0)
+            return 0;
+    }
     if (segments->use_potential_subregions)
         Segment_get(&segments->potential_subregions, (void *)&pot_index, row, col);
     else
@@ -134,7 +140,10 @@ double get_develop_probability_xy(struct Segments *segments,
                           transformed_idx, potential_info->incentive_transform_size - 1);
         probability = potential_info->incentive_transform[transformed_idx];
     }
-    
+    /* disturbance if applicable */
+    if (segments->use_disturbance)
+        probability *= fabs(disturbance);
+
     /* weights if applicable */
     if (segments->use_weight) {
         Segment_get(&segments->weight, (void *)&weight, row, col);
@@ -144,6 +153,43 @@ double get_develop_probability_xy(struct Segments *segments,
             probability = probability + weight - probability * weight;
     }
     return probability;
+}
+
+void move(struct Segments *segments, const struct RedistributionMatrix *matrix,
+          struct Demand *demand, struct KeyValueIntInt *region_map, int step){
+    
+    int row, col, cols, rows;
+    CELL developed;
+    CELL regionID, toRegionID;
+    FCELL disturbance;
+    int region_index;
+    
+    cols = Rast_window_cols();
+    rows = Rast_window_rows();
+    for (row = 0; row < rows; row++) {
+        for (col = 0; col < cols; col++) {
+            Segment_get(&segments->developed, (void *)&developed, row, col);
+            if (Rast_is_null_value(&developed, CELL_TYPE))
+                continue;
+            if (developed == -1)
+                continue;
+            Segment_get(&segments->disturbance_effect, (void *)&disturbance, row, col);
+            if (disturbance == 0) /* SLR, comparison is tricky */
+            {
+                /* Change to undeveloped */
+                developed = -1;
+                Segment_put(&segments->developed, (void *)&developed, row, col);
+                /* redistribute */
+                Segment_get(&segments->subregions, (void *)&regionID, row, col);
+                toRegionID = redistribute(matrix, regionID);
+                if (KeyValueIntInt_find(region_map, toRegionID, &region_index))
+                    demand->table[region_index][step]++;
+            }
+            else {  /* redistribute just part */
+                
+            }
+        }
+    }
 }
 
 /*!
@@ -194,17 +240,19 @@ void recompute_probabilities(struct Undeveloped *undeveloped_cells,
                                                              new_size * sizeof(struct UndevelopedCell));
                 undeveloped_cells->max[region] = new_size;
             }
-            id = get_idx_from_xy(row, col, cols);
-            idx = undeveloped_cells->num[region];
-            undeveloped_cells->cells[region][idx].id = id;
-            undeveloped_cells->cells[region][idx].tried = 0;
-            /* get probability and update undevs and segment*/
+            /* get probability and update undevs and segment */
             probability = get_develop_probability_xy(segments, values,
                                                      potential_info, region, row, col);
             Segment_put(&segments->probability, (void *)&probability, row, col);
-            undeveloped_cells->cells[region][idx].probability = probability;
-            
-            undeveloped_cells->num[region]++;
+            if (probability > 0) {
+                id = get_idx_from_xy(row, col, cols);
+                idx = undeveloped_cells->num[region];
+                undeveloped_cells->cells[region][idx].probability = probability;
+                
+                undeveloped_cells->cells[region][idx].id = id;
+                undeveloped_cells->cells[region][idx].tried = 0;
+                undeveloped_cells->num[region]++;
+            }
             
         }
     }
@@ -341,15 +389,15 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
             }
             n_done += found;
         }
-        else {
-            // just example/testing code here
-            to_ID = redistribute(redistr_matrix, region_ID);
-            if (to_ID == -1)
-                continue;
-            KeyValueIntInt_find(region_map, to_ID, &to_idx);
-//            patch_overflow[to_idx]++;
-            G_message("Redistributing cell from %d to %d", region_ID, to_ID);
-        }
+//        else {
+//            // just example/testing code here
+//            to_ID = redistribute(redistr_matrix, region_ID);
+//            if (to_ID == -1)
+//                continue;
+//            KeyValueIntInt_find(region_map, to_ID, &to_idx);
+////            patch_overflow[to_idx]++;
+//            G_message("Redistributing cell from %d to %d", region_ID, to_ID);
+//        }
     }
     extra += (n_done - n_to_convert);
     patch_overflow[region_idx] = extra;

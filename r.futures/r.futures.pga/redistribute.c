@@ -15,9 +15,11 @@
 #include <stdio.h>
 
 #include <grass/gis.h>
+#include <grass/raster.h>
 #include <grass/glocale.h>
 
 #include "keyvalue.h"
+#include "inputs.h"
 #include "redistribute.h"
 
 
@@ -160,3 +162,56 @@ void free_redistribution_matrix(struct RedistributionMatrix *matrix)
 }
 
 
+
+void read_disturbance(const char *name, struct Segments *segments,
+                      struct SegmentMemory segment_info)
+{
+    int row, col;
+    int rows, cols;
+    int fd_disturbance;
+    FCELL *disturbance_row;
+    FCELL *disturbance_row_in;
+    bool first;
+
+    rows = Rast_window_rows();
+    cols = Rast_window_cols();
+
+    /* open existing raster map for reading */
+    fd_disturbance = Rast_open_old(name, "");
+
+    /* Segment open */
+    first = false;
+    if (!segments->use_disturbance) {
+        if (Segment_open(&segments->disturbance_effect, G_tempfile(), rows,
+                         cols, segment_info.rows, segment_info.cols,
+                         Rast_cell_size(FCELL_TYPE), segment_info.in_memory) != 1)
+            G_fatal_error(_("Cannot create temporary file with segments of a raster map of disturbance effect"));
+        segments->use_disturbance = true;
+        first = true;
+    }
+    disturbance_row = Rast_allocate_buf(FCELL_TYPE);
+    disturbance_row_in = Rast_allocate_buf(FCELL_TYPE);
+    for (row = 0; row < rows; row++) {
+        /* read disturbance row */
+        Rast_get_row(fd_disturbance, disturbance_row, row, FCELL_TYPE);
+        if (!first)
+            Segment_get_row(&segments->disturbance_effect, disturbance_row_in, row);
+        for (col = 0; col < cols; col++) {
+            if (Rast_is_null_value(&((FCELL *) disturbance_row)[col], FCELL_TYPE)) {
+                ((FCELL *) disturbance_row)[col] = 1;
+            }
+            if (!first)
+                ((FCELL *) disturbance_row)[col] = ((FCELL *) disturbance_row)[col] * ((FCELL *) disturbance_row_in)[col];
+        }
+        Segment_put_row(&segments->disturbance_effect, disturbance_row, row);
+    }
+
+    /* flush all segments */
+    Segment_flush(&segments->disturbance_effect);
+
+    /* close raster maps */
+    Rast_close(fd_disturbance);
+
+    G_free(disturbance_row);
+    G_free(disturbance_row_in);
+}

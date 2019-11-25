@@ -133,7 +133,9 @@ int main(int argc, char **argv)
                 *patchMean, *patchRange,
                 *incentivePower, *potentialWeight,
                 *redistributionMatrix,
-                *demandFile, *patchFile, *numSteps, *output, *outputSeries, *seed, *memory;
+                *demandFile, *patchFile,
+                *disturbance_series, *disturbance_steps,
+                *numSteps, *output, *outputSeries, *seed, *memory;
 
     } opt;
 
@@ -147,7 +149,9 @@ int main(int argc, char **argv)
     int num_steps;
     int nseg;
     int region_idx, region_ID;
+    int disturbance_idx;
     int step;
+    bool use_disturbance;
     float memory;
     double discount_factor;
     float exponent;
@@ -156,6 +160,7 @@ int main(int argc, char **argv)
     struct KeyValueIntInt *region_map;
     struct KeyValueIntInt *region_map_reversed;
     struct KeyValueIntInt *potential_region_map;
+    struct KeyValueIntInt *disturbance_index;
     struct Undeveloped *undev_cells;
     struct Demand demand_info;
     struct Potential potential_info;
@@ -371,6 +376,21 @@ int main(int argc, char **argv)
         _("Values > 1 encourage infill, < 1 urban sprawl");
     opt.incentivePower->guisection = _("Scenarios");
     opt.incentivePower->options = "0-10";
+    
+    opt.disturbance_series = G_define_standard_option(G_OPT_R_INPUTS);
+    opt.disturbance_series->key = "disturbance_series";
+    opt.disturbance_series->required = NO;
+    opt.disturbance_series->description = _("Disturbance layers");
+    opt.disturbance_series->guisection = _("Climate scenarios");
+    
+    opt.disturbance_steps = G_define_option();
+    opt.disturbance_steps->key = "disturbance_steps";
+    opt.disturbance_steps->multiple = YES;
+    opt.disturbance_steps->required = NO;
+    opt.disturbance_steps->type = TYPE_INTEGER;
+    opt.disturbance_steps->options = "1-1000";
+    opt.disturbance_steps->description = _("Time steps when disturbance layers are applied");
+    opt.disturbance_steps->guisection = _("Climate scenarios");
 
     opt.seed = G_define_option();
     opt.seed->key = "random_seed";
@@ -403,6 +423,7 @@ int main(int argc, char **argv)
     // provided XOR generated
     G_option_exclusive(opt.seed, flg.generateSeed, NULL);
     G_option_required(opt.seed, flg.generateSeed, NULL);
+    G_option_collective(opt.disturbance_series, opt.disturbance_steps, opt.redistributionMatrix, NULL);
     if (G_parser(argc, argv))
         exit(EXIT_FAILURE);
 
@@ -489,6 +510,18 @@ int main(int argc, char **argv)
         redistr_matrix.filename = opt.redistributionMatrix->answer;
         read_redistribution_matrix(&redistr_matrix);
     }
+    else
+        redistr_matrix.matrix = NULL;
+    
+    int num_disturbances = 0;
+    raster_inputs.disturbances = opt.disturbance_series->answers;
+    if (opt.disturbance_series->answers) {
+        for (i = 0; opt.disturbance_series->answers[i]; i++)
+            num_disturbances++;
+        disturbance_index = KeyValueIntInt_create();
+        for (i = 0; opt.disturbance_steps->answers[i]; i++)
+            KeyValueIntInt_set(disturbance_index, atoi(opt.disturbance_steps->answers[i]) - 1, i);
+    }
 
     //    read Subregions layer
     region_map = KeyValueIntInt_create();
@@ -527,6 +560,14 @@ int main(int argc, char **argv)
     overgrow = true;
     G_verbose_message("Starting simulation...");
     for (step = 0; step < num_steps; step++) {
+        use_disturbance = false;
+        if (num_disturbances && KeyValueIntInt_find(disturbance_index, step, &disturbance_idx)) {
+            read_disturbance(raster_inputs.disturbances[disturbance_idx], &segments, segment_info);
+            use_disturbance = true;
+        }
+        if (use_disturbance) {
+            move(&segments, &redistr_matrix, &demand_info, region_map, step);
+        }
         recompute_probabilities(undev_cells, &segments, &potential_info);
         if (step == num_steps - 1)
             overgrow = false;
@@ -561,10 +602,14 @@ int main(int argc, char **argv)
     }
     if (opt.potentialSubregions->answer)
         Segment_close(&segments.potential_subregions);
+    if (opt.disturbance_series->answer)
+        Segment_close(&segments.disturbance_effect);
 
     KeyValueIntInt_free(region_map);
     KeyValueIntInt_free(region_map_reversed);
     KeyValueIntInt_free(potential_region_map);
+    if (num_disturbances)
+        KeyValueIntInt_free(disturbance_index);
     if (demand_info.table) {
         for (int i = 0; i < demand_info.max_subregions; i++)
             G_free(demand_info.table[i]);

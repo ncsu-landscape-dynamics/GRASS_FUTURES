@@ -53,8 +53,10 @@ struct Segments
     SEGMENT predictors;
     SEGMENT probability;
     SEGMENT weight;
+    SEGMENT disturbance_effect;
     bool use_weight;
     bool use_potential_subregions;
+    bool use_disturbance;
 };
 
 struct RasterInputs
@@ -65,6 +67,7 @@ struct RasterInputs
     char **predictors;
     const char *devpressure;
     const char *weights;
+    char **disturbances;
 };
 
 

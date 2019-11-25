@@ -17,6 +17,8 @@ double get_develop_probability_xy(struct Segments *segments,
                                   FCELL *values,
                                   struct Potential *potential_info,
                                   int region_index, int row, int col);
+void move(struct Segments *segments, const struct RedistributionMatrix *matrix,
+          struct Demand *demand, struct KeyValueIntInt *region_map, int step);
 void recompute_probabilities(struct Undeveloped *undeveloped_cells,
                              struct Segments *segments,
                              struct Potential *potential_info);
