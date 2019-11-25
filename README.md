@@ -29,10 +29,10 @@ You will also need r.sample.category addon:
 
     g.extension r.sample.category
 
-To run r.futures.potential, you also need R (>= 3.0.2) and R packages MuMIn, lme4, optparse, rgrass7.
+To run r.futures.potential, you also need R (>= 3.5.0) and R packages MuMIn, lme4, optparse.
 Once you install R, run in R:
 
-    install.packages(c("MuMIn", "lme4", "optparse", "rgrass7"))
+    install.packages(c("MuMIn", "lme4", "optparse"))
 
 Optionally, install SciPy to be used for certain parameters in r.futures.demand:
 
@@ -47,7 +47,7 @@ Install GRASS GIS from packages:
     sudo apt-get update
     sudo apt-get install grass
 
-Install R from packages, minimum version is 3.0.2. Install SciPy using pip.
+Install R from packages, minimum version is 3.5.0. Install SciPy using pip.
 
 ### Windows
 It is recommended to first install R and then GRASS GIS, so that GRASS knows where to find R executables, because
@@ -64,13 +64,13 @@ and follow the instruction.
 ## About this repository
 
 This repository is the primary repository for development of GRASS GIS
-version of FUTURES model implementDescriptionation.
+version of FUTURES model implementation.
 
 If you want to use latest tested code, use the version in GRASS GIS Addons
 Subversion repository which is installable using *g.extension* in GRASS GIS
 and the code is available at:
 
- * https://trac.osgeo.org/grass/browser/grass-addons/grass7/raster/r.futures
+ * https://github.com/OSGeo/grass-addons/tree/master/grass7/raster/r.futures
 
 The corresponding documentation is available at:
 
