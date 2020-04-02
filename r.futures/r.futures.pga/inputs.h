@@ -31,10 +31,17 @@ struct Potential
 struct PatchSizes
 {
     const char *filename;
+    // max number of patches // total number of patches?
     int max_patches;
-    int *patch_sizes;
+    // array of patches
+    int **patch_sizes;
+    // array of number of patches per area
+    int *patch_count;
+    // maximum patch size
     int max_patch_size;
-    
+    // count of number of areas
+    int area_count;
+
 };
 
 struct SegmentMemory

@@ -64,9 +64,9 @@ static float get_alpha(struct PatchInfo *patch_info)
  * \param patch_sizes patch sizes
  * \return number of cells
  */
-int get_patch_size(struct PatchSizes *patch_sizes)
+int get_patch_size(struct PatchSizes *patch_sizes, int region)
 {
-    return patch_sizes->patch_sizes[(int)(G_drand48() * patch_sizes->max_patches)];
+    return patch_info->patch_sizes[region][(int)(G_drand48() * patch_info->patch_count[region])];
 }
 /*!
  * \brief Decides if to add a cell to a candidate list for patch growing
