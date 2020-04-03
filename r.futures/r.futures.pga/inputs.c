@@ -12,6 +12,8 @@
  */
 
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include <math.h>
 
 #include <grass/gis.h>
@@ -440,7 +442,9 @@ void read_patch_sizes(struct PatchSizes *patch_info, double discount_factor)
             	int s = G_number_of_tokens(tokens);
             	for ( int i = 0; i < s; i++) {
             		// increment the count of the patches for that area
-            		patch_info->patch_count[i]++;
+            		if (stcmp(tokens[i], "") != 0 ) {
+            			patch_info->patch_count[i]++; 
+            		}
             	}
             }
             rewind(fin);
@@ -461,8 +465,6 @@ void read_patch_sizes(struct PatchSizes *patch_info, double discount_factor)
                				patch = atoi(tokens[i]) * discount_factor;
                				if (patch > 0) {
                             	if (patch_info->max_patch_size < patch)
-                            		// TODO should there be max patch sizes
-                            		// for each region?
                              	   patch_info->max_patch_size = patch;
                              	   // TODO check order
                           	 	patch_info->patch_sizes[i][line] = patch;
