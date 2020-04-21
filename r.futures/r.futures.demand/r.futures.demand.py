@@ -72,6 +72,12 @@
 #% description: Output CSV file with demand (times as rows, regions as columns)
 #% guisection: Output
 #%end
+#%option G_OPT_F_OUTPUT
+#% key: population_demand
+#% required: no
+#% description: Output CSV file with projected population demand (times as rows, regions as columns)
+#% guisection: Output
+#%end
 #%option G_OPT_F_SEP
 #% label: Separator used in CSV files
 #% guisection: Optional
@@ -163,6 +169,7 @@ def main():
                                                                              projected_popul[subregionId]))
     # regression
     demand = {}
+    population_demand = {}
     i = 0
     if plot:
         import matplotlib
@@ -262,7 +269,8 @@ def main():
             demand[subregionId].fill(0)
             gcore.warning(_("For subregion {sub} population and development are inversely proportional,"
                             "will result in zero demand".format(sub=subregionId)))
-
+        # write population demand
+        population_demand[subregionId] = np.diff(population_for_simulated_times[subregionId])
         # draw
         if plot:
             ax = fig.add_subplot(n_plots, n_plots, i)
@@ -320,6 +328,26 @@ def main():
             f.write('\n')
             i += 1
 
+    # write demand
+    if options['population_demand']:
+        with open(options['population_demand'], 'w') as f:
+            header = observed_popul.dtype.names  # the order is kept here
+            f.write(sep.join(header))
+            f.write('\n')
+            i = 0
+            for time in simulation_times[1:]:
+                f.write(str(int(time)))
+                f.write(sep)
+                # put 0 where there are more counties but are not in region
+                for sub in header[1:]:  # to keep order of subregions
+                    if sub not in subregionIds:
+                        f.write('0')
+                    else:
+                        f.write(str(int(population_demand[sub][i])))
+                    if sub != header[-1]:
+                        f.write(sep)
+                f.write('\n')
+                i += 1
 
 if __name__ == "__main__":
     options, flags = gcore.parser()
