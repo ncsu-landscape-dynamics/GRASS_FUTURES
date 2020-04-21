@@ -31,7 +31,7 @@ jobs:
         sed -i s/python3/python/g ./r.futures/r.futures.pga/testsuite/test_r_futures_pga.py
     - name: Install the module
       run: |
-        grass ~/grasstmploc/PERMANENT --exec g.extension extension=${{ github.event.repository.name }}/r.futures url=. --verbose
+        grass ~/grasstmploc/PERMANENT --exec g.extension extension=r.futures url=./r.futures/ --verbose
     - name: Cache data for testing
       id: cache-nc_spm_08_grass7
       uses: actions/cache@v1
