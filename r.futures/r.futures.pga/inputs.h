@@ -9,12 +9,15 @@
 
 struct Demand
 {
-    const char *filename;
-    int **table;
+    const char *cells_filename;
+    const char *population_filename;
+    int **cells_table;
+    int **population_table;
     int *years;
     int max_subregions;
     int max_steps;
     const char *separator;
+    bool use_density;
 };
 
 struct Potential
@@ -60,8 +63,11 @@ struct Segments
     SEGMENT predictors;
     SEGMENT probability;
     SEGMENT weight;
+    SEGMENT density;
+    SEGMENT density_capacity;
     bool use_weight;
     bool use_potential_subregions;
+    bool use_density;
 };
 
 struct RasterInputs
@@ -72,6 +78,8 @@ struct RasterInputs
     char **predictors;
     const char *devpressure;
     const char *weights;
+    const char *density;
+    const char *density_capacity;
 };
 
 

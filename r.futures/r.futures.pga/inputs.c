@@ -60,7 +60,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
     int i;
     int row, col;
     int rows, cols;
-    int fd_developed, fd_reg, fd_devpressure, fd_weights, fd_pot_reg;
+    int fd_developed, fd_reg, fd_devpressure, fd_weights,
+            fd_pot_reg, fd_density, fd_density_cap;
     int *fds_predictors;
     int count_regions, pot_count_regions;
     int region_index, pot_region_index;
@@ -77,6 +78,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
     FCELL *predictor_row;
     FCELL *weights_row;
     FCELL *predictor_seg_row;
+    FCELL *density_row;
+    FCELL *density_capacity_row;
 
 
     rows = Rast_window_rows();
@@ -94,6 +97,10 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
     fd_devpressure = Rast_open_old(inputs.devpressure, "");
     if (segments->use_weight)
         fd_weights = Rast_open_old(inputs.weights, "");
+    if (segments->use_density) {
+        fd_density = Rast_open_old(inputs.density, "");
+        fd_density_cap = Rast_open_old(inputs.density_capacity, "");
+    }
     for (i = 0; i < num_predictors; i++) {
         fds_predictors[i] = Rast_open_old(inputs.predictors[i], "");
     }
@@ -131,6 +138,17 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                          cols, segment_info.rows, segment_info.cols,
                          Rast_cell_size(CELL_TYPE), segment_info.in_memory) != 1)
             G_fatal_error(_("Cannot create temporary file with segments of a raster map of weights"));
+    /* Segment open density */
+    if (segments->use_density) {
+        if (Segment_open(&segments->density, G_tempfile(), rows,
+                         cols, segment_info.rows, segment_info.cols,
+                         Rast_cell_size(FCELL_TYPE), segment_info.in_memory) != 1)
+            G_fatal_error(_("Cannot create temporary file with segments of a raster map of density"));
+        if (Segment_open(&segments->density_capacity, G_tempfile(), rows,
+                         cols, segment_info.rows, segment_info.cols,
+                         Rast_cell_size(FCELL_TYPE), segment_info.in_memory) != 1)
+            G_fatal_error(_("Cannot create temporary file with segments of a raster map of density capacity"));
+    }
     developed_row = Rast_allocate_buf(CELL_TYPE);
     subregions_row = Rast_allocate_buf(CELL_TYPE);
     devpressure_row = Rast_allocate_buf(FCELL_TYPE);
@@ -140,6 +158,10 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         weights_row = Rast_allocate_buf(FCELL_TYPE);
     if (segments->use_potential_subregions)
         pot_subregions_row = Rast_allocate_buf(CELL_TYPE);
+    if (segments->use_density) {
+        density_row = Rast_allocate_buf(FCELL_TYPE);
+        density_capacity_row = Rast_allocate_buf(FCELL_TYPE);
+    }
 
     for (row = 0; row < rows; row++) {
         /* read developed row */
@@ -150,6 +172,10 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
             Rast_get_row(fd_weights, weights_row, row, FCELL_TYPE);
         if (segments->use_potential_subregions)
             Rast_get_row(fd_pot_reg, pot_subregions_row, row, CELL_TYPE);
+        if (segments->use_density) {
+            Rast_get_row(fd_density, density_row, row, FCELL_TYPE);
+            Rast_get_row(fd_density_cap, density_capacity_row, row, FCELL_TYPE);
+        }
         for (col = 0; col < cols; col++) {
             isnull = false;
             /* developed */
@@ -189,6 +215,13 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
             /* devpressure - just check nulls */
             if (Rast_is_null_value(&((FCELL *) devpressure_row)[col], FCELL_TYPE))
                 isnull = true;
+            /* density - just check nulls */
+            if (segments->use_density) {
+                if (Rast_is_null_value(&((FCELL *) density_row)[col], FCELL_TYPE))
+                    isnull = true;
+                if (Rast_is_null_value(&((FCELL *) density_capacity_row)[col], FCELL_TYPE))
+                    isnull = true;
+            }
             /* weights - must be in range -1, 1*/
             if (segments->use_weight) {
                 if (Rast_is_null_value(&((FCELL *) weights_row)[col], FCELL_TYPE)) {
@@ -232,6 +265,10 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
             Segment_put_row(&segments->weight, weights_row, row);
         if (segments->use_potential_subregions)
             Segment_put_row(&segments->potential_subregions, pot_subregions_row, row);
+        if (segments->use_density) {
+            Segment_put_row(&segments->density, density_row, row);
+            Segment_put_row(&segments->density_capacity, density_capacity_row, row);
+        }
     }
 
     /* flush all segments */
@@ -243,7 +280,10 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         Segment_flush(&segments->weight);
     if (segments->use_potential_subregions)
         Segment_flush(&segments->potential_subregions);
-
+    if (segments->use_density) {
+        Segment_flush(&segments->density);
+        Segment_flush(&segments->density_capacity);
+    }
     /* close raster maps */
     Rast_close(fd_developed);
     Rast_close(fd_reg);
@@ -252,6 +292,10 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         Rast_close(fd_weights);
     if (segments->use_potential_subregions)
         Rast_close(fd_pot_reg);
+    if (segments->use_density) {
+        Rast_close(fd_density);
+        Rast_close(fd_density_cap);
+    }
     for (i = 0; i < num_predictors; i++)
         Rast_close(fds_predictors[i]);
 
@@ -265,34 +309,30 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         G_free(weights_row);
     if (segments->use_potential_subregions)
         G_free(pot_subregions_row);
+    if (segments->use_density) {
+        G_free(density_row);
+        G_free(density_capacity_row);
+    }
 }
 
-void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_map)
+static int _read_demand_file(FILE *fp, const char *separator,
+                             int **table, int *demand_years,
+                             struct KeyValueIntInt *region_map)
 {
-    FILE *fp;
-    if ((fp = fopen(demandInfo->filename, "r")) == NULL)
-        G_fatal_error(_("Cannot open population demand file <%s>"),
-                      demandInfo->filename);
-    int countlines = 0;
-    // Extract characters from file and store in character c
-    for (char c = getc(fp); c != EOF; c = getc(fp))
-        if (c == '\n') // Increment count if this character is newline
-            countlines++;
-
-    rewind(fp);
 
     size_t buflen = 4000;
     char buf[buflen];
+    // read in the first row (header)
     if (G_getl2(buf, buflen, fp) == 0)
-        G_fatal_error(_("Population demand file <%s>"
-                        " contains less than one line"), demandInfo->filename);
+        G_fatal_error(_("Demand file"
+                        " contains less than one line"));
 
     char **tokens;
     int ntokens;
 
     const char *td = "\"";
 
-    tokens = G_tokenize2(buf, demandInfo->separator, td);
+    tokens = G_tokenize2(buf, separator, td);
     ntokens = G_number_of_tokens(tokens);
     if (ntokens == 0)
         G_fatal_error("No columns in the header row");
@@ -307,43 +347,101 @@ void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_m
     }
 
     int years = 0;
-    demandInfo->table = (int **) G_malloc(region_map->nitems * sizeof(int *));
-    for (int i = 0; i < region_map->nitems; i++) {
-        demandInfo->table[i] = (int *) G_malloc(countlines * sizeof(int));
-    }
-    demandInfo->years = (int *) G_malloc(countlines * sizeof(int));
     while(G_getl2(buf, buflen, fp)) {
         if (buf[0] == '\0')
             continue;
-        tokens = G_tokenize2(buf, demandInfo->separator, td);
+
+        tokens = G_tokenize2(buf, separator, td);
         int ntokens2 = G_number_of_tokens(tokens);
-        if (ntokens2 == 0)
-            continue;
         if (ntokens2 != ntokens)
             G_fatal_error(_("Demand: wrong number of columns in line: %s"), buf);
-
+        if (ntokens - 1 < region_map->nitems)
+            G_fatal_error(_("Demand: some subregions are missing"));
         count = 0;
         int i;
-        demandInfo->years[years] = atoi(tokens[0]);
+        demand_years[years] = atoi(tokens[0]);
         for (i = 1; i < ntokens; i++) {
             // skip first column which is the year which we ignore
             int idx;
             if (KeyValueIntInt_find(region_map, ids->value[count], &idx)) {
                 G_chop(tokens[i]);
-                demandInfo->table[idx][years] = atoi(tokens[i]);
+                table[idx][years] = atoi(tokens[i]);
             }
             count++;
         }
         // each line is a year
         years++;
     }
-    demandInfo->max_subregions = region_map->nitems;
-    demandInfo->max_steps = years;
-    G_verbose_message("Number of steps in demand file: %d", years);
-    //    if (!sParams.nSteps)
-    //        sParams.nSteps = years;
     G_free_ilist(ids);
     G_free_tokens(tokens);
+    return years;
+}
+
+void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_map)
+{
+    FILE *fp_cell, *fp_population;
+    if ((fp_cell = fopen(demandInfo->cells_filename, "r")) == NULL)
+        G_fatal_error(_("Cannot open area demand file <%s>"),
+                      demandInfo->cells_filename);
+    int countlines = 0;
+    // Extract characters from file and store in character c
+    for (char c = getc(fp_cell); c != EOF; c = getc(fp_cell))
+        if (c == '\n') // Increment count if this character is newline
+            countlines++;
+    rewind(fp_cell);
+
+    if (demandInfo->use_density) {
+        if ((fp_population = fopen(demandInfo->population_filename, "r")) == NULL)
+            G_fatal_error(_("Cannot open population demand file <%s>"),
+                          demandInfo->population_filename);
+        int countlines2 = 0;
+        for (char c = getc(fp_population); c != EOF; c = getc(fp_population))
+            if (c == '\n') // Increment count if this character is newline
+                countlines2++;
+        if (countlines != countlines2) {
+            G_fatal_error(_("Area and population demand files (<%s> and <%s>) "
+                            "have different number of lines"),
+                          demandInfo->cells_filename, demandInfo->population_filename);
+        }
+        rewind(fp_population);
+    }
+
+    demandInfo->years = (int *) G_malloc(countlines * sizeof(int));
+    demandInfo->cells_table = (int **) G_malloc(region_map->nitems * sizeof(int *));
+    for (int i = 0; i < region_map->nitems; i++) {
+        demandInfo->cells_table[i] = (int *) G_malloc(countlines * sizeof(int));
+    }
+    int num_years = _read_demand_file(fp_cell, demandInfo->separator,
+                                      demandInfo->cells_table,
+                                      demandInfo->years, region_map);
+    demandInfo->max_subregions = region_map->nitems;
+    demandInfo->max_steps = num_years;
+    G_verbose_message("Number of steps in area demand file: %d", num_years);
+    fclose(fp_cell);
+
+    if (demandInfo->use_density) {
+        int *years2 = (int *) G_malloc(countlines * sizeof(int));
+        demandInfo->population_table = (int **) G_malloc(region_map->nitems * sizeof(int *));
+        for (int i = 0; i < region_map->nitems; i++) {
+            demandInfo->population_table[i] = (int *) G_malloc(countlines * sizeof(int));
+        }
+        int num_years2 = _read_demand_file(fp_population, demandInfo->separator,
+                                          demandInfo->population_table,
+                                          years2, region_map);
+        // check files for consistency
+        if (num_years != num_years2)
+            G_fatal_error(_("Area and population demand files (<%s> and <%s>) "
+                            "have different number of years"),
+                          demandInfo->cells_filename, demandInfo->population_filename);
+        for (int i = 0; i < num_years; i++) {
+            if (demandInfo->years[i] != years2[i])
+                G_fatal_error(_("Area and population demand files (<%s> and <%s>) "
+                                "have different years"),
+                              demandInfo->cells_filename, demandInfo->population_filename);
+        }
+        fclose(fp_population);
+        G_free(years2);
+    }
 }
 
 void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt *region_map,

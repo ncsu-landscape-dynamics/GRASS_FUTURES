@@ -270,7 +270,7 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
 
 
     added_ids = (int *) G_malloc(sizeof(int) * patch_sizes->max_patch_size);
-    n_to_convert = demand->table[region][step];
+    n_to_convert = demand->cells_table[region][step];
     n_done = 0;
     force_convert_all = false;
     allow_already_tried_ones = false;

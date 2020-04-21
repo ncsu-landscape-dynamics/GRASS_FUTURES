@@ -95,6 +95,7 @@ void update_development_pressure_precomputed(int row, int col, struct Segments *
                 Segment_get(&segments->devpressure, (void *)&devpressure_value, i, j);
                 if (Rast_is_null_value(&devpressure_value, FCELL_TYPE))
                     continue;
+                // here multiply value by Z
                 devpressure_value += value;
                 Segment_put(&segments->devpressure, (void *)&devpressure_value, i, j);
             }

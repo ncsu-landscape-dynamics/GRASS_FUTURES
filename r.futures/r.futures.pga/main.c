@@ -99,7 +99,7 @@ static int manage_memory(struct SegmentMemory *memory, float input_memory,
     if (input_memory > 0 && undev_size > 1e9 * input_memory)
         G_warning(_("Not sufficient memory, will attempt to use more "
                     "than specified. Will need at least %d MB"), (int) (undev_size / 1.0e6));
-
+    // TODO: add density
     size = sizeof(FCELL) * (n_predictors + (has_weights ? 3 : 2));
     size += sizeof(CELL) * 2;
     estimate = estimate + (size * rows * cols);
@@ -131,8 +131,9 @@ int main(int argc, char **argv)
                 *potentialFile, *numNeighbors, *discountFactor, *seedSearch,
                 *patchMean, *patchRange,
                 *incentivePower, *potentialWeight,
-                *demandFile, *separator, *patchFile, *numSteps, *output, *outputSeries, *seed, *memory;
-
+                *cellDemandFile, *populationDemandFile, *separator,
+                *density, *density_capacity,
+                *patchFile, *numSteps, *output, *outputSeries, *seed, *memory;
     } opt;
 
     struct
@@ -250,6 +251,20 @@ int main(int argc, char **argv)
         _("Scaling factor of development pressure");
     opt.scalingFactor->guisection = _("Development pressure");
 
+    opt.density = G_define_standard_option(G_OPT_R_INPUT);
+    opt.density->key = "density";
+    opt.density->required = NO;
+    opt.density->description =
+            _("Raster map of population density");
+    opt.density->guisection = _("Density");
+
+    opt.density_capacity = G_define_standard_option(G_OPT_R_INPUT);
+    opt.density_capacity->key = "density_capacity";
+    opt.density_capacity->required = NO;
+    opt.density_capacity->description =
+            _("Raster map of maximum capacity");
+    opt.density_capacity->guisection = _("Density");
+
     opt.output = G_define_standard_option(G_OPT_R_OUTPUT);
     opt.output->key = "output";
     opt.output->required = YES;
@@ -275,12 +290,19 @@ int main(int argc, char **argv)
           " First line is ignored, so it can be used for header");
     opt.potentialFile->guisection = _("Potential");
 
-    opt.demandFile = G_define_standard_option(G_OPT_F_INPUT);
-    opt.demandFile->key = "demand";
-    opt.demandFile->required = YES;
-    opt.demandFile->description =
+    opt.cellDemandFile = G_define_standard_option(G_OPT_F_INPUT);
+    opt.cellDemandFile->key = "demand";
+    opt.cellDemandFile->required = YES;
+    opt.cellDemandFile->description =
             _("CSV file with number of cells to convert for each step and subregion");
-    opt.demandFile->guisection = _("Demand");
+    opt.cellDemandFile->guisection = _("Demand");
+
+    opt.populationDemandFile = G_define_standard_option(G_OPT_F_INPUT);
+    opt.populationDemandFile->key = "population_demand";
+    opt.populationDemandFile->required = NO;
+    opt.populationDemandFile->description =
+            _("CSV file with population size to accommodate");
+    opt.populationDemandFile->guisection = _("Demand");
 
     opt.separator = G_define_standard_option(G_OPT_F_SEP);
     opt.separator->answer = "comma";
@@ -398,6 +420,7 @@ int main(int argc, char **argv)
     // provided XOR generated
     G_option_exclusive(opt.seed, flg.generateSeed, NULL);
     G_option_required(opt.seed, flg.generateSeed, NULL);
+    G_option_collective(opt.populationDemandFile, opt.density, opt.density_capacity, NULL);
     if (G_parser(argc, argv))
         exit(EXIT_FAILURE);
 
@@ -456,6 +479,10 @@ int main(int argc, char **argv)
     if (opt.potentialSubregions->answer) {
         segments.use_potential_subregions = true;
     }
+    segments.use_density = false;
+    if (opt.density->answer) {
+        segments.use_density = true;
+    }
     memory = -1;
     if (opt.memory->answer)
         memory = atof(opt.memory->answer);
@@ -479,6 +506,10 @@ int main(int argc, char **argv)
         raster_inputs.weights = opt.potentialWeight->answer;
     if (opt.potentialSubregions->answer)
         raster_inputs.potential_regions = opt.potentialSubregions->answer;
+    if (opt.density->answer) {
+        raster_inputs.density = opt.density->answer;
+        raster_inputs.density_capacity = opt.density_capacity->answer;
+    }
 
     //    read Subregions layer
     region_map = KeyValueIntInt_create();
@@ -502,7 +533,12 @@ int main(int argc, char **argv)
 
     /* read Demand file */
     G_verbose_message("Reading demand file...");
-    demand_info.filename = opt.demandFile->answer;
+    demand_info.use_density = false;
+    demand_info.cells_filename = opt.cellDemandFile->answer;
+    if (opt.populationDemandFile->answer) {
+        demand_info.use_density = true;
+        demand_info.population_filename = opt.populationDemandFile->answer;
+    }
     demand_info.separator = G_option_to_separator(opt.separator);
     read_demand_file(&demand_info, region_map);
     if (num_steps == 0)
@@ -551,14 +587,22 @@ int main(int argc, char **argv)
     }
     if (opt.potentialSubregions->answer)
         Segment_close(&segments.potential_subregions);
-
+    if (segments.use_density) {
+        Segment_close(&segments.density);
+        Segment_close(&segments.density_capacity);
+    }
     KeyValueIntInt_free(region_map);
     KeyValueIntInt_free(reverse_region_map);
-    if (demand_info.table) {
+    if (demand_info.cells_table) {
         for (int i = 0; i < demand_info.max_subregions; i++)
-            G_free(demand_info.table[i]);
-        G_free(demand_info.table);
+            G_free(demand_info.cells_table[i]);
+        G_free(demand_info.cells_table);
         G_free(demand_info.years);
+    }
+    if (demand_info.use_density) {
+        for (int i = 0; i < demand_info.max_subregions; i++)
+            G_free(demand_info.population_table[i]);
+        G_free(demand_info.population_table);
     }
     if (potential_info.predictors) {
         for (int i = 0; i < potential_info.max_predictors; i++)
