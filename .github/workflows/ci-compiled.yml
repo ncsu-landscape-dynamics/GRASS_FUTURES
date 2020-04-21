@@ -1,0 +1,58 @@
+name: CI
+
+on:
+- push
+- pull_request
+
+jobs:
+  build:
+
+    runs-on: ubuntu-18.04
+
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
+    
+    - name: Get dependencies
+      run: |
+        sudo apt-get update -y
+        sudo apt-get install -y wget git gawk findutils
+        xargs -a <(awk '! /^ *(#|$)/' ".github/workflows/apt.txt") -r -- \
+            sudo apt-get install -y --no-install-recommends --no-install-suggests
+    - name: Create installation directory
+      run: |
+        mkdir $HOME/install
+    - name: Set number of cores for compilation
+      run: |
+        echo "::set-env name=MAKEFLAGS::-j$(nproc)"
+    - name: Set LD_LIBRARY_PATH for GRASS GIS compilation
+      run: |
+        echo "::set-env name=LD_LIBRARY_PATH::$HOME/install/lib"
+    - name: Get and build GRASS GIS
+      run: .github/workflows/build.sh $HOME/install
+    - name: Add the bin directory to PATH
+      run: |
+        echo "::add-path::$HOME/install/bin"
+    - name: Make simple grass command available
+      run: |
+        ln -s $HOME/install/bin/grass* $HOME/install/bin/grass
+    - name: Install the module
+      run: |
+        grass --tmp-location XY --exec g.extension extension=r.futures url=./r.futures/ --verbose
+    - name: Cache data for testing
+      id: cache-nc_spm_08_grass7
+      uses: actions/cache@v1
+      with:
+        path: nc_spm_08_grass7
+        key: ${{ runner.os }}-nc_spm_08_grass7
+    - name: Get sample data for testing (NC SPM sample location)
+      if: steps.cache-nc_spm_08_grass7.outputs.cache-hit != 'true'
+      run: |
+        grass --tmp-location XY --exec g.extension g.download.location --verbose
+        grass --tmp-location XY --exec g.download.location url=https://grass.osgeo.org/sampledata/north_carolina/nc_spm_08_grass7.tar.gz --verbose
+    - name: Run test (manually specified files)
+      run: |
+        cd ./r.futures/r.futures.pga/testsuite
+        grass -c ~/nc_spm_08_grass7/test --exec ./test_r_futures_pga.py
+        rm -rf ~/nc_spm_08_grass7/test
