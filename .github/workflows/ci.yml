@@ -45,6 +45,6 @@ jobs:
         grass ~/grasstmploc/PERMANENT --exec g.download.location url=https://grass.osgeo.org/sampledata/north_carolina/nc_spm_08_grass7.tar.gz --verbose
     - name: Run test (manually specified files)
       run: |
-        cd testsuite/
-        grass -c ~/nc_spm_08_grass7/test --exec ./r.futures/r.futures.pga/testsuite/test_r_futures_pga.py
+        cd ./r.futures/r.futures.pga/testsuite
+        grass -c ~/nc_spm_08_grass7/test --exec ./test_r_futures_pga.py
         rm -rf ~/nc_spm_08_grass7/test
