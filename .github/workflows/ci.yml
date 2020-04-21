@@ -1,0 +1,50 @@
+name: CI
+
+on:
+- push
+- pull_request
+
+jobs:
+  build:
+
+    runs-on: ubuntu-18.04
+
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
+    - name: Install GRASS GIS and other dependencies
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq grass grass-dev grass-doc wget
+    - name: Fix GRASS GIS installation for g.extension (needed for Ubuntu 18.04 grass packages)
+      run: |
+        wget https://grass.osgeo.org/grass74/manuals/grass_logo.png
+        wget https://grass.osgeo.org/grass74/manuals/grassdocs.css
+        sudo mv grass_logo.png /usr/lib/grass74/docs/html/grass_logo.png
+        sudo mv grassdocs.css /usr/lib/grass74/docs/html/grassdocs.css
+    - name: Create a temporary location (needed for 7.4 and below)
+      run: |
+        grass -c EPSG:4326 ~/grasstmploc -e
+    - name: Change shebang to just Python (7.4 needs python2)
+      run: |
+        sed -i s/python3/python/g ./r.futures/r.futures.pga/testsuite/test_r_futures_pga.py
+    - name: Install the module
+      run: |
+        grass ~/grasstmploc/PERMANENT --exec g.extension extension=${{ github.event.repository.name }}/r.futures url=. --verbose
+    - name: Cache data for testing
+      id: cache-nc_spm_08_grass7
+      uses: actions/cache@v1
+      with:
+        path: nc_spm_08_grass7
+        key: ${{ runner.os }}-nc_spm_08_grass7
+    - name: Get sample data for testing (NC SPM sample location)
+      if: steps.cache-nc_spm_08_grass7.outputs.cache-hit != 'true'
+      run: |
+        grass ~/grasstmploc/PERMANENT --exec g.extension g.download.location --verbose
+        grass ~/grasstmploc/PERMANENT --exec g.download.location url=https://grass.osgeo.org/sampledata/north_carolina/nc_spm_08_grass7.tar.gz --verbose
+    - name: Run test (manually specified files)
+      run: |
+        cd testsuite/
+        grass -c ~/nc_spm_08_grass7/test --exec ./r.futures/r.futures.pga/testsuite/test_r_futures_pga.py
+        rm -rf ~/nc_spm_08_grass7/test
