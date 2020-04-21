@@ -12,8 +12,10 @@ class TestPGA(TestCase):
         cls.use_temp_region()
         cls.runModule('g.region', raster="lsat7_2002_30@PERMANENT")
         cls.runModule('r.unpack', input='data/result.pack', output=cls.result)
-        cls.runModule('i.vi', red='lsat7_2002_30@PERMANENT', output='ndvi_2002', nir='lsat7_2002_40@PERMANENT')
-        cls.runModule('i.vi', red='lsat5_1987_30@landsat', output='ndvi_1987', nir='lsat5_1987_40@landsat')
+        cls.runModule('r.mapcalc',
+            expression="ndvi_2002 = double(lsat7_2002_40@PERMANENT - lsat7_2002_30@PERMANENT) / double(lsat7_2002_40@PERMANENT + lsat7_2002_30@PERMANENT)")
+        cls.runModule('r.mapcalc',
+            expression="ndvi_1987 = double(lsat5_1987_40@landsat - lsat5_1987_30@landsat) / double(lsat5_1987_40@landsat + lsat5_1987_30@landsat)")
         cls.runModule('r.mapcalc', expression="urban_1987 = if(ndvi_1987 <= 0.1 && isnull(lakes), 1, if(isnull(lakes), 0, null()))")
         cls.runModule('r.mapcalc', expression="urban_2002 = if(ndvi_2002 <= 0.1 && isnull(lakes), 1, if(isnull(lakes), 0, null()))")
         cls.runModule('r.slope.aspect', elevation='elevation', slope='slope')
