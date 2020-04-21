@@ -1,4 +1,4 @@
-name: CI
+name: CI with self-compiled latest GRASS GIS
 
 on:
 - push
