@@ -1,11 +1,11 @@
-name: CI with self-compiled latest GRASS GIS
+name: CI with latest GRASS GIS
 
 on:
 - push
 - pull_request
 
 jobs:
-  build:
+  test-with-compiled:
 
     runs-on: ubuntu-18.04
 
