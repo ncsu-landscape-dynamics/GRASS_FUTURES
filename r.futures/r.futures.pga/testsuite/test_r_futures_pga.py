@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from grass.gunittest.case import TestCase
 from grass.gunittest.main import test
 
