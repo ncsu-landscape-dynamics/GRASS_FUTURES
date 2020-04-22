@@ -20,15 +20,12 @@ jobs:
       run: |
         sudo apt-get update -qq
         sudo apt-get install -y -qq grass grass-dev grass-doc
-    - name: Create a temporary location (needed for 7.6 and below)
-      run: |
-        grass -c EPSG:4326 ~/grasstmploc -e
     - name: Change shebang to just Python (7.6 needs python2)
       run: |
         sed -i s/python3/python/g ./r.futures/r.futures.pga/testsuite/test_r_futures_pga.py
     - name: Install the module
       run: |
-        grass ~/grasstmploc/PERMANENT --exec g.extension extension=r.futures url=./r.futures/ --verbose
+        grass --tmp-location XY --exec g.extension extension=r.futures url=./r.futures/ --verbose
     - name: Cache data for testing
       id: cache-nc_spm_08_grass7
       uses: actions/cache@v1
@@ -38,8 +35,8 @@ jobs:
     - name: Get sample data for testing (NC SPM sample location)
       if: steps.cache-nc_spm_08_grass7.outputs.cache-hit != 'true'
       run: |
-        grass ~/grasstmploc/PERMANENT --exec g.extension g.download.location --verbose
-        grass ~/grasstmploc/PERMANENT --exec g.download.location url=https://grass.osgeo.org/sampledata/north_carolina/nc_spm_08_grass7.tar.gz --verbose
+        grass --tmp-location XY --exec g.extension g.download.location --verbose
+        grass --tmp-location XY --exec g.download.location url=https://grass.osgeo.org/sampledata/north_carolina/nc_spm_08_grass7.tar.gz dbase=~ --verbose
     - name: Run test (manually specified files)
       run: |
         cd ./r.futures/r.futures.pga/testsuite
