@@ -1,8 +1,11 @@
 name: CI with latest GRASS GIS
 
 on:
-- push
-- pull_request
+  push:
+  pull_request:
+  schedule:
+  # 01:00 Pacific Time (in UTC), every day (morning)
+  - cron:  '0 8 * * *'
 
 jobs:
   test-with-compiled:
