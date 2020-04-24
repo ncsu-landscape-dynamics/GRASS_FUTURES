@@ -36,7 +36,12 @@ struct PatchInfo
     
 };
 
+
 int get_patch_size(struct PatchSizes *patch_sizes, int region);
+float get_patch_density(int *patch_cell_ids,
+                        int patch_size, struct Segments *segments);
+float update_patch_density(float new_density, int *patch_cell_ids,
+                           int patch_size, struct Segments *segments);
 void add_neighbour(int row, int col, int seed_row, int seed_col,
                    struct CandidateNeighborsList *candidate_list,
                    struct Segments *segments, struct PatchInfo *patch_info);

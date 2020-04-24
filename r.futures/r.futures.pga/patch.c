@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <math.h>
+#include <float.h>
 
 #include <grass/gis.h>
 #include <grass/raster.h>
@@ -28,6 +29,42 @@
 
 
 
+float get_patch_density(int *patch_cell_ids,
+                        int patch_size, struct Segments *segments)
+{
+    float avg = 0;
+    float min_capacity = FLT_MAX;
+    int row, col;
+    FCELL density_val, capacity_val;
+    float patch_density;
+    for (int i = 0; i < patch_size; i++) {
+        get_xy_from_idx(patch_cell_ids[i], Rast_window_cols(), &row, &col);
+        Segment_get(&segments->density, (void *)&density_val, row, col);
+        Segment_get(&segments->density_capacity, (void *)&capacity_val, row, col);
+        avg += density_val;
+        if (capacity_val < min_capacity)
+            min_capacity = capacity_val;
+    }
+    avg /= patch_size;
+    // determined as uniform distribution [avg, min_capacity] inside patch)
+    patch_density = avg + G_drand48() * (min_capacity - avg);
+    return patch_density;
+}
+
+float update_patch_density(float new_density, int *patch_cell_ids,
+                          int patch_size, struct Segments *segments)
+{
+    int row, col;
+    float population_accommodated = 0;
+    FCELL density_val;
+    for (int i = 0; i < patch_size; i++) {
+        get_xy_from_idx(patch_cell_ids[i], Rast_window_cols(), &row, &col);
+        Segment_get(&segments->density, (void *)&density_val, row, col);
+        Segment_put(&segments->density, (void *)&new_density, row, col);
+        population_accommodated += density_val - new_density;
+    }
+    return population_accommodated;
+}
 static int sort_neighbours(const void *p1, const void *p2)
 {
     struct CandidateNeighbor *p1_ = (struct CandidateNeighbor *) p1;

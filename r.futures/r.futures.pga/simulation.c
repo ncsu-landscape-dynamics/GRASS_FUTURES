@@ -249,6 +249,7 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
                   struct Segments *segments,
                   struct PatchSizes *patch_sizes, struct PatchInfo *patch_info,
                   struct DevPressure *devpressure_info, int *patch_overflow,
+                  float *population_overflow,
                   int step, int region, struct KeyValueIntInt *reverse_region_map,
                   bool overgrow)
 {
@@ -267,15 +268,23 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
     int unsuccessful_tries;
     FCELL prob;
     CELL developed;
+    float patch_density;
+    float popul_done;
+    float popul_found;
+    float popul_to_place;
+    float extra_population;
 
 
     added_ids = (int *) G_malloc(sizeof(int) * patch_sizes->max_patch_size);
-    n_to_convert = demand->cells_table[region][step];
-    n_done = 0;
     force_convert_all = false;
     allow_already_tried_ones = false;
     unsuccessful_tries = 0;
+    n_to_convert = demand->cells_table[region][step];
+    n_done = 0;
     extra = patch_overflow[region];
+    popul_to_place = demand->population_table[region][step];
+    popul_done = 0;
+    extra_population = population_overflow[region];
 
     if (extra > 0) {
         if (n_to_convert - extra > 0) {
@@ -285,6 +294,16 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
         else {
             extra -= n_to_convert;
             n_to_convert = 0;
+        }
+    }
+    if (extra_population > 0) {
+        if (popul_to_place - extra_population > 0) {
+            popul_to_place -= extra_population;
+            extra_population = 0;
+        }
+        else {
+            extra_population -= popul_to_place;
+            popul_to_place = 0;
         }
     }
 
@@ -329,6 +348,13 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
             /* grow patch and return the actual grown size which could be smaller */
             found = grow_patch(seed_row, seed_col, patch_size, step, region,
                                patch_info, segments, patch_overflow, added_ids);
+            n_done += found;
+            if (demand->use_density) {
+                /* determine density and write it, determine population accommodated */
+                patch_density = get_patch_density(added_ids, found, segments);
+                popul_found = update_patch_density(patch_density, added_ids, found, segments);
+                popul_done += popul_found;
+            }
             /* for development testing */
             /*output_developed_step(&segments->developed, "debug",
                                   2000, -1, step, false, false);
@@ -338,12 +364,15 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
                 get_xy_from_idx(added_ids[i], Rast_window_cols(), &row, &col);
                 update_development_pressure_precomputed(row, col, segments, devpressure_info);
             }
-            n_done += found;
         }
     }
     extra += (n_done - n_to_convert);
     patch_overflow[region] = extra;
+    extra_population += (popul_done - popul_to_place);
+    population_overflow[region] = extra_population;
     G_debug(2, "There are %d extra cells for next timestep", extra);
+    if (demand->use_density)
+        G_debug(2, "There is %f extra population for next timestep", extra_population);
     G_free(added_ids);
 }
 

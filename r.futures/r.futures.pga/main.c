@@ -132,7 +132,7 @@ int main(int argc, char **argv)
                 *patchMean, *patchRange,
                 *incentivePower, *potentialWeight,
                 *cellDemandFile, *populationDemandFile, *separator,
-                *density, *density_capacity,
+                *density, *densityCapacity, *outputDensity,
                 *patchFile, *numSteps, *output, *outputSeries, *seed, *memory;
     } opt;
 
@@ -164,6 +164,7 @@ int main(int argc, char **argv)
     struct DevPressure devpressure_info;
     struct Segments segments;
     int *patch_overflow;
+    float *population_overflow;
     char *name_step;
     bool overgrow;
 
@@ -258,12 +259,12 @@ int main(int argc, char **argv)
             _("Raster map of population density");
     opt.density->guisection = _("Density");
 
-    opt.density_capacity = G_define_standard_option(G_OPT_R_INPUT);
-    opt.density_capacity->key = "density_capacity";
-    opt.density_capacity->required = NO;
-    opt.density_capacity->description =
+    opt.densityCapacity = G_define_standard_option(G_OPT_R_INPUT);
+    opt.densityCapacity->key = "density_capacity";
+    opt.densityCapacity->required = NO;
+    opt.densityCapacity->description =
             _("Raster map of maximum capacity");
-    opt.density_capacity->guisection = _("Density");
+    opt.densityCapacity->guisection = _("Density");
 
     opt.output = G_define_standard_option(G_OPT_R_OUTPUT);
     opt.output->key = "output";
@@ -278,6 +279,13 @@ int main(int argc, char **argv)
     opt.outputSeries->label =
         _("Basename for raster maps of development generated after each step");
     opt.outputSeries->guisection = _("Output");
+
+    opt.outputDensity = G_define_standard_option(G_OPT_R_BASENAME_OUTPUT);
+    opt.outputDensity->key = "output_density";
+    opt.outputDensity->required = NO;
+    opt.outputDensity->label =
+        _("Basename for raster maps of density generated after each step");
+    opt.outputDensity->guisection = _("Output");
 
     opt.potentialFile = G_define_standard_option(G_OPT_F_INPUT);
     opt.potentialFile->key = "devpot_params";
@@ -420,7 +428,8 @@ int main(int argc, char **argv)
     // provided XOR generated
     G_option_exclusive(opt.seed, flg.generateSeed, NULL);
     G_option_required(opt.seed, flg.generateSeed, NULL);
-    G_option_collective(opt.populationDemandFile, opt.density, opt.density_capacity, NULL);
+    G_option_collective(opt.populationDemandFile, opt.density,
+                        opt.densityCapacity, opt.outputDensity, NULL);
     if (G_parser(argc, argv))
         exit(EXIT_FAILURE);
 
@@ -508,7 +517,7 @@ int main(int argc, char **argv)
         raster_inputs.potential_regions = opt.potentialSubregions->answer;
     if (opt.density->answer) {
         raster_inputs.density = opt.density->answer;
-        raster_inputs.density_capacity = opt.density_capacity->answer;
+        raster_inputs.density_capacity = opt.densityCapacity->answer;
     }
 
     //    read Subregions layer
@@ -551,6 +560,7 @@ int main(int argc, char **argv)
 
     undev_cells = initialize_undeveloped(region_map->nitems);
     patch_overflow = G_calloc(region_map->nitems, sizeof(int));
+    population_overflow = G_calloc(region_map->nitems, sizeof(float));
     /* here do the modeling */
     overgrow = true;
     G_verbose_message("Starting simulation...");
@@ -561,13 +571,18 @@ int main(int argc, char **argv)
         for (region = 0; region < region_map->nitems; region++) {
             compute_step(undev_cells, &demand_info, search_alg, &segments,
                          &patch_sizes, &patch_info, &devpressure_info, patch_overflow,
-                         step, region, reverse_region_map, overgrow);
+                         population_overflow, step, region, reverse_region_map, overgrow);
         }
         /* export developed for that step */
         if (opt.outputSeries->answer) {
             name_step = name_for_step(opt.outputSeries->answer, step, num_steps);
             output_developed_step(&segments.developed, name_step,
                                   demand_info.years[step], -1, num_steps, true, true);
+        }
+        /* export density for that step */
+        if (opt.outputDensity->answer) {
+            name_step = name_for_step(opt.outputDensity->answer, step, num_steps);
+            output_density_step(&segments.density, name_step);
         }
     }
 
@@ -627,6 +642,7 @@ int main(int argc, char **argv)
 
     G_free(patch_sizes.patch_sizes);
     G_free(patch_overflow);
+    G_free(population_overflow);
 
     return EXIT_SUCCESS;
 }

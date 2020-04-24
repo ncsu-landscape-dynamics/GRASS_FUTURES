@@ -163,3 +163,35 @@ void output_developed_step(SEGMENT *developed_segment, const char *name,
     G_message(_("Raster map <%s> created"), name);
 
 }
+
+void output_density_step(SEGMENT *density_segment, const char *name)
+{
+    int out_fd;
+    int row, col, rows, cols;
+    FCELL *out_row;
+    FCELL density;
+
+    rows = Rast_window_rows();
+    cols = Rast_window_cols();
+
+    Segment_flush(density_segment);
+    out_fd = Rast_open_new(name, FCELL_TYPE);
+    out_row = Rast_allocate_f_buf();
+
+    for (row = 0; row < rows; row++) {
+        Rast_set_f_null_value(out_row, cols);
+        for (col = 0; col < cols; col++) {
+            Segment_get(density_segment, (void *)&density, row, col);
+            if (Rast_is_f_null_value(&density)) {
+                continue;
+            }
+            out_row[col] = density;
+        }
+        Rast_put_f_row(out_fd, out_row);
+    }
+    G_free(out_row);
+    Rast_close(out_fd);
+
+    G_message(_("Raster map <%s> created"), name);
+
+}
