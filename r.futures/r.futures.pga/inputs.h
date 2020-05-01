@@ -83,6 +83,23 @@ struct RasterInputs
 };
 
 
+struct DevelopableCell
+{
+
+    size_t id;
+    float probability;
+    float cumulative_probability;
+    bool tried;
+};
+
+struct Developables
+{
+    int max_subregions;
+    size_t *max;
+    size_t *num;
+    struct DevelopableCell **cells;
+};
+
 struct UndevelopedCell
 {
 

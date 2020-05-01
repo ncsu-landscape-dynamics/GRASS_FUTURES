@@ -64,18 +64,18 @@
 #include "simulation.h"
 
 
-struct Undeveloped *initialize_undeveloped(int num_subregions)
+struct Developables *initialize_developables(int num_subregions)
 {
-    struct Undeveloped *undev = (struct Undeveloped *) G_malloc(sizeof(struct Undeveloped));
-    undev->max_subregions = num_subregions;
-    undev->max = (size_t *) G_malloc(undev->max_subregions * sizeof(size_t));
-    undev->num = (size_t *) G_calloc(undev->max_subregions, sizeof(size_t));
-    undev->cells = (struct UndevelopedCell **) G_malloc(undev->max_subregions * sizeof(struct UndevelopedCell *));
-    for (int i = 0; i < undev->max_subregions; i++){
-        undev->max[i] = (Rast_window_rows() * Rast_window_cols()) / num_subregions;
-        undev->cells[i] = (struct UndevelopedCell *) G_malloc(undev->max[i] * sizeof(struct UndevelopedCell));
+    struct Developables *dev = (struct Developables *) G_malloc(sizeof(struct Developables));
+    dev->max_subregions = num_subregions;
+    dev->max = (size_t *) G_malloc(dev->max_subregions * sizeof(size_t));
+    dev->num = (size_t *) G_calloc(dev->max_subregions, sizeof(size_t));
+    dev->cells = (struct DevelopableCell **) G_malloc(dev->max_subregions * sizeof(struct DevelopableCell *));
+    for (int i = 0; i < dev->max_subregions; i++){
+        dev->max[i] = (Rast_window_rows() * Rast_window_cols()) / num_subregions;
+        dev->cells[i] = (struct DevelopableCell *) G_malloc(dev->max[i] * sizeof(struct DevelopableCell));
     }
-    return undev;
+    return dev;
 }
 
 
@@ -155,7 +155,8 @@ int main(int argc, char **argv)
     struct KeyValueIntInt *region_map;
     struct KeyValueIntInt *reverse_region_map;
     struct KeyValueIntInt *potential_region_map;
-    struct Undeveloped *undev_cells;
+    struct Developables *undev_cells;
+    struct Developables *dev_cells;
     struct Demand demand_info;
     struct Potential potential_info;
     struct SegmentMemory segment_info;
@@ -558,18 +559,23 @@ int main(int argc, char **argv)
     patch_sizes.filename = opt.patchFile->answer;
     read_patch_sizes(&patch_sizes, region_map, discount_factor);
 
-    undev_cells = initialize_undeveloped(region_map->nitems);
+    undev_cells = initialize_developables(region_map->nitems);
     patch_overflow = G_calloc(region_map->nitems, sizeof(int));
-    population_overflow = G_calloc(region_map->nitems, sizeof(float));
+    if (demand_info.use_density) {
+        dev_cells = initialize_developables(region_map->nitems);
+        population_overflow = G_calloc(region_map->nitems, sizeof(float));
+    }
     /* here do the modeling */
     overgrow = true;
     G_verbose_message("Starting simulation...");
     for (step = 0; step < num_steps; step++) {
-        recompute_probabilities(undev_cells, &segments, &potential_info);
+        recompute_probabilities(undev_cells, &segments, &potential_info, false);
+        if (demand_info.use_density)
+            recompute_probabilities(dev_cells, &segments, &potential_info, true);
         if (step == num_steps - 1)
             overgrow = false;
         for (region = 0; region < region_map->nitems; region++) {
-            compute_step(undev_cells, &demand_info, search_alg, &segments,
+            compute_step(undev_cells, dev_cells, &demand_info, search_alg, &segments,
                          &patch_sizes, &patch_info, &devpressure_info, patch_overflow,
                          population_overflow, step, region, reverse_region_map, overgrow);
         }
@@ -577,7 +583,7 @@ int main(int argc, char **argv)
         if (opt.outputSeries->answer) {
             name_step = name_for_step(opt.outputSeries->answer, step, num_steps);
             output_developed_step(&segments.developed, name_step,
-                                  demand_info.years[step], -1, num_steps, true, true);
+                                  demand_info.years[step], -1, num_steps, false, false);
         }
         /* export density for that step */
         if (opt.outputDensity->answer) {
@@ -639,10 +645,19 @@ int main(int argc, char **argv)
         G_free(undev_cells->cells);
         G_free(undev_cells);
     }
+    if (dev_cells) {
+        G_free(dev_cells->num);
+        G_free(dev_cells->max);
+        for (int i = 0; i < dev_cells->max_subregions; i++)
+            G_free(dev_cells->cells[i]);
+        G_free(dev_cells->cells);
+        G_free(dev_cells);
+    }
 
     G_free(patch_sizes.patch_sizes);
     G_free(patch_overflow);
-    G_free(population_overflow);
+    if (population_overflow)
+        G_free(population_overflow);
 
     return EXIT_SUCCESS;
 }

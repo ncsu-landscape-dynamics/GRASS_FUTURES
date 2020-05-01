@@ -44,13 +44,15 @@ float update_patch_density(float new_density, int *patch_cell_ids,
                            int patch_size, struct Segments *segments);
 void add_neighbour(int row, int col, int seed_row, int seed_col,
                    struct CandidateNeighborsList *candidate_list,
-                   struct Segments *segments, struct PatchInfo *patch_info);
+                   struct Segments *segments, struct PatchInfo *patch_info,
+                   int step, bool redevelop);
 void add_neighbours(int row, int col, int seed_row, int seed_col,
                     struct CandidateNeighborsList *candidate_list,
                     struct Segments *segments,
-                    struct PatchInfo *patch_info);
+                    struct PatchInfo *patch_info, int step, bool redevelop);
 double get_distance(int row1, int col1, int row2, int col2);
 int grow_patch(int seed_row, int seed_col, int patch_size, int step, int region,
-               struct PatchInfo *patch_info, struct Segments *segments, int *patch_overflow, int *added_ids);
+               struct PatchInfo *patch_info, struct Segments *segments,
+               int *patch_overflow, int *added_ids, bool redevelop);
 
 #endif // FUTURES_PATCH_H

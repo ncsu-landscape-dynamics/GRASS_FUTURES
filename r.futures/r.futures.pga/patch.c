@@ -61,7 +61,7 @@ float update_patch_density(float new_density, int *patch_cell_ids,
         get_xy_from_idx(patch_cell_ids[i], Rast_window_cols(), &row, &col);
         Segment_get(&segments->density, (void *)&density_val, row, col);
         Segment_put(&segments->density, (void *)&new_density, row, col);
-        population_accommodated += density_val - new_density;
+        population_accommodated += new_density - density_val;
     }
     return population_accommodated;
 }
@@ -125,7 +125,8 @@ int get_patch_size(struct PatchSizes *patch_sizes, int region)
  */
 void add_neighbour(int row, int col, int seed_row, int seed_col,
                    struct CandidateNeighborsList *candidate_list,
-                   struct Segments *segments, struct PatchInfo *patch_info)
+                   struct Segments *segments, struct PatchInfo *patch_info,
+                   int step, bool redevelop)
 {
     int i;
     double distance;
@@ -137,7 +138,7 @@ void add_neighbour(int row, int col, int seed_row, int seed_col,
     Segment_get(&segments->developed, (void *)&value, row, col);
     if (Rast_is_null_value(&value, CELL_TYPE))
         return;
-    if (value == -1) {
+    if ((!redevelop && value == -1) || (redevelop && value != -1 && value != step)) {
         idx = get_idx_from_xy(row, col, Rast_window_cols());
         /* need to add this cell... */
         
@@ -180,25 +181,26 @@ void add_neighbour(int row, int col, int seed_row, int seed_col,
  */
 void add_neighbours(int row, int col, int seed_row, int seed_col,
                     struct CandidateNeighborsList *candidate_list,
-                    struct Segments *segments, struct PatchInfo *patch_info)
+                    struct Segments *segments, struct PatchInfo *patch_info,
+                    int step, bool redevelop)
 {
     add_neighbour(row - 1, col, seed_row, seed_col, candidate_list,
-                  segments, patch_info);  // left
+                  segments, patch_info, step, redevelop);  // left
     add_neighbour(row + 1, col, seed_row, seed_col, candidate_list, 
-                  segments, patch_info);  // right
+                  segments, patch_info, step, redevelop);  // right
     add_neighbour(row, col - 1, seed_row, seed_col, candidate_list, 
-                  segments, patch_info);  // down
+                  segments, patch_info, step, redevelop);  // down
     add_neighbour(row, col + 1, seed_row, seed_col, candidate_list, 
-                  segments, patch_info);  // up 
+                  segments, patch_info, step, redevelop);  // up
     if (patch_info->num_neighbors == 8) {
         add_neighbour(row - 1, col - 1, seed_row, seed_col, candidate_list, 
-                      segments, patch_info);
+                      segments, patch_info, step, redevelop);
         add_neighbour(row - 1, col + 1, seed_row, seed_col, candidate_list, 
-                      segments, patch_info);
+                      segments, patch_info, step, redevelop);
         add_neighbour(row + 1, col - 1, seed_row, seed_col, candidate_list, 
-                      segments, patch_info);
+                      segments, patch_info, step, redevelop);
         add_neighbour(row + 1, col + 1, seed_row, seed_col, candidate_list, 
-                      segments, patch_info);
+                      segments, patch_info, step, redevelop);
     }
 }
 
@@ -225,7 +227,7 @@ void add_neighbours(int row, int col, int seed_row, int seed_col,
  */
 int grow_patch(int seed_row, int seed_col, int patch_size, int step, int region,
                struct PatchInfo *patch_info, struct Segments *segments,
-                int *patch_overflow, int *added_ids)
+                int *patch_overflow, int *added_ids, bool redevelop)
 {
     int i, j, iter;
     double r, p;
@@ -253,7 +255,7 @@ int grow_patch(int seed_row, int seed_col, int patch_size, int step, int region,
 
     /* add surrounding neighbors */
     add_neighbours(seed_row, seed_col, seed_row, seed_col,
-                   &candidates, segments, patch_info);
+                   &candidates, segments, patch_info, step, redevelop);
     iter = 0;
     while (candidates.n > 0 && found < patch_size && !skip) {
         i = 0;
@@ -277,7 +279,7 @@ int grow_patch(int seed_row, int seed_col, int patch_size, int step, int region,
                 candidates.n--;
                 /* find and add new candidates */
                 add_neighbours(row, col, seed_row, seed_col,
-                               &candidates, segments, patch_info);
+                               &candidates, segments, patch_info, step, redevelop);
                 /* sort candidates based on probability */
                 qsort(candidates.candidates, candidates.n, sizeof(struct CandidateNeighbor), sort_neighbours);
                 Segment_get(&segments->subregions, (void *)&test_region, row, col);
