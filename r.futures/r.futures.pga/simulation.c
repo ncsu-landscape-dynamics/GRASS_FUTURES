@@ -231,7 +231,7 @@ void attempt_grow_patch(struct Developables *dev_cells,
                         struct PatchSizes *patch_sizes, struct PatchInfo *patch_info,
                         struct DevPressure *devpressure_info, int *patch_overflow,
                         int step, int region,
-                        bool redevelop,
+                        enum patch_type type,
                         bool overgrow, bool force_convert_all,
                         bool *allow_already_tried_ones, int *unsuccessful_tries,
                         int *patch_ids, int total_cells_to_convert, int *cells_converted,
@@ -262,7 +262,7 @@ void attempt_grow_patch(struct Developables *dev_cells,
     dev_cells->cells[region][idx].tried = 1;
     /* see if seed was already developed during this time step */
     Segment_get(&segments->developed, (void *)&developed, seed_row, seed_col);
-    if ((!redevelop && developed != -1) || (redevelop && developed == -1)){
+    if (!can_develop(developed, type, step, patch_info->redevelopment_lag)) {
         ++(*unsuccessful_tries);
         return;
     }
@@ -272,7 +272,7 @@ void attempt_grow_patch(struct Developables *dev_cells,
     if(force_convert_all || G_drand48() < prob) {
         /* get random patch size */
         patch_size = get_patch_size(patch_sizes, region);
-        if (!redevelop) {
+        if (type == NEW) {
             /* last year: we shouldn't grow bigger patches than we have space for */
             if (!overgrow && patch_size + *cells_converted > total_cells_to_convert)
                 patch_size = total_cells_to_convert - *cells_converted;
@@ -280,9 +280,9 @@ void attempt_grow_patch(struct Developables *dev_cells,
         /* grow patch and return the actual grown size which could be smaller */
         found = grow_patch(seed_row, seed_col, patch_size, step, region,
                            patch_info, segments, patch_overflow, patch_ids,
-                           redevelop);
+                           type);
         *cells_converted += found;
-        if (redevelop) {
+        if (type == REDEVELOP) {
             /* determine density and write it, determine population accommodated */
             patch_density = get_patch_density(patch_ids, found, segments);
             popul_found = update_patch_density(patch_density, patch_ids, found, segments);

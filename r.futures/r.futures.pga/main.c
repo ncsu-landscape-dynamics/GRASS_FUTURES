@@ -132,7 +132,7 @@ int main(int argc, char **argv)
                 *patchMean, *patchRange,
                 *incentivePower, *potentialWeight,
                 *cellDemandFile, *populationDemandFile, *separator,
-                *density, *densityCapacity, *outputDensity,
+                *density, *densityCapacity, *outputDensity, *redevelopmentLag,
                 *patchFile, *numSteps, *output, *outputSeries, *seed, *memory;
     } opt;
 
@@ -267,6 +267,16 @@ int main(int argc, char **argv)
             _("Raster map of maximum capacity");
     opt.densityCapacity->guisection = _("Density");
 
+    opt.redevelopmentLag = G_define_option();
+    opt.redevelopmentLag->key = "redevelopment_lag";
+    opt.redevelopmentLag->type = TYPE_INTEGER;
+    opt.redevelopmentLag->required = NO;
+    opt.redevelopmentLag->options = "1-";
+    opt.redevelopmentLag->answer = "10";
+    opt.redevelopmentLag->description =
+            _("Number of steps before redevelopment can happen again in a cell developed during simulation");
+    opt.redevelopmentLag->guisection = _("Density");
+
     opt.output = G_define_standard_option(G_OPT_R_OUTPUT);
     opt.output->key = "output";
     opt.output->required = YES;
@@ -286,7 +296,7 @@ int main(int argc, char **argv)
     opt.outputDensity->required = NO;
     opt.outputDensity->label =
         _("Basename for raster maps of density generated after each step");
-    opt.outputDensity->guisection = _("Output");
+    opt.outputDensity->guisection = _("Output");    
 
     opt.potentialFile = G_define_standard_option(G_OPT_F_INPUT);
     opt.potentialFile->key = "devpot_params";
@@ -430,7 +440,7 @@ int main(int argc, char **argv)
     G_option_exclusive(opt.seed, flg.generateSeed, NULL);
     G_option_required(opt.seed, flg.generateSeed, NULL);
     G_option_collective(opt.populationDemandFile, opt.density,
-                        opt.densityCapacity, opt.outputDensity, NULL);
+                        opt.densityCapacity, opt.outputDensity, opt.redevelopmentLag, NULL);
     if (G_parser(argc, argv))
         exit(EXIT_FAILURE);
 
@@ -472,6 +482,8 @@ int main(int argc, char **argv)
     patch_info.compactness_range = atof(opt.patchRange->answer);
     patch_info.num_neighbors = atoi(opt.numNeighbors->answer);
     patch_info.strategy = SKIP;
+    if (opt.redevelopmentLag->answer)
+        patch_info.redevelopment_lag = atoi(opt.redevelopmentLag->answer);
     
     num_steps = 0;
     if (opt.numSteps->answer)
