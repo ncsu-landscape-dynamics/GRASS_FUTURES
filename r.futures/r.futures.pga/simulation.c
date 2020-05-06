@@ -288,7 +288,7 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
 
     if (n_to_convert > undev_cells->num[region]) {
         G_warning("Not enough undeveloped cells in region %d (requested: %d,"
-                  " available: %d). Converting all available.",
+                  " available: %ld). Converting all available.",
                    region, n_to_convert, undev_cells->num[region]);
         n_to_convert =  undev_cells->num[region];
         force_convert_all = true;

@@ -310,7 +310,7 @@ void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_m
     }
     demandInfo->years = (int *) G_malloc(countlines * sizeof(int));
     while(G_getl2(buf, buflen, fp)) {
-        if (!buf || buf[0] == '\0')
+        if (buf[0] == '\0')
             continue;
         tokens = G_tokenize2(buf, fs, td);
         int ntokens2 = G_number_of_tokens(tokens);
@@ -370,7 +370,7 @@ void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt 
     char **tokens;
 
     while (G_getl2(buf, buflen, fp)) {
-        if (!buf || buf[0] == '\0')
+        if (buf[0] == '\0')
             continue;
         tokens = G_tokenize2(buf, fs, td);
         int ntokens = G_number_of_tokens(tokens);
