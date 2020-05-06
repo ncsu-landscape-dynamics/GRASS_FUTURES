@@ -30,12 +30,16 @@
 
 bool can_develop(CELL development, enum patch_type type, int step, int lag)
 {
-    if (type == NEW) {
-        if (development == -1)
+    if (type == PATCH_TYPE_NEW) {
+        if (development == DEV_TYPE_UNDEVELOPED)
             return true;
     }
-    else if (type == REDEVELOP) {
-        if (development == 0 || (development < (step + 1) - lag))
+    else if (type == PATCH_TYPE_REDEVELOP) {
+        if (development == DEV_TYPE_INITIAL || (development < (step + 1) - lag))
+            return true;
+    }
+    else if (type == PATCH_TYPE_ABANDON) {
+        if (development >= DEV_TYPE_INITIAL)
             return true;
     }
     return false;
@@ -81,10 +85,10 @@ static int sort_neighbours(const void *p1, const void *p2)
 {
     struct CandidateNeighbor *p1_ = (struct CandidateNeighbor *) p1;
     struct CandidateNeighbor *p2_ = (struct CandidateNeighbor *) p2;
-    if (p1_->suitability > p2_->suitability) {
+    if (p1_->ranking > p2_->ranking) {
         return -1;
     }
-    if (p2_->suitability > p1_->suitability) {
+    if (p2_->ranking > p1_->ranking) {
         return 1;
     }
     return 0;
@@ -120,6 +124,45 @@ int get_patch_size(struct PatchSizes *patch_sizes, int region)
         region = 0;
     return patch_sizes->patch_sizes[region][(int)(G_drand48() * patch_sizes->patch_count[region])];
 }
+
+static void compute_development_candidate_info(struct CandidateNeighbor *candidate,
+                                               struct Segments *segments,
+                                               struct PatchInfo *patch_info,
+                                               double seed_distance, 
+                                               int row, int col) {
+    FCELL prob;
+    float alpha;
+
+    Segment_get(&segments->probability, (void *)&prob, row, col);
+    candidate->selection_probability = prob;
+    alpha = get_alpha(patch_info);
+    candidate->ranking = prob / pow(seed_distance, alpha);
+}
+
+static void compute_redevelopment_candidate_info(struct CandidateNeighbor *candidate,
+                                                 struct Segments *segments,
+                                                 struct PatchInfo *patch_info,
+                                                 double seed_distance, 
+                                                 int row, int col) {
+    FCELL prob;
+    float alpha;
+
+    Segment_get(&segments->probability, (void *)&prob, row, col);
+    alpha = get_alpha(patch_info);
+    candidate->ranking = prob / pow(seed_distance, alpha);
+    candidate->selection_probability = candidate->ranking;
+}
+
+static void compute_abandonment_candidate_info(struct CandidateNeighbor *candidate,
+                                               struct Segments *segments,
+                                               int row, int col) {
+    FCELL prob;
+
+    Segment_get(&segments->probability, (void *)&prob, row, col);
+    candidate->selection_probability = 1 - prob;
+    candidate->ranking = candidate->selection_probability;
+}
+
 /*!
  * \brief Decides if to add a cell to a candidate list for patch growing
  * 
@@ -141,11 +184,8 @@ void add_neighbour(int row, int col, int seed_row, int seed_col,
                    int step, enum patch_type type)
 {
     int i;
-    double distance;
-    float alpha;
     size_t idx;
     CELL value;
-    FCELL prob;
     
     Segment_get(&segments->developed, (void *)&value, row, col);
     if (Rast_is_null_value(&value, CELL_TYPE))
@@ -163,18 +203,27 @@ void add_neighbour(int row, int col, int seed_row, int seed_col,
         /* or add it on the end, allocating space if necessary */
         if (candidate_list->n == candidate_list->max_n) {
             candidate_list->max_n += candidate_list->block_size;
-            candidate_list->candidates =  (struct CandidateNeighbor *)
+            candidate_list->candidates = (struct CandidateNeighbor *)
                     G_realloc(candidate_list->candidates, candidate_list->max_n * sizeof(struct CandidateNeighbor));
             if (!candidate_list->candidates) {
                 G_fatal_error("Memory error in add_neighbour_if_possible()");
             }
         }
         candidate_list->candidates[candidate_list->n].id = idx;
-        Segment_get(&segments->probability, (void *)&prob, row, col);
-        candidate_list->candidates[candidate_list->n].potential = prob;
-        distance = get_distance(seed_row, seed_col, row, col);
-        alpha = get_alpha(patch_info);
-        candidate_list->candidates[candidate_list->n].suitability = prob / pow(distance, alpha);
+        if (type == PATCH_TYPE_NEW) {
+            compute_development_candidate_info(&(candidate_list->candidates[candidate_list->n]),
+                    segments, patch_info,
+                    get_distance(seed_row, seed_col, row, col), row, col);
+        }
+        else if (type == PATCH_TYPE_REDEVELOP) {
+            compute_redevelopment_candidate_info(&(candidate_list->candidates[candidate_list->n]),
+                    segments, patch_info,
+                    get_distance(seed_row, seed_col, row, col), row, col);
+        }
+        else {
+            compute_abandonment_candidate_info(&(candidate_list->candidates[candidate_list->n]),
+                                               segments, row, col);
+        }
         candidate_list->n++;
     }
 }
@@ -247,7 +296,7 @@ int grow_patch(int seed_row, int seed_col, int patch_size, int step, int region,
     bool force, skip;
     int row, col, cols;
     CELL test_region;
-    int step_increased;
+    int patch_develop_value;
 
     struct CandidateNeighborsList candidates;
     candidates.block_size = 20;
@@ -260,11 +309,14 @@ int grow_patch(int seed_row, int seed_col, int patch_size, int step, int region,
     skip = false;
     found = 1;  /* seed is the first cell */
     found_in_this_region = 1;
-    /* e.g. first step=0 will be saved as 1 */
-    step_increased = step + 1;
+    if (type == PATCH_TYPE_NEW || type == PATCH_TYPE_REDEVELOP)
+        /* e.g. first step=0 will be saved as 1 */
+        patch_develop_value = step + 1;
+    else
+        patch_develop_value = DEV_TYPE_ABANDONED;
 
     /* set seed as developed */
-    Segment_put(&segments->developed, (void *)&step_increased, seed_row, seed_col);
+    Segment_put(&segments->developed, (void *)&patch_develop_value, seed_row, seed_col);
     added_ids[0] = get_idx_from_xy(seed_row, seed_col, Rast_window_cols());
 
     /* add surrounding neighbors */
@@ -276,18 +328,18 @@ int grow_patch(int seed_row, int seed_col, int patch_size, int step, int region,
         while (1) {
             /* challenge the candidate */
             r = G_drand48();
-            p = candidates.candidates[i].potential;
+            p = candidates.candidates[i].selection_probability;
             if (r < p || force) {
                 /* update list of added IDs */
                 added_ids[found] = candidates.candidates[i].id;
                 /* update to developed */
                 get_xy_from_idx(candidates.candidates[i].id, cols, &row, &col);
-                Segment_put(&segments->developed, (void *)&step_increased, row, col);
+                Segment_put(&segments->developed, (void *)&patch_develop_value, row, col);
                 /* remove this one from the list by copying down everything above it */
                 for (j = i + 1; j < candidates.n; j++) {
                     candidates.candidates[j - 1].id = candidates.candidates[j].id;
-                    candidates.candidates[j - 1].potential = candidates.candidates[j].potential;
-                    candidates.candidates[j - 1].suitability = candidates.candidates[j].suitability;
+                    candidates.candidates[j - 1].selection_probability = candidates.candidates[j].selection_probability;
+                    candidates.candidates[j - 1].ranking = candidates.candidates[j].ranking;
                 }
                 /* reduce the size of the list */
                 candidates.n--;

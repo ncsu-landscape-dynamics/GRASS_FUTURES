@@ -182,7 +182,8 @@ void recompute_probabilities(struct Developables *developable_cells,
             Segment_get(&segments->developed, (void *)&developed, row, col);
             if (Rast_is_null_value(&developed, CELL_TYPE))
                 continue;
-            if ((!use_developed && developed != -1) || (use_developed && developed == -1))
+            if ((!use_developed && developed != DEV_TYPE_UNDEVELOPED) ||
+                    (use_developed && developed == DEV_TYPE_UNDEVELOPED))
                 continue;
             Segment_get(&segments->subregions, (void *)&region, row, col);
             
@@ -272,7 +273,7 @@ void attempt_grow_patch(struct Developables *dev_cells,
     if(force_convert_all || G_drand48() < prob) {
         /* get random patch size */
         patch_size = get_patch_size(patch_sizes, region);
-        if (type == NEW) {
+        if (type == PATCH_TYPE_NEW) {
             /* last year: we shouldn't grow bigger patches than we have space for */
             if (!overgrow && patch_size + *cells_converted > total_cells_to_convert)
                 patch_size = total_cells_to_convert - *cells_converted;
@@ -282,7 +283,7 @@ void attempt_grow_patch(struct Developables *dev_cells,
                            patch_info, segments, patch_overflow, patch_ids,
                            type);
         *cells_converted += found;
-        if (type == REDEVELOP) {
+        if (type == PATCH_TYPE_REDEVELOP) {
             /* determine density and write it, determine population accommodated */
             patch_density = get_patch_density(patch_ids, found, segments);
             popul_found = update_patch_density(patch_density, patch_ids, found, segments);

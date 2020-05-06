@@ -22,6 +22,7 @@
 #include <grass/segment.h>
 
 #include "output.h"
+#include "inputs.h"
 
 
 static void create_timestamp(int year, struct TimeStamp* timestamp)
@@ -73,7 +74,7 @@ char *name_for_step(const char *basename, const int step, const int nsteps)
  * \param year_to if > 0 it is end year of timestamp interval
  * \param nsteps total number of steps (needed for color table)
  * \param undeveloped_as_null Represent undeveloped areas as NULLs instead of -1
- * \param developed_as_one Represent all developed areas as 1 instead of number
+ * \param developed_as_one Represent all developed areas aoutputs 1 instead of number
         representing the step when it was developed
  */
 void output_developed_step(SEGMENT *developed_segment, const char *name,
@@ -103,7 +104,7 @@ void output_developed_step(SEGMENT *developed_segment, const char *name,
                 continue;
             }
             /* this handles undeveloped cells */
-            if (undeveloped_as_null && developed == -1)
+            if (undeveloped_as_null && developed == DEV_TYPE_UNDEVELOPED)
                 continue;
             /* this handles developed cells */
             if (developed_as_one)

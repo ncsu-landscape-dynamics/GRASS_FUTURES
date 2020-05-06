@@ -10,11 +10,11 @@
 #define MAX_SEED_ITER 20
 
 enum slow_grow { FORCE_GROW, SKIP };
-enum patch_type { NEW, REDEVELOP, ABANDON };
+enum patch_type { PATCH_TYPE_NEW, PATCH_TYPE_REDEVELOP, PATCH_TYPE_ABANDON };
 
 struct CandidateNeighbor{
-    double potential;      /* s'_i */
-    double suitability;    /* s_i */
+    double selection_probability;      /* dev potential s'_i */
+    double ranking;    /* suitability s_i, p. 6 */
     size_t id;
     
 };
