@@ -352,11 +352,7 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
     unsuccessful_tries = 0;
     n_to_convert = demand->cells_table[region][step];
     n_done = 0;
-    n_done_redevelop = 0;
     extra = patch_overflow[region];
-    popul_to_place = demand->population_table[region][step];
-    popul_done = 0;
-    extra_population = population_overflow[region];
 
     if (extra > 0) {
         if (n_to_convert - extra > 0) {
@@ -368,17 +364,6 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
             n_to_convert = 0;
         }
     }
-    if (extra_population > 0) {
-        if (popul_to_place - extra_population > 0) {
-            popul_to_place -= extra_population;
-            extra_population = 0;
-        }
-        else {
-            extra_population -= popul_to_place;
-            popul_to_place = 0;
-        }
-    }
-
     if (n_to_convert > undev_cells->num[region]) {
         KeyValueIntInt_find(reverse_region_map, region, &region_id);
         G_warning("Not enough undeveloped cells in region %d (requested: %d,"
@@ -388,7 +373,24 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
         n_to_convert = undev_cells->num[region];
         force_convert_all = true;
     }
-    
+
+    if (demand->use_density) {
+        n_done_redevelop = 0;
+        popul_to_place = demand->population_table[region][step];
+        popul_done = 0;
+        extra_population = population_overflow[region];
+        if (extra_population > 0) {
+            if (popul_to_place - extra_population > 0) {
+                popul_to_place -= extra_population;
+                extra_population = 0;
+            }
+            else {
+                extra_population -= popul_to_place;
+                popul_to_place = 0;
+            }
+        }
+    }
+
     while (n_done < n_to_convert) {
         attempt_grow_patch(undev_cells, search_alg, segments, patch_sizes, patch_info,
                            devpressure_info, patch_overflow, step, region,
@@ -408,11 +410,12 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
     }
     extra += (n_done - n_to_convert);
     patch_overflow[region] = extra;
-    extra_population += (popul_done - popul_to_place);
-    population_overflow[region] = extra_population;
     G_debug(2, "There are %d extra cells for next timestep", extra);
-    if (demand->use_density)
+    if (demand->use_density) {
+        extra_population += (popul_done - popul_to_place);
+        population_overflow[region] = extra_population;
         G_debug(2, "There is %f extra population for next timestep", extra_population);
+    }
     G_free(added_ids);
 }
 

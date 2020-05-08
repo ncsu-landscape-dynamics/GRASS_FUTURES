@@ -272,7 +272,6 @@ int main(int argc, char **argv)
     opt.redevelopmentLag->type = TYPE_INTEGER;
     opt.redevelopmentLag->required = NO;
     opt.redevelopmentLag->options = "1-";
-    opt.redevelopmentLag->answer = "10";
     opt.redevelopmentLag->description =
             _("Number of steps before redevelopment can happen again in a cell developed during simulation");
     opt.redevelopmentLag->guisection = _("Density");
@@ -657,19 +656,19 @@ int main(int argc, char **argv)
         G_free(undev_cells->cells);
         G_free(undev_cells);
     }
-    if (dev_cells) {
+    if (demand_info.use_density) {
         G_free(dev_cells->num);
         G_free(dev_cells->max);
         for (int i = 0; i < dev_cells->max_subregions; i++)
             G_free(dev_cells->cells[i]);
         G_free(dev_cells->cells);
         G_free(dev_cells);
+        if (population_overflow)
+            G_free(population_overflow);
     }
 
     G_free(patch_sizes.patch_sizes);
     G_free(patch_overflow);
-    if (population_overflow)
-        G_free(population_overflow);
 
     return EXIT_SUCCESS;
 }
