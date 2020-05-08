@@ -288,10 +288,9 @@ void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_m
     char **tokens;
     int ntokens;
 
-    const char *fs = "\t";
     const char *td = "\"";
 
-    tokens = G_tokenize2(buf, fs, td);
+    tokens = G_tokenize2(buf, demandInfo->separator, td);
     ntokens = G_number_of_tokens(tokens);
     if (ntokens == 0)
         G_fatal_error("No columns in the header row");
@@ -314,7 +313,7 @@ void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_m
     while(G_getl2(buf, buflen, fp)) {
         if (buf[0] == '\0')
             continue;
-        tokens = G_tokenize2(buf, fs, td);
+        tokens = G_tokenize2(buf, demandInfo->separator, td);
         int ntokens2 = G_number_of_tokens(tokens);
         if (ntokens2 == 0)
             continue;
@@ -353,7 +352,6 @@ void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt 
         G_fatal_error(_("Cannot open development potential parameters file <%s>"),
                       potentialInfo->filename);
 
-    const char *fs = "\t";
     const char *td = "\"";
 
     size_t buflen = 4000;
@@ -374,7 +372,7 @@ void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt 
     while (G_getl2(buf, buflen, fp)) {
         if (buf[0] == '\0')
             continue;
-        tokens = G_tokenize2(buf, fs, td);
+        tokens = G_tokenize2(buf, potentialInfo->separator, td);
         int ntokens = G_number_of_tokens(tokens);
         if (ntokens == 0)
             continue;

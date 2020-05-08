@@ -27,6 +27,10 @@
 #%option G_OPT_F_OUTPUT
 #% description: Output Potential file
 #%end
+#%option G_OPT_F_SEP
+#% label: Separator used in output file
+#% answer: comma
+#%end
 #%option G_OPT_DB_COLUMNS
 #% description: Names of attribute columns representing sampled predictors
 #% required: yes
@@ -65,6 +69,7 @@ import sys
 import atexit
 import subprocess
 import grass.script as gscript
+import grass.script.utils as gutils
 
 
 rscript = """
@@ -146,6 +151,7 @@ def main():
     columns = options['columns'].split(',')
     binary = options['developed_column']
     level = options['subregions_column']
+    sep = gutils.separator(options['separator'])
     minim = int(options['min_variables'])
     dredge = flags['d']
     if options['max_variables']:
@@ -205,7 +211,7 @@ def main():
                 row[1] = "Intercept"
             if i == 1 and not include_level:
                 row[0] = single_level
-            fout.write('\t'.join(row))
+            fout.write(sep.join(row))
             fout.write('\n')
             i += 1
 

@@ -14,6 +14,7 @@ struct Demand
     int *years;
     int max_subregions;
     int max_steps;
+    const char *separator;
 };
 
 struct Potential
@@ -26,6 +27,7 @@ struct Potential
     int max_subregions;
     float *incentive_transform;
     int incentive_transform_size;
+    const char *separator;
 };
 
 struct PatchSizes

@@ -74,8 +74,8 @@
 #% guisection: Output
 #%end
 #%option G_OPT_F_SEP
-#% label: Separator used in input CSV files
-#% guisection: Input population
+#% label: Separator used in CSV files
+#% guisection: Optional
 #% answer: comma
 #%end
 
@@ -293,12 +293,12 @@ def main():
     # write demand
     with open(options['demand'], 'w') as f:
         header = observed_popul.dtype.names  # the order is kept here
-        f.write('\t'.join(header))
+        f.write(sep.join(header))
         f.write('\n')
         i = 0
         for time in simulation_times[1:]:
             f.write(str(int(time)))
-            f.write('\t')
+            f.write(sep)
             # put 0 where there are more counties but are not in region
             for sub in header[1:]:  # to keep order of subregions
                 if sub not in subregionIds:
@@ -306,7 +306,7 @@ def main():
                 else:
                     f.write(str(int(demand[sub][i])))
                 if sub != header[-1]:
-                    f.write('\t')
+                    f.write(sep)
             f.write('\n')
             i += 1
 
