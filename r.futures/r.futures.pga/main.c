@@ -152,6 +152,7 @@ int main(int argc, char **argv)
     enum seed_search search_alg;
     struct RasterInputs raster_inputs;
     struct KeyValueIntInt *region_map;
+    struct KeyValueIntInt *reverse_region_map;
     struct KeyValueIntInt *potential_region_map;
     struct Undeveloped *undev_cells;
     struct Demand demand_info;
@@ -477,9 +478,11 @@ int main(int argc, char **argv)
 
     //    read Subregions layer
     region_map = KeyValueIntInt_create();
+    reverse_region_map = KeyValueIntInt_create();
     potential_region_map = KeyValueIntInt_create();
     G_verbose_message("Reading input rasters...");
-    read_input_rasters(raster_inputs, &segments, segment_info, region_map, potential_region_map, num_predictors);
+    read_input_rasters(raster_inputs, &segments, segment_info, region_map,
+                       reverse_region_map, potential_region_map, num_predictors);
 
     /* create probability segment*/
     if (Segment_open(&segments.probability, G_tempfile(), Rast_window_rows(),
@@ -516,7 +519,7 @@ int main(int argc, char **argv)
         for (region = 0; region < region_map->nitems; region++) {
             compute_step(undev_cells, &demand_info, search_alg, &segments,
                          &patch_sizes, &patch_info, &devpressure_info, patch_overflow,
-                         step, region, overgrow);
+                         step, region, reverse_region_map, overgrow);
         }
         /* export developed for that step */
         if (opt.outputSeries->answer) {
@@ -544,6 +547,7 @@ int main(int argc, char **argv)
         Segment_close(&segments.potential_subregions);
 
     KeyValueIntInt_free(region_map);
+    KeyValueIntInt_free(reverse_region_map);
     if (demand_info.table) {
         for (int i = 0; i < demand_info.max_subregions; i++)
             G_free(demand_info.table[i]);

@@ -249,9 +249,11 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
                   struct Segments *segments,
                   struct PatchSizes *patch_sizes, struct PatchInfo *patch_info,
                   struct DevPressure *devpressure_info, int *patch_overflow,
-                  int step, int region, bool overgrow)
+                  int step, int region, struct KeyValueIntInt *reverse_region_map,
+                  bool overgrow)
 {
     int i, idx;
+    int region_id;
     int n_to_convert;
     int n_done;
     int found;
@@ -287,10 +289,11 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
     }
 
     if (n_to_convert > undev_cells->num[region]) {
+        KeyValueIntInt_find(reverse_region_map, region, &region_id);
         G_warning("Not enough undeveloped cells in region %d (requested: %d,"
                   " available: %ld). Converting all available.",
-                   region, n_to_convert, undev_cells->num[region]);
-        n_to_convert =  undev_cells->num[region];
+                  region_id, n_to_convert, undev_cells->num[region]);
+        n_to_convert = undev_cells->num[region];
         force_convert_all = true;
     }
     
