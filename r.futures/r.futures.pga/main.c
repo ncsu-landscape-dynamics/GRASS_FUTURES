@@ -79,12 +79,12 @@ struct Developables *initialize_developables(int num_subregions)
 }
 
 
-static int manage_memory(struct SegmentMemory *memory, float input_memory,
-                         int n_predictors, bool has_weights)
+static int manage_memory(struct SegmentMemory *memory, struct Segments *segments,
+                         float input_memory, int n_predictors)
 {
     int nseg, nseg_total;
     int cols, rows;
-    int undev_size;
+    size_t undev_size;
     size_t size;
     size_t estimate;
 
@@ -95,14 +95,25 @@ static int manage_memory(struct SegmentMemory *memory, float input_memory,
 
     undev_size = (sizeof(size_t) + sizeof(float) * 2 + sizeof(bool)) * rows * cols;
     estimate = undev_size;
+    if (segments->use_density)
+        estimate += undev_size;
 
     if (input_memory > 0 && undev_size > 1e9 * input_memory)
         G_warning(_("Not sufficient memory, will attempt to use more "
                     "than specified. Will need at least %d MB"), (int) (undev_size / 1.0e6));
-    // TODO: add density
-    size = sizeof(FCELL) * (n_predictors + (has_weights ? 3 : 2));
-    size += sizeof(CELL) * 2;
-    estimate = estimate + (size * rows * cols);
+
+    /* developed, subregions */
+    size = sizeof(CELL) * 2;
+    /* predictors, devpressure, probability */
+    size += sizeof(FCELL) * (n_predictors + 2);
+    if (segments->use_weight)
+        size += sizeof(FCELL);
+    if (segments->use_potential_subregions)
+        size += sizeof(CELL);
+    /* density + capacity */
+    if (segments->use_density)
+        size += sizeof(FCELL) * 2;
+    estimate += estimate + (size * rows * cols);
     size *= memory->rows * memory->cols;
 
     nseg = (1e9 * input_memory - undev_size) / size;
@@ -112,7 +123,7 @@ static int manage_memory(struct SegmentMemory *memory, float input_memory,
                  (cols / memory->cols + (cols % memory->cols > 0));
 
     if (nseg > nseg_total || input_memory < 0)
-	nseg = nseg_total;
+        nseg = nseg_total;
     G_verbose_message(_("Number of segments in memory: %d of %d total"),
                       nseg, nseg_total);
     G_verbose_message(_("Estimated minimum memory footprint without using disk cache: %d MB"),
@@ -507,8 +518,8 @@ int main(int argc, char **argv)
     memory = -1;
     if (opt.memory->answer)
         memory = atof(opt.memory->answer);
-    nseg = manage_memory(&segment_info, memory,
-                         num_predictors, segments.use_weight);
+    nseg = manage_memory(&segment_info, &segments, memory,
+                         num_predictors);
     segment_info.in_memory = nseg;
 
     potential_info.incentive_transform_size = 0;
