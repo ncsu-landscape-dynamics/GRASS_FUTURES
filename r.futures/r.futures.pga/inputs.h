@@ -103,24 +103,6 @@ struct Developables
     struct DevelopableCell **cells;
 };
 
-struct UndevelopedCell
-{
-
-    size_t id;
-    float probability;
-    float cumulative_probability;
-    bool tried;
-};
-
-struct Undeveloped
-{
-    int max_subregions;
-    size_t *max;
-    size_t *num;
-    struct UndevelopedCell **cells;
-};
-
-
 void initialize_incentive(struct Potential *potential_info, float exponent);
 void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                         struct SegmentMemory segment_info, struct KeyValueIntInt *region_map,
