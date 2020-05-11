@@ -15,6 +15,7 @@
  */
 
 #include <stdlib.h>
+#include <string.h>
 #include <grass/gis.h>
 
 #include "keyvalue.h"
@@ -102,6 +103,101 @@ int KeyValueIntInt_find(const struct KeyValueIntInt *kv, int key, int *value)
    \param[in] kv KeyValueIntInt structure to be G_freed
  */
 void KeyValueIntInt_free(struct KeyValueIntInt *kv)
+{
+    if (!kv)
+        return;
+
+    G_free(kv->key);
+    G_free(kv->value);
+    kv->nitems = 0;                /* just for safe measure */
+    kv->nalloc = 0;
+    G_free(kv);
+}
+
+
+/*!
+   \brief Allocate and initialize KeyValueCharInt structure
+
+   \return poiter to allocated KeyValueCharInt structure
+ */
+struct KeyValueCharInt *KeyValueCharInt_create()
+{
+    struct KeyValueCharInt *kv = (struct KeyValueCharInt *) G_malloc(sizeof(struct KeyValueCharInt));
+    G_zero(kv, sizeof(struct KeyValueCharInt));
+
+    return kv;
+}
+
+/*!
+   \brief Set value for given key
+
+   \param[in,out] kv KeyValueCharInt structure to be modified
+   \param key key to be set up
+   \param value value for given key
+ */
+void KeyValueCharInt_set(struct KeyValueCharInt *kv, const char *key, int value)
+{
+    int n;
+
+    for (n = 0; n < kv->nitems; n++)
+        if (strcmp(key, kv->key[n]) == 0)
+            break;
+
+    if (n == kv->nitems) {
+        if (n >= kv->nalloc) {
+            size_t size;
+
+            if (kv->nalloc <= 0)
+                kv->nalloc = 8;
+            else
+                kv->nalloc *= 2;
+
+            size = kv->nalloc * sizeof(int);
+            kv->key = (const char**) G_realloc(kv->key, size);
+            kv->value = (int *) G_realloc(kv->value, size);
+        }
+
+        kv->key[n] = key;
+        kv->value[n] = value;
+        kv->nitems++;
+        return;
+    }
+
+    kv->value[n] = value;
+}
+
+/*!
+   \brief Find given key
+
+   \param key key to be found
+   \param[out] value pointer to store the value if found
+   \param kv pointer to KeyValueCharInt structure
+
+   \returns TRUE if the key is found (and sets the value)
+   \returns FALSE if no key found
+ */
+int KeyValueCharInt_find(const struct KeyValueCharInt *kv, const char *key, int *value)
+{
+    int n;
+
+    if (!kv)
+        return FALSE;
+
+    for (n = 0; n < kv->nitems; n++)
+        if (strcmp(key, kv->key[n]) == 0) {
+            *value = kv->value[n];
+            return TRUE;
+        }
+
+    return FALSE;
+}
+
+/*!
+   \brief Free allocated KeyValueCharInt structure
+
+   \param[in] kv KeyValueCharInt structure to be G_freed
+ */
+void KeyValueCharInt_free(struct KeyValueCharInt *kv)
 {
     if (!kv)
         return;

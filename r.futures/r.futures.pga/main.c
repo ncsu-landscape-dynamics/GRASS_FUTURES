@@ -166,6 +166,7 @@ int main(int argc, char **argv)
     struct KeyValueIntInt *region_map;
     struct KeyValueIntInt *reverse_region_map;
     struct KeyValueIntInt *potential_region_map;
+    struct KeyValueCharInt *predictor_map;
     struct Developables *undev_cells;
     struct Developables *dev_cells;
     struct Demand demand_info;
@@ -547,9 +548,11 @@ int main(int argc, char **argv)
     region_map = KeyValueIntInt_create();
     reverse_region_map = KeyValueIntInt_create();
     potential_region_map = KeyValueIntInt_create();
+    predictor_map = KeyValueCharInt_create();
     G_verbose_message("Reading input rasters...");
     read_input_rasters(raster_inputs, &segments, segment_info, region_map,
-                       reverse_region_map, potential_region_map, num_predictors);
+                       reverse_region_map, potential_region_map, predictor_map,
+                       num_predictors);
 
     /* create probability segment*/
     if (Segment_open(&segments.probability, G_tempfile(), Rast_window_rows(),
@@ -561,7 +564,9 @@ int main(int argc, char **argv)
     G_verbose_message("Reading potential file...");
     potential_info.filename = opt.potentialFile->answer;
     potential_info.separator = G_option_to_separator(opt.separator);
-    read_potential_file(&potential_info, opt.potentialSubregions->answer ? potential_region_map : region_map, num_predictors);
+    read_potential_file(&potential_info,
+                        opt.potentialSubregions->answer ? potential_region_map : region_map,
+                        predictor_map);
 
     /* read Demand file */
     G_verbose_message("Reading demand file...");
@@ -636,6 +641,7 @@ int main(int argc, char **argv)
     }
     KeyValueIntInt_free(region_map);
     KeyValueIntInt_free(reverse_region_map);
+    KeyValueCharInt_free(predictor_map);
     if (demand_info.cells_table) {
         for (int i = 0; i < demand_info.max_subregions; i++)
             G_free(demand_info.cells_table[i]);
@@ -653,6 +659,7 @@ int main(int argc, char **argv)
         G_free(potential_info.predictors);
         G_free(potential_info.devpressure);
         G_free(potential_info.intercept);
+        G_free(potential_info.predictor_indices);
     }
     for (int i = 0; i < devpressure_info.neighborhood * 2 + 1; i++)
         G_free(devpressure_info.matrix[i]);

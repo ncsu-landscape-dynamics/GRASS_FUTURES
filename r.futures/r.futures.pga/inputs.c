@@ -55,7 +55,8 @@ void initialize_incentive(struct Potential *potential_info, float exponent)
 void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                         struct SegmentMemory segment_info, struct KeyValueIntInt *region_map,
                         struct KeyValueIntInt *reverse_region_map,
-                        struct KeyValueIntInt *potential_region_map, int num_predictors)
+                        struct KeyValueIntInt *potential_region_map,
+                        struct KeyValueCharInt *predictor_map, int num_predictors)
 {
     int i;
     int row, col;
@@ -103,6 +104,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
     }
     for (i = 0; i < num_predictors; i++) {
         fds_predictors[i] = Rast_open_old(inputs.predictors[i], "");
+        KeyValueCharInt_set(predictor_map, inputs.predictors[i], i);
     }
 
     predictor_segment_cell_size = sizeof(FCELL) * num_predictors;
@@ -445,7 +447,7 @@ void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_m
 }
 
 void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt *region_map,
-                         int num_predictors)
+                         struct KeyValueCharInt *predictor_map)
 {
     FILE *fp;
     if ((fp = fopen(potentialInfo->filename, "r")) == NULL)
@@ -453,27 +455,47 @@ void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt 
                       potentialInfo->filename);
 
     const char *td = "\"";
+    char **tokens;
+    char **header_tokens;
+    int header_ntokens;
+    int ntokens;
+    int i;
+    int pred_idx;
 
     size_t buflen = 4000;
     char buf[buflen];
     if (G_getl2(buf, buflen, fp) == 0)
         G_fatal_error(_("Development potential parameters file <%s>"
                         " contains less than one line"), potentialInfo->filename);
+    header_tokens = G_tokenize2(buf, potentialInfo->separator, td);
+    header_ntokens = G_number_of_tokens(header_tokens);
+    /* num predictors minus region id, intercept and devperssure */
+    int num_predictors = header_ntokens - 3;
+    if (num_predictors < 0)
+        G_fatal_error(_("Incorrect header in development potential file <%s>"),
+                      potentialInfo->filename);
     potentialInfo->max_predictors = num_predictors;
     potentialInfo->intercept = (double *) G_malloc(region_map->nitems * sizeof(double));
     potentialInfo->devpressure = (double *) G_malloc(region_map->nitems * sizeof(double));
     potentialInfo->predictors = (double **) G_malloc(num_predictors * sizeof(double *));
-    for (int i = 0; i < num_predictors; i++) {
+    potentialInfo->predictor_indices = (int *) G_malloc(num_predictors * sizeof(int));
+    for (i = 0; i < num_predictors; i++) {
         potentialInfo->predictors[i] = (double *) G_malloc(region_map->nitems * sizeof(double));
     }
-
-    char **tokens;
+    /* index of used predictors in columns within list of predictors */
+    for (i = 0; i < num_predictors; i++) {
+        if (KeyValueCharInt_find(predictor_map, header_tokens[3 + i], &pred_idx))
+            potentialInfo->predictor_indices[i] = pred_idx;
+        else
+            G_fatal_error(_("Specified predictor <%s> in development potential file <%s>"
+                            " was not provided."), header_tokens[3 + i], potentialInfo->filename);
+    }
 
     while (G_getl2(buf, buflen, fp)) {
         if (buf[0] == '\0')
             continue;
         tokens = G_tokenize2(buf, potentialInfo->separator, td);
-        int ntokens = G_number_of_tokens(tokens);
+        ntokens = G_number_of_tokens(tokens);
         if (ntokens == 0)
             continue;
         // id + intercept + devpressure + predictores

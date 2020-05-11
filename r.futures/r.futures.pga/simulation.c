@@ -108,6 +108,7 @@ double get_develop_probability_xy(struct Segments *segments,
 {
     float probability;
     int i;
+    int pred_index;
     int transformed_idx = 0;
     FCELL devpressure_val;
     FCELL weight;
@@ -123,7 +124,8 @@ double get_develop_probability_xy(struct Segments *segments,
     probability = potential_info->intercept[pot_index];
     probability += potential_info->devpressure[pot_index] * devpressure_val;
     for (i = 0; i < potential_info->max_predictors; i++) {
-        probability += potential_info->predictors[i][pot_index] * values[i];
+        pred_index = potential_info->predictor_indices[i];
+        probability += potential_info->predictors[i][pot_index] * values[pred_index];
     }
     probability = 1.0 / (1.0 + exp(-probability));
     if (potential_info->incentive_transform) {

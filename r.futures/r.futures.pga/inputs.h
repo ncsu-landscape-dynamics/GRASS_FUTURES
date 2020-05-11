@@ -29,6 +29,7 @@ struct Potential
     double **predictors;
     double *intercept;
     double *devpressure;
+    int *predictor_indices;
     int max_predictors;
     int max_subregions;
     float *incentive_transform;
@@ -107,10 +108,11 @@ void initialize_incentive(struct Potential *potential_info, float exponent);
 void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                         struct SegmentMemory segment_info, struct KeyValueIntInt *region_map,
                         struct KeyValueIntInt *reverse_region_map,
-                        struct KeyValueIntInt *potential_region_map, int num_predictors);
+                        struct KeyValueIntInt *potential_region_map,
+                        struct KeyValueCharInt *predictor_map, int num_predictors);
 void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_map);
 void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt *region_map,
-                         int num_predictors);
+                         struct KeyValueCharInt *predictor_map);
 void read_patch_sizes(struct PatchSizes *patch_sizes, struct KeyValueIntInt *region_map,
                       double discount_factor);
 
