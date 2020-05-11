@@ -113,7 +113,7 @@ static int manage_memory(struct SegmentMemory *memory, struct Segments *segments
     /* density + capacity */
     if (segments->use_density)
         size += sizeof(FCELL) * 2;
-    estimate += estimate + (size * rows * cols);
+    estimate += size * rows * cols;
     size *= memory->rows * memory->cols;
 
     nseg = (1e9 * input_memory - undev_size) / size;
