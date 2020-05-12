@@ -144,6 +144,7 @@ int main(int argc, char **argv)
                 *incentivePower, *potentialWeight,
                 *cellDemandFile, *populationDemandFile, *separator,
                 *density, *densityCapacity, *outputDensity, *redevelopmentLag,
+                *redevelopmentPotentialFile,
                 *patchFile, *numSteps, *output, *outputSeries, *seed, *memory;
     } opt;
 
@@ -171,6 +172,7 @@ int main(int argc, char **argv)
     struct Developables *dev_cells;
     struct Demand demand_info;
     struct Potential potential_info;
+    struct Potential redev_potential_info;
     struct SegmentMemory segment_info;
     struct PatchSizes patch_sizes;
     struct PatchInfo patch_info;
@@ -279,6 +281,16 @@ int main(int argc, char **argv)
             _("Raster map of maximum capacity");
     opt.densityCapacity->guisection = _("Density");
 
+    opt.redevelopmentPotentialFile = G_define_standard_option(G_OPT_F_INPUT);
+    opt.redevelopmentPotentialFile->key = "redevpot_params";
+    opt.redevelopmentPotentialFile->required = NO;
+    opt.redevelopmentPotentialFile->label =
+        _("CSV file with redevelopment potential parameters for each region");
+    opt.redevelopmentPotentialFile->description =
+        _("Each line should contain region ID followed"
+          " by parameters (intercepts, development pressure, other predictors).");
+    opt.redevelopmentPotentialFile->guisection = _("Density");
+
     opt.redevelopmentLag = G_define_option();
     opt.redevelopmentLag->key = "redevelopment_lag";
     opt.redevelopmentLag->type = TYPE_INTEGER;
@@ -316,8 +328,7 @@ int main(int argc, char **argv)
         _("CSV file with development potential parameters for each region");
     opt.potentialFile->description =
         _("Each line should contain region ID followed"
-          " by parameters (intercepts, development pressure, other predictors)."
-          " First line is ignored, so it can be used for header");
+          " by parameters (intercepts, development pressure, other predictors).");
     opt.potentialFile->guisection = _("Potential");
 
     opt.cellDemandFile = G_define_standard_option(G_OPT_F_INPUT);
@@ -451,7 +462,8 @@ int main(int argc, char **argv)
     G_option_exclusive(opt.seed, flg.generateSeed, NULL);
     G_option_required(opt.seed, flg.generateSeed, NULL);
     G_option_collective(opt.populationDemandFile, opt.density,
-                        opt.densityCapacity, opt.outputDensity, opt.redevelopmentLag, NULL);
+                        opt.densityCapacity, opt.outputDensity,
+                        opt.redevelopmentLag, opt.redevelopmentPotentialFile, NULL);
     if (G_parser(argc, argv))
         exit(EXIT_FAILURE);
 
@@ -530,6 +542,15 @@ int main(int argc, char **argv)
         if (exponent !=  1)  /* 1 is no-op */
             initialize_incentive(&potential_info, exponent);
     }
+    if (opt.redevelopmentPotentialFile->answer) {
+        redev_potential_info.incentive_transform_size = 0;
+        redev_potential_info.incentive_transform = NULL;
+        if (opt.incentivePower->answer) {
+            exponent = atof(opt.incentivePower->answer);
+            if (exponent !=  1)  /* 1 is no-op */
+                initialize_incentive(&redev_potential_info, exponent);
+        }
+    }
 
     raster_inputs.developed = opt.developed->answer;
     raster_inputs.regions = opt.subregions->answer;
@@ -567,6 +588,13 @@ int main(int argc, char **argv)
     read_potential_file(&potential_info,
                         opt.potentialSubregions->answer ? potential_region_map : region_map,
                         predictor_map);
+    if (opt.redevelopmentPotentialFile->answer) {
+        redev_potential_info.filename = opt.redevelopmentPotentialFile->answer;
+        redev_potential_info.separator = G_option_to_separator(opt.separator);
+        read_potential_file(&redev_potential_info,
+                            opt.potentialSubregions->answer ? potential_region_map : region_map,
+                            predictor_map);
+    }
 
     /* read Demand file */
     G_verbose_message("Reading demand file...");
@@ -598,7 +626,7 @@ int main(int argc, char **argv)
     for (step = 0; step < num_steps; step++) {
         recompute_probabilities(undev_cells, &segments, &potential_info, false);
         if (demand_info.use_density)
-            recompute_probabilities(dev_cells, &segments, &potential_info, true);
+            recompute_probabilities(dev_cells, &segments, &redev_potential_info, true);
         if (step == num_steps - 1)
             overgrow = false;
         for (region = 0; region < region_map->nitems; region++) {
@@ -660,6 +688,14 @@ int main(int argc, char **argv)
         G_free(potential_info.devpressure);
         G_free(potential_info.intercept);
         G_free(potential_info.predictor_indices);
+    }
+    if (opt.redevelopmentPotentialFile->answer) {
+        for (int i = 0; i < redev_potential_info.max_predictors; i++)
+            G_free(redev_potential_info.predictors[i]);
+        G_free(redev_potential_info.predictors);
+        G_free(redev_potential_info.devpressure);
+        G_free(redev_potential_info.intercept);
+        G_free(redev_potential_info.predictor_indices);
     }
     for (int i = 0; i < devpressure_info.neighborhood * 2 + 1; i++)
         G_free(devpressure_info.matrix[i]);
