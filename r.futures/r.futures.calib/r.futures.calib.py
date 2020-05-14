@@ -121,10 +121,10 @@
 #% guisection: PGA
 #%end
 #%option G_OPT_R_INPUT
-#% key: constrain_weight
+#% key: potential_weight
 #% required: no
-#% label: Name of raster map representing development potential constraint weight for scenarios
-#% description: Values must be between 0 and 1, 1 means no constraint
+#% label: Raster map of weights altering development potential
+#% description: Values need to be between -1 and 1, where negative locally reduces probability and positive increases probability.
 #% guisection: PGA
 #%end
 #%option G_OPT_R_INPUTS
@@ -207,6 +207,13 @@
 #% description: Raster map of subregions with categories starting with 1
 #% guisection: PGA
 #%end
+#%option G_OPT_R_INPUT
+#% key: subregions_potential
+#% required: no
+#% label: Raster map of subregions used with potential file
+#% description: If not specified, the raster specified in subregions parameter is used
+#% guisection: PGA
+#%end
 #%option G_OPT_F_INPUT
 #% key: demand
 #% required: no
@@ -231,7 +238,7 @@
 #% exclusive: -l,devpot_params
 #% exclusive: -l,n_dev_neighbourhood
 #% exclusive: -l,predictors
-#% exclusive: -l,constrain_weight
+#% exclusive: -l,potential_weight
 #% exclusive: -l,development_pressure
 #% exclusive: -l,calibration_results
 #% exclusive: -l,discount_factor
@@ -357,7 +364,7 @@ def run_simulation(development_start, development_end, compactness_mean,
                               subregions=fut_options['subregions'], demand=fut_options['demand'],
                               output=development_end, random_seed=seed, quiet=True)
     parameters.update(futures_parameters)
-    for not_required in ('constrain_weight', 'num_steps', 'incentive_power'):
+    for not_required in ('potential_weight', 'num_steps', 'incentive_power', 'subregions_potential'):
         if fut_options[not_required]:
             parameters.update({not_required: fut_options[not_required]})
 
