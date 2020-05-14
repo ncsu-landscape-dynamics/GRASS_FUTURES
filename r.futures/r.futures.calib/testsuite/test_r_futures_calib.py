@@ -19,9 +19,9 @@ class TestPGACalib(TestCase):
         cls.use_temp_region()
         cls.runModule('g.region', raster="lsat7_2002_30@PERMANENT")
         cls.runModule('r.mapcalc',
-            expression="ndvi_2002 = double(lsat7_2002_40@PERMANENT - lsat7_2002_30@PERMANENT) / double(lsat7_2002_40@PERMANENT + lsat7_2002_30@PERMANENT)")
+                      expression="ndvi_2002 = double(lsat7_2002_40@PERMANENT - lsat7_2002_30@PERMANENT) / double(lsat7_2002_40@PERMANENT + lsat7_2002_30@PERMANENT)")
         cls.runModule('r.mapcalc',
-            expression="ndvi_1987 = double(lsat5_1987_40@landsat - lsat5_1987_30@landsat) / double(lsat5_1987_40@landsat + lsat5_1987_30@landsat)")
+                      expression="ndvi_1987 = double(lsat5_1987_40@landsat - lsat5_1987_30@landsat) / double(lsat5_1987_40@landsat + lsat5_1987_30@landsat)")
         cls.runModule('r.mapcalc', expression="urban_1987 = if(ndvi_1987 <= 0.1 && isnull(lakes), 1, if(isnull(lakes), 0, null()))")
         cls.runModule('r.mapcalc', expression="urban_2002 = if(ndvi_2002 <= 0.1 && isnull(lakes), 1, if(isnull(lakes), 0, null()))")
         cls.runModule('r.slope.aspect', elevation='elevation', slope='slope')
@@ -44,7 +44,7 @@ class TestPGACalib(TestCase):
         try:
             os.remove('data/out_library.txt')
             os.remove('data/out_calib.csv')
-        except:
+        except OSError:
             pass
 
     def test_pga_calib_library(self):
@@ -57,7 +57,7 @@ class TestPGACalib(TestCase):
                           patch_sizes='data/out_library.txt')
         self.assertTrue(filecmp.cmp('data/out_library.txt', 'data/ref_library.txt', shallow=False),
                         "Patch libraries differ")
-        
+
     def test_pga_calib_compactness(self):
         """Test if compactness calib file matches the reference"""
         self.assertModule('r.futures.calib',
@@ -65,7 +65,7 @@ class TestPGACalib(TestCase):
                           development_end='urban_2002',
                           patch_threshold=0,
                           patch_sizes='data/out_library.txt',
-                          compactness_mean=[0.1,0.8],
+                          compactness_mean=[0.1, 0.8],
                           compactness_range=[0.1],
                           discount_factor=[0.1],
                           calibration_results='data/out_calib.csv',
@@ -75,6 +75,7 @@ class TestPGACalib(TestCase):
                           **self.pga_params)
         self.assertTrue(filecmp.cmp('data/out_calib.csv', 'data/ref_calib.csv', shallow=False),
                         "Calibration results differ")
+
 
 if __name__ == '__main__':
     test()

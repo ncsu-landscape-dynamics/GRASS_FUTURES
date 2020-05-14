@@ -259,17 +259,15 @@ import sys
 import os
 import atexit
 import numpy as np
-import tempfile
+from io import StringIO
 from multiprocessing import Process, Queue
 
 import grass.script.core as gcore
 import grass.script.raster as grast
-import grass.script.utils as gutils
 from grass.exceptions import CalledModuleError
 
 
 TMP = []
-TMPFILE = None
 
 
 def cleanup(tmp=None):
@@ -278,10 +276,16 @@ def cleanup(tmp=None):
     else:
         maps = TMP
     gcore.run_command('g.remove', flags='f', type=['raster', 'vector'], name=maps, quiet=True)
-    gutils.try_remove(TMPFILE)
 
 
-def run_one_combination(repeat, seed, development_start, compactness_mean, compactness_range,
+def check_addon_installed(addon, fatal=True):
+    if not gcore.find_program(addon, '--help'):
+        call = gcore.fatal if fatal else gcore.warning
+        call(_("Addon {a} is not installed."
+               " Please install it using g.extension.").format(a=addon))
+
+
+def run_one_combination(comb_count, comb_all, repeat, seed, development_start, compactness_mean, compactness_range,
                         discount_factor, patches_file, fut_options, threshold,
                         hist_bins_area_orig, hist_range_area_orig, hist_bins_compactness_orig,
                         hist_range_compactness_orig, cell_size, histogram_area_orig, histogram_compactness_orig,
@@ -291,12 +295,10 @@ def run_one_combination(repeat, seed, development_start, compactness_mean, compa
     suffix = (str(discount_factor) + str(compactness_mean) + str(compactness_range)).replace('.', '')
     simulation_dev_end = tmp_name + 'simulation_dev_end_' + suffix
     simulation_dev_diff = tmp_name + 'simulation_dev_diff' + suffix
-    tmp_patch_vect = tmp_name + 'tmp_patch_vect' + suffix
-    tmp_patch_vect2 = tmp_name + 'tmp_patch_vect2' + suffix
+    tmp_clump = tmp_name + 'tmp_clump' + suffix
     TMP_PROCESS.append(simulation_dev_diff)
-    TMP_PROCESS.append(simulation_dev_diff)
-    TMP_PROCESS.append(tmp_patch_vect)
-    TMP_PROCESS.append(tmp_patch_vect2)
+    TMP_PROCESS.append(simulation_dev_end)
+    TMP_PROCESS.append(tmp_clump)
 
     sum_dist_area = 0
     sum_dist_compactness = 0
@@ -304,7 +306,10 @@ def run_one_combination(repeat, seed, development_start, compactness_mean, compa
     seed *= 10000
     for i in range(repeat):
         f_seed = seed + i
-        gcore.message(_("Running FUTURES simulation {i}/{repeat}...".format(i=i + 1, repeat=repeat)))
+        gcore.message(_("Running calibration combination {comb_count}/{comb_all}"
+                        " of simulation attempt {i}/{repeat} with random seed {s}...".format(comb_count=comb_count,
+                                                                                             comb_all=comb_all,
+                                                                                             i=i + 1, repeat=repeat, s=f_seed)))
         try:
             run_simulation(development_start=development_start, development_end=simulation_dev_end,
                            compactness_mean=compactness_mean, compactness_range=compactness_range,
@@ -317,12 +322,9 @@ def run_one_combination(repeat, seed, development_start, compactness_mean, compa
             return
         new_development(simulation_dev_end, simulation_dev_diff)
 
-        temp_file = tempfile.NamedTemporaryFile(delete=False)
-        temp_file.close()
-        patch_analysis(simulation_dev_diff, threshold, tmp_patch_vect, tmp_patch_vect2, temp_file.name)
-        sim_hist_area, sim_hist_compactness = create_histograms(temp_file.name, hist_bins_area_orig, hist_range_area_orig,
+        data = patch_analysis(simulation_dev_diff, threshold, tmp_clump)
+        sim_hist_area, sim_hist_compactness = create_histograms(data, hist_bins_area_orig, hist_range_area_orig,
                                                                 hist_bins_compactness_orig, hist_range_compactness_orig, cell_size)
-        os.remove(temp_file.name)
 
         sum_dist_area += compare_histograms(histogram_area_orig, sim_hist_area)
         sum_dist_compactness += compare_histograms(histogram_compactness_orig, sim_hist_compactness)
@@ -353,7 +355,7 @@ def run_simulation(development_start, development_end, compactness_mean,
                               development_pressure_approach=fut_options['development_pressure_approach'], gamma=fut_options['gamma'],
                               scaling_factor=fut_options['scaling_factor'],
                               subregions=fut_options['subregions'], demand=fut_options['demand'],
-                              output=development_end, random_seed=seed)
+                              output=development_end, random_seed=seed, quiet=True)
     parameters.update(futures_parameters)
     for not_required in ('constrain_weight', 'num_steps', 'incentive_power'):
         if fut_options[not_required]:
@@ -372,18 +374,15 @@ def new_development(development_end, development_diff):
                   dev_end=development_end), overwrite=True, quiet=True)
 
 
-def patch_analysis(development_diff, threshold, tmp_vector_patches, tmp_vector_patches2, output_file):
-    gcore.run_command('r.to.vect', input=development_diff, output=tmp_vector_patches2, type='area', overwrite=True, quiet=True)
-    gcore.run_command('v.clean', input=tmp_vector_patches2, output=tmp_vector_patches, tool='rmarea', threshold=threshold, quiet=True, overwrite=True)
-    gcore.run_command('v.db.addcolumn', map=tmp_vector_patches, columns="area double precision,perimeter double precision", quiet=True)
-    gcore.run_command('v.to.db', map=tmp_vector_patches, option='area', column='area', units='meters', quiet=True, overwrite=True)
-    gcore.run_command('v.to.db', map=tmp_vector_patches, option='perimeter', column='perimeter', units='meters', quiet=True, overwrite=True)
-    gcore.run_command('v.db.select', map=tmp_vector_patches, columns=['area', 'perimeter'],
-                      flags='c', separator='space', file_=output_file, overwrite=True, quiet=True)
+def patch_analysis(development_diff, threshold, tmp_clump):
+    gcore.run_command('r.clump', input=development_diff, output=tmp_clump, overwrite=True, quiet=True)
+    data = gcore.read_command('r.object.geometry', input=tmp_clump, flags='m', separator='comma', quiet=True).strip()
+    data = np.loadtxt(StringIO(data), delimiter=',', usecols=(1, 2), skiprows=1)
+    return data[data[:, 0] > threshold]
 
 
-def create_histograms(input_file, hist_bins_area_orig, hist_range_area_orig, hist_bins_compactness_orig, hist_range_compactness_orig, cell_size):
-    area, perimeter = np.loadtxt(fname=input_file, unpack=True)
+def create_histograms(data, hist_bins_area_orig, hist_range_area_orig, hist_bins_compactness_orig, hist_range_compactness_orig, cell_size):
+    area, perimeter = data.T
     compact = compactness(area, perimeter)
     histogram_area, _edges = np.histogram(area / cell_size, bins=hist_bins_area_orig,
                                           range=hist_range_area_orig, density=True)
@@ -394,10 +393,8 @@ def create_histograms(input_file, hist_bins_area_orig, hist_range_area_orig, his
     return histogram_area, histogram_compactness
 
 
-def write_patches_file(vector_patches, cell_size, output_file):
-    gcore.run_command('v.db.select', map=vector_patches, columns='area',
-                      flags='c', separator='space', file_=output_file, quiet=True)
-    areas = np.loadtxt(fname=output_file)
+def write_patches_file(data, cell_size, output_file):
+    areas = data[:, 0]
     areas = np.round(areas / cell_size)
     np.savetxt(fname=output_file, X=np.sort(areas.astype(int)), fmt='%u')
 
@@ -420,7 +417,26 @@ def compactness(area, perimeter):
     return perimeter / (2 * np.sqrt(np.pi * area))
 
 
+def process_calibration(calib_file):
+    disc, area_err, compact_mean, compact_range, compact_err = \
+        np.loadtxt(calib_file, unpack=True, delimiter=',')
+    norm_area_err = area_err / np.max(area_err)
+    norm_compact_err = compact_err / np.max(compact_err)
+    averaged_error = (norm_area_err + norm_compact_err) / 2
+    res = np.column_stack((disc, compact_mean, compact_range, norm_area_err, norm_compact_err, averaged_error))
+    res = res[res[:, 5].argsort()]
+    header = ','.join(['discount_factor',
+                       'compactness_mean', 'compactness_range',
+                       'area_error', 'compactness_error', 'combined_error'])
+    with open(calib_file, 'w') as f:
+        f.write(header)
+        f.write('\n')
+        np.savetxt(f, res, delimiter=',', fmt='%.2f')
+
+
 def main():
+    check_addon_installed('r.object.geometry', fatal=True)
+
     dev_start = options['development_start']
     dev_end = options['development_end']
     only_file = flags['l']
@@ -436,31 +452,26 @@ def main():
 
     # compute cell size
     region = gcore.region()
-    res = (region['nsres'] + region['ewres'])/2.
+    res = (region['nsres'] + region['ewres']) / 2.
     coeff = float(gcore.parse_command('g.proj', flags='g')['meters'])
     cell_size = res * res * coeff * coeff
 
     tmp_name = 'tmp_futures_calib_' + str(os.getpid()) + '_'
-    global TMP, TMPFILE
+    global TMP
 
     orig_patch_diff = tmp_name + 'orig_patch_diff'
     TMP.append(orig_patch_diff)
-    tmp_patch_vect = tmp_name + 'tmp_patch_vect'
-    tmp_patch_vect2 = tmp_name + 'tmp_patch_vect2'
-    TMP.append(tmp_patch_vect)
-    TMP.append(tmp_patch_vect2)
-    temp_file = tempfile.NamedTemporaryFile(delete=False)
-    temp_file.close()
-    TMPFILE = temp_file.name
+    tmp_clump = tmp_name + 'tmp_clump'
+    TMP.append(tmp_clump)
 
     gcore.message(_("Analyzing original patches..."))
     diff_development(dev_start, dev_end, options['subregions'], orig_patch_diff)
-    patch_analysis(orig_patch_diff, threshold, tmp_patch_vect, tmp_patch_vect2, temp_file.name)
-    write_patches_file(tmp_patch_vect, cell_size, patches_file)
+    data = patch_analysis(orig_patch_diff, threshold, tmp_clump)
+    write_patches_file(data, cell_size, patches_file)
     if only_file:
         return
 
-    area, perimeter = np.loadtxt(fname=temp_file.name, unpack=True)
+    area, perimeter = data.T
     compact = compactness(area, perimeter)
 
     # area histogram
@@ -488,17 +499,13 @@ def main():
     proc_list = []
     num_all = len(compactness_means) * len(compactness_ranges) * len(discount_factors)
     with open(options['calibration_results'], 'w') as f:
-        f.write(','.join(['input_discount_factor', 'area_error',
-                          'input_compactness_mean', 'input_compactness_range',
-                          'compactness_error']))
-        f.write('\n')
         for com_mean in compactness_means:
             for com_range in compactness_ranges:
                 for discount_factor in discount_factors:
                     count += 1
                     q = Queue()
                     p = Process(target=run_one_combination,
-                                args=(repeat, seed, dev_start, com_mean, com_range,
+                                args=(count, num_all, repeat, seed, dev_start, com_mean, com_range,
                                       discount_factor, patches_file, options, threshold,
                                       hist_bins_area_orig, hist_range_area_orig, hist_bins_compactness_orig,
                                       hist_range_compactness_orig, cell_size, histogram_area_orig, histogram_compactness_orig,
@@ -522,6 +529,9 @@ def main():
                         proc_count = 0
                         proc_list = []
                         queue_list = []
+    # compute combined normalized error
+    process_calibration(options['calibration_results'])
+
 
 if __name__ == "__main__":
     options, flags = gcore.parser()
