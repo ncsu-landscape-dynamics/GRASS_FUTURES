@@ -253,6 +253,13 @@
 #% answer: 1
 #% guisection: Scenarios
 #%end
+#%option G_OPT_R_INPUT
+#% key: potential_weight
+#% required: no
+#% label: Raster map of weights altering development potential
+#% description: Values need to be between -1 and 1, where negative locally reduces probability and positive increases probability.
+#% guisection: Scenarios
+#%end
 
 import os
 import sys
