@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python3
 #
 ##############################################################################
 #
@@ -436,8 +435,8 @@ def process_calibration(calib_file):
                        'compactness_mean', 'compactness_range',
                        'area_error', 'compactness_error', 'combined_error'])
     with open(calib_file, 'wb') as f:
-        f.write(header)
-        f.write('\n')
+        f.write(header.encode())
+        f.write(b'\n')
         np.savetxt(f, res, delimiter=',', fmt='%.2f')
 
 
