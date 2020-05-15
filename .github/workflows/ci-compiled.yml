@@ -58,4 +58,8 @@ jobs:
       run: |
         cd ./r.futures/r.futures.pga/testsuite
         grass -c ~/nc_spm_08_grass7/test --exec ./test_r_futures_pga.py
+        cd ../../r.futures.parallelpga/testsuite
+        grass ~/nc_spm_08_grass7/test --exec ./test_r_futures_parallelpga.py
+        cd ../../r.futures.calib/testsuite
+        grass ~/nc_spm_08_grass7/test --exec ./test_r_futures_calib.py
         rm -rf ~/nc_spm_08_grass7/test
