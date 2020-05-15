@@ -53,6 +53,7 @@ jobs:
       if: steps.cache-nc_spm_08_grass7.outputs.cache-hit != 'true'
       run: |
         grass --tmp-location XY --exec g.extension g.download.location --verbose
+        grass --tmp-location XY --exec g.extension r.object.geometry --verbose
         grass --tmp-location XY --exec g.download.location url=https://grass.osgeo.org/sampledata/north_carolina/nc_spm_08_grass7.tar.gz dbase=~ --verbose
     - name: Run test (manually specified files)
       run: |
