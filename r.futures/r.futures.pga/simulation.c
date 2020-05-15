@@ -82,7 +82,7 @@ int get_seed(struct Undeveloped *undev_cells, int region_idx, enum seed_search m
 {
     int i, id;
     if (method == RANDOM)
-        i = (int)(G_drand48() * undev_cells->max[region_idx]);
+        i = (int)(G_drand48() * undev_cells->num[region_idx]);
     else
         i = find_probable_seed(undev_cells, region_idx);
     id = undev_cells->cells[region_idx][i].id;
