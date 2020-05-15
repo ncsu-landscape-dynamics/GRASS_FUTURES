@@ -43,7 +43,6 @@ class TestPotential(TestCase):
         cls.del_temp_region()
 
     def tearDown(self):
-        self.runModule('g.remove', flags='f', type='raster', name=self.output)
         try:
             os.remove(self.output)
         except OSError:
