@@ -435,7 +435,7 @@ def process_calibration(calib_file):
     header = ','.join(['discount_factor',
                        'compactness_mean', 'compactness_range',
                        'area_error', 'compactness_error', 'combined_error'])
-    with open(calib_file, 'w') as f:
+    with open(calib_file, 'wb') as f:
         f.write(header)
         f.write('\n')
         np.savetxt(f, res, delimiter=',', fmt='%.2f')
