@@ -49,4 +49,6 @@ jobs:
         grass ~/nc_spm_08_grass7/test --exec ./test_r_futures_parallelpga.py
         cd ../../r.futures.calib/testsuite
         grass ~/nc_spm_08_grass7/test --exec ./test_r_futures_calib.py
+        cd ../../r.futures.potsurface/testsuite
+        grass ~/nc_spm_08_grass7/test --exec ./test_r_futures_potsurface.py
         rm -rf ~/nc_spm_08_grass7/test
