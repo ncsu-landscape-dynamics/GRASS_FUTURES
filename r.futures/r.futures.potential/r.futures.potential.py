@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python3
 #
 ##############################################################################
 #
@@ -9,7 +8,7 @@
 #
 # PURPOSE:      FUTURES Potential submodel
 #
-# COPYRIGHT:    (C) 2016 by the GRASS Development Team
+# COPYRIGHT:    (C) 2016-2020 by the GRASS Development Team
 #
 #               This program is free software under the GNU General Public
 #               License (>=v2). Read the file COPYING that comes with GRASS
@@ -166,7 +165,7 @@ def main():
     TMP_RSCRIPT = gscript.tempfile()
     include_level = True
     distinct = gscript.read_command('v.db.select', flags='c', map=vinput,
-                                    columns="distinct {l}".format(l=level)).strip()
+                                    columns="distinct {level}".format(level=level)).strip()
     if len(distinct.splitlines()) <= 1:
         include_level = False
         single_level = distinct.splitlines()[0]
@@ -186,10 +185,10 @@ def main():
     else:
         gscript.info(_("Computing model..."))
 
-    cmd = ['Rscript', TMP_RSCRIPT, '-i', TMP_CSV,  '-r', binary,
-               '-m', str(minim), '-x', str(maxv), '-o', TMP_POT, '-d', 'TRUE' if dredge else 'FALSE']
+    cmd = ['Rscript', TMP_RSCRIPT, '-i', TMP_CSV, '-r', binary,
+           '-m', str(minim), '-x', str(maxv), '-o', TMP_POT, '-d', 'TRUE' if dredge else 'FALSE']
     if include_level:
-        cmd += [ '-l', level]
+        cmd += ['-l', level]
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = p.communicate()
     gscript.warning(gscript.decode(stderr))
@@ -220,4 +219,3 @@ if __name__ == "__main__":
     options, flags = gscript.parser()
     atexit.register(cleanup)
     sys.exit(main())
-
