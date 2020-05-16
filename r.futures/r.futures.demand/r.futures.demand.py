@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python3
 #
 ##############################################################################
 #
@@ -9,7 +8,7 @@
 #
 # PURPOSE:      create demand table for FUTURES
 #
-# COPYRIGHT:    (C) 2015 by the GRASS Development Team
+# COPYRIGHT:    (C) 2015-2020 by the GRASS Development Team
 #
 #		This program is free software under the GNU General Public
 #		License (version 2). Read the file COPYING that comes with GRASS
