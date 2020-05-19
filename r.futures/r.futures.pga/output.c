@@ -165,12 +165,19 @@ void output_developed_step(SEGMENT *developed_segment, const char *name,
 
 }
 
-void output_density_step(SEGMENT *density_segment, const char *name)
+/*!
+ * \brief Write current state of density.
+ * \param density_segment segment with density
+ * \param developed_segment segment of developed cells
+ * \param name name for output map
+ */
+void output_density_step(SEGMENT *density_segment, SEGMENT *developed_segment, const char *name)
 {
     int out_fd;
     int row, col, rows, cols;
     FCELL *out_row;
     FCELL density;
+    CELL developed;
 
     rows = Rast_window_rows();
     cols = Rast_window_cols();
@@ -183,9 +190,11 @@ void output_density_step(SEGMENT *density_segment, const char *name)
         Rast_set_f_null_value(out_row, cols);
         for (col = 0; col < cols; col++) {
             Segment_get(density_segment, (void *)&density, row, col);
-            if (Rast_is_f_null_value(&density)) {
+            Segment_get(developed_segment, (void *)&developed, row, col);
+            if (Rast_is_c_null_value(&developed))
                 continue;
-            }
+            if (Rast_is_f_null_value(&density))
+                continue;
             out_row[col] = density;
         }
         Rast_put_f_row(out_fd, out_row);

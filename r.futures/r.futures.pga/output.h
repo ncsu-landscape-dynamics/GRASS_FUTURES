@@ -9,5 +9,5 @@
 char *name_for_step(const char *basename, const int step, const int nsteps);
 void output_developed_step(SEGMENT *developed_segment, const char *name, int year_from, int year_to,
                            int nsteps, bool undeveloped_as_null, bool developed_as_one);
-void output_density_step(SEGMENT *density_segment, const char *name);
+void output_density_step(SEGMENT *density_segment, SEGMENT *developed_segment, const char *name);
 #endif // FUTURES_OUTPUT_H

@@ -643,7 +643,7 @@ int main(int argc, char **argv)
         /* export density for that step */
         if (opt.outputDensity->answer) {
             name_step = name_for_step(opt.outputDensity->answer, step, num_steps);
-            output_density_step(&segments.density, name_step);
+            output_density_step(&segments.density, &segments.developed, name_step);
         }
     }
 
