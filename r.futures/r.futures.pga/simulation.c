@@ -285,7 +285,7 @@ void attempt_grow_patch(struct Developables *dev_cells,
                            patch_info, segments, patch_overflow, patch_ids,
                            type);
         *cells_converted += found;
-        if (type == PATCH_TYPE_REDEVELOP) {
+        if (segments->use_density) {
             /* determine density and write it, determine population accommodated */
             patch_density = get_patch_density(patch_ids, found, segments);
             popul_found = update_patch_density(patch_density, patch_ids, found, segments);
