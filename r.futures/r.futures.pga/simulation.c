@@ -169,6 +169,7 @@ void recompute_probabilities(struct Developables *developable_cells,
     CELL developed;
     CELL region;
     FCELL *values;
+    FCELL density, capacity;
     float probability;
     float sum;
     
@@ -184,9 +185,17 @@ void recompute_probabilities(struct Developables *developable_cells,
             Segment_get(&segments->developed, (void *)&developed, row, col);
             if (Rast_is_null_value(&developed, CELL_TYPE))
                 continue;
-            if ((!use_developed && developed != DEV_TYPE_UNDEVELOPED) ||
-                    (use_developed && developed == DEV_TYPE_UNDEVELOPED))
+            if (!use_developed && developed != DEV_TYPE_UNDEVELOPED)
                 continue;
+            if (use_developed) {
+                if (developed == DEV_TYPE_UNDEVELOPED)
+                    continue;
+                Segment_get(&segments->density_capacity, (void *)&capacity, row, col);
+                Segment_get(&segments->density, (void *)&density, row, col);
+                // TODO: minimum difference to redevelop as parameter?
+                if (capacity - density < 1)
+                    continue;
+            }
             Segment_get(&segments->subregions, (void *)&region, row, col);
             
             /* realloc if needed */
