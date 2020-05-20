@@ -12,6 +12,8 @@
  */
 
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include <math.h>
 
 #include <grass/gis.h>
@@ -413,41 +415,70 @@ void read_patch_sizes(struct PatchSizes *patch_info, double discount_factor)
 {
     FILE *fin;
     char *size_buffer;
-    int n_max_patches;
+    int line = 0;
     int patch;
-
-
+	char** tokens;
+	
     patch_info->max_patches = 0;
     patch_info->max_patch_size = 0;
-
-    fin = fopen(patch_info->filename, "rb");
+    // essentially number of columns in file
+    patch_info->area_count = 0;
+	fin = fopen(patch_info->filename, "rb");
     if (fin) {
-        size_buffer = (char *) G_malloc(100 * sizeof(char));
+        size_buffer = (char *) G_malloc(1054 * sizeof(char));
         if (size_buffer) {
             /* just scan the file twice */
-            n_max_patches = 0;
-            while (fgets(size_buffer, 100, fin)) {
-                n_max_patches++;
+            // TODO need to look at region_map and update indexing
+            // scan in the header line
+            fgets(size_buffer, 1054, fin);
+            tokens = G_tokenize(size_buffer, ",")
+            patch_info->area_count = G_number_of_tokens(tokens);
+			// initialize patch_info->patch_count to all zero
+			patch_info->patch_count = (int*) G_calloc(patch_info->area_count, sizeof(int));
+            // take one line
+            while (fgets(size_buffer, 1054, fin)) {
+            	// process each column in row
+            	tokens = G_tokenize(size_buffer, ",")
+            	int s = G_number_of_tokens(tokens);
+            	for ( int i = 0; i < s; i++) {
+            		// increment the count of the patches for that area
+            		if (stcmp(tokens[i], "") != 0 ) {
+            			patch_info->patch_count[i]++; 
+            		}
+            	}
             }
             rewind(fin);
-            if (n_max_patches) {
-                patch_info->patch_sizes =
-                    (int *) G_malloc(sizeof(int) * n_max_patches);
+            if (patch_info->area_count) {
+            	// flipping rows and columns so each area is a row
+            	// in a 2D array
+                patch_info->patch_sizes = (int **) G_malloc(sizeof(int * ) * patch_info->area_count);
+                // malloc appropriate size for each area
+                for(int i = 0; i < patch_info->area_count; i++) {
+                    patch_info->patch_sizes[i] = 
+                    	(int *) G_malloc(patch_info->patch_count[i] * sizeof(int));
+                } 
                 if (patch_info->patch_sizes) {
-                    while (fgets(size_buffer, 100, fin)) {
-                        patch = atoi(size_buffer) * discount_factor;
-                        if (patch > 0) {
-                            if (patch_info->max_patch_size < patch)
-                                patch_info->max_patch_size = patch;
-                            patch_info->patch_sizes[patch_info->max_patches] = patch;
-                            patch_info->max_patches++;
-                        }
-                    }
+               		while (fgets(size_buffer, 1054, fin)) {
+               			tokens = G_tokenize(size_buffer, ",");
+               			int s = G_number_of_tokens(tokens);
+               			for ( int i = 0; i < s; i++) {
+               				patch = atoi(tokens[i]) * discount_factor;
+               				if (patch > 0) {
+                            	if (patch_info->max_patch_size < patch)
+                             	   patch_info->max_patch_size = patch;
+                             	   // TODO check order
+                          	 	patch_info->patch_sizes[i][line] = patch;
+                            	patch_info->max_patches++;
+                        	}
+               			}
+               			line++;
+               		}	
                 }
             }
             free(size_buffer);
         }
-        fclose(fin);
+    fclose(fin);
     }
 }
+
 
