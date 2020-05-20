@@ -443,7 +443,7 @@ void read_patch_sizes(struct PatchSizes *patch_info, double discount_factor)
                 for ( int i = 0; i < s; i++) {
                     // increment the count of the patches for that area
                     if (strcmp(tokens[i], "") != 0 ) {
-                        patch_info->patch_count[i]++; 
+                        patch_info->patch_count[i]++;
                     }
                 }
             }
@@ -472,7 +472,7 @@ void read_patch_sizes(struct PatchSizes *patch_info, double discount_factor)
                             }
                         }
                         line++;
-                    }	
+                    }
                 }
             }
             free(size_buffer);
