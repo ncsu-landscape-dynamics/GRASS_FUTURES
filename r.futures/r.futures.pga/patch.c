@@ -50,6 +50,7 @@ float get_patch_density(int *patch_cell_ids,
 {
     float avg = 0;
     float min_capacity = FLT_MAX;
+    float max_capacity = -FLT_MAX;
     int row, col;
     FCELL density_val, capacity_val;
     float patch_density;
@@ -60,6 +61,8 @@ float get_patch_density(int *patch_cell_ids,
         avg += density_val;
         if (capacity_val < min_capacity)
             min_capacity = capacity_val;
+        if (capacity_val > max_capacity)
+            max_capacity = capacity_val;
     }
     avg /= patch_size;
     // determined as uniform distribution [avg, min_capacity] inside patch)
