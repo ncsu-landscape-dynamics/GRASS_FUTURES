@@ -41,8 +41,6 @@ struct PatchSizes
     int *patch_count;
     // maximum patch size
     int max_patch_size;
-    // count of number of areas
-    int area_count;
 
 };
 
@@ -103,6 +101,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
 void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_map);
 void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt *region_map,
                          int num_predictors);
-void read_patch_sizes(struct PatchSizes *patch_info, double discount_factor);
+void read_patch_sizes(struct PatchSizes *patch_sizes, struct KeyValueIntInt *region_map,
+                      double discount_factor);
 
 #endif // FUTURES_INPUTS_H

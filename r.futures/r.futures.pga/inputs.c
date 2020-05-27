@@ -411,73 +411,86 @@ void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt 
     fclose(fp);
 }
 
-void read_patch_sizes(struct PatchSizes *patch_info, double discount_factor)
+void read_patch_sizes(struct PatchSizes *patch_sizes,
+                      struct KeyValueIntInt *region_map,
+                      double discount_factor)
 {
-    FILE *fin;
-    char *size_buffer;
-    int line = 0;
+    FILE *fp;
+    size_t buflen = 4000;
+    char buf[buflen];
+    int line;
     int patch;
     char** tokens;
+    char** header_tokens;
+    int ntokens;
+    int i;
+    int region_id;
+    const char *td = "\"";
+    int num_regions;
 
-    patch_info->max_patches = 0;
-    patch_info->max_patch_size = 0;
-    // essentially number of columns in file
-    patch_info->area_count = 0;
-    fin = fopen(patch_info->filename, "rb");
-    if (fin) {
-        size_buffer = (char *) G_malloc(1054 * sizeof(char));
-        if (size_buffer) {
-            /* just scan the file twice */
-            // TODO need to look at region_map and update indexing
-            // scan in the header line
-            fgets(size_buffer, 1054, fin);
-            tokens = G_tokenize(size_buffer, ",");
-            patch_info->area_count = G_number_of_tokens(tokens);
-            // initialize patch_info->patch_count to all zero
-            patch_info->patch_count = (int*) G_calloc(patch_info->area_count, sizeof(int));
-            // take one line
-            while (fgets(size_buffer, 1054, fin)) {
-                // process each column in row
-                tokens = G_tokenize(size_buffer, ",");
-                int s = G_number_of_tokens(tokens);
-                for ( int i = 0; i < s; i++) {
-                    // increment the count of the patches for that area
-                    if (strcmp(tokens[i], "") != 0 ) {
-                        patch_info->patch_count[i]++;
-                    }
+    patch_sizes->max_patches = 0;
+    patch_sizes->max_patch_size = 0;
+    fp = fopen(patch_sizes->filename, "rb");
+    if (fp) {
+        /* just scan the file twice */
+        // TODO need to look at region_map and update indexing
+        // scan in the header line
+        if (G_getl2(buf, buflen, fp) == 0)
+            G_fatal_error(_("Patch library file <%s>"
+                            " contains less than one line"), patch_sizes->filename);
+
+        header_tokens = G_tokenize2(buf, ",", td);
+        num_regions = G_number_of_tokens(header_tokens);
+        if (num_regions > region_map->nitems)
+            G_fatal_error(_("Patch library file <%s>"
+                            " has only %d columns but there are %d subregions"), patch_sizes->filename,
+                          num_regions, region_map->nitems);
+        // initialize patch_info->patch_count to all zero
+        patch_sizes->patch_count = (int*) G_calloc(num_regions, sizeof(int));
+        // take one line
+        while (G_getl2(buf, buflen, fp) == 0) {
+            // process each column in row
+            tokens = G_tokenize2(buf, ",", td);
+            ntokens = G_number_of_tokens(tokens);
+            if (ntokens != num_regions)
+                G_fatal_error(_("Patch library file <%s>"
+                                " has inconsistent number of columns"), patch_sizes->filename);
+            for (i = 0; i < ntokens; i++) {
+                // increment the count of the patches for that area
+                if (strcmp(tokens[i], "") != 0 ) {
+                    if (KeyValueIntInt_find(region_map, atoi(header_tokens[i]), &region_id))
+                        patch_sizes->patch_count[region_id]++;
                 }
             }
-            rewind(fin);
-            if (patch_info->area_count) {
-                // flipping rows and columns so each area is a row
-                // in a 2D array
-                patch_info->patch_sizes = (int **) G_malloc(sizeof(int * ) * patch_info->area_count);
-                // malloc appropriate size for each area
-                for(int i = 0; i < patch_info->area_count; i++) {
-                    patch_info->patch_sizes[i] = 
-                            (int *) G_malloc(patch_info->patch_count[i] * sizeof(int));
-                } 
-                if (patch_info->patch_sizes) {
-                    while (fgets(size_buffer, 1054, fin)) {
-                        tokens = G_tokenize(size_buffer, ",");
-                        int s = G_number_of_tokens(tokens);
-                        for ( int i = 0; i < s; i++) {
-                            patch = atoi(tokens[i]) * discount_factor;
-                            if (patch > 0) {
-                                if (patch_info->max_patch_size < patch)
-                                    patch_info->max_patch_size = patch;
-                                // TODO check order
-                                patch_info->patch_sizes[i][line] = patch;
-                                patch_info->max_patches++;
-                            }
-                        }
-                        line++;
-                    }
-                }
-            }
-            free(size_buffer);
+            patch_sizes->max_patches++;
         }
-        fclose(fin);
+        rewind(fp);
+        // flipping rows and columns so each area is a row
+        // in a 2D array
+        patch_sizes->patch_sizes = (int **) G_malloc(sizeof(int * ) * num_regions);
+        // malloc appropriate size for each area
+        for(i = 0; i < num_regions; i++) {
+            patch_sizes->patch_sizes[i] = 
+                    (int *) G_malloc(patch_sizes->max_patches * sizeof(int));
+        }
+        line = 0;
+        while (G_getl2(buf, buflen, fp) == 0) {
+            tokens = G_tokenize2(buf, ",", td);
+            ntokens = G_number_of_tokens(tokens);
+            for (i = 0; i < ntokens; i++) {
+                if (strcmp(tokens[i], "") != 0 ) {
+                    patch = atoi(tokens[i]) * discount_factor;
+                    if (patch_sizes->max_patch_size < patch)
+                        patch_sizes->max_patch_size = patch;
+                    KeyValueIntInt_find(region_map, atoi(header_tokens[i]), &region_id);
+                    patch_sizes->patch_sizes[region_id][line] = patch;
+                }
+            }
+            line++;
+        }
+        G_free_tokens(header_tokens);
+        G_free_tokens(tokens);
+        fclose(fp);
     }
 }
 
