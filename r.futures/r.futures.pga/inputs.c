@@ -418,7 +418,6 @@ void read_patch_sizes(struct PatchSizes *patch_sizes,
     FILE *fp;
     size_t buflen = 4000;
     char buf[buflen];
-    int line;
     int patch;
     char** tokens;
     char** header_tokens;
@@ -493,7 +492,6 @@ void read_patch_sizes(struct PatchSizes *patch_sizes,
             patch_sizes->patch_sizes[i] =
                     (int *) G_malloc(n_max_patches * sizeof(int));
         }
-        line = 0;
         /* read first line to skip header */
         if (use_header)
             G_getl2(buf, buflen, fp);
@@ -511,12 +509,11 @@ void read_patch_sizes(struct PatchSizes *patch_sizes,
                             KeyValueIntInt_find(region_map, atoi(header_tokens[i]), &region_id);
                         else
                             region_id = 0;
-                        patch_sizes->patch_sizes[region_id][line] = patch;
+                        patch_sizes->patch_sizes[region_id][patch_sizes->patch_count[region_id]] = patch;
                         patch_sizes->patch_count[region_id]++;
                     }
                 }
             }
-            line++;
         }
         G_free_tokens(header_tokens);
         G_free_tokens(tokens);
