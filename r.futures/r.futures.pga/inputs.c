@@ -431,7 +431,6 @@ void read_patch_sizes(struct PatchSizes *patch_sizes,
     int n_max_patches;
 
     n_max_patches = 0;
-    patch_sizes->max_patches = 0;
     patch_sizes->max_patch_size = 0;
     fp = fopen(patch_sizes->filename, "rb");
     if (fp) {

@@ -33,8 +33,6 @@ struct Potential
 struct PatchSizes
 {
     const char *filename;
-    // max number of patches // total number of patches?
-    int max_patches;
     // array of patches
     int **patch_sizes;
     // array of number of patches per area
