@@ -62,10 +62,13 @@ static float get_alpha(struct PatchInfo *patch_info)
 /*!
  * \brief Gets randomly selected patch size from a pool of data-derived sizes
  * \param patch_sizes patch sizes
+ * \param region region idx
  * \return number of cells
  */
 int get_patch_size(struct PatchSizes *patch_sizes, int region)
 {
+    if (patch_sizes->single_column)
+        region = 0;
     return patch_sizes->patch_sizes[region][(int)(G_drand48() * patch_sizes->patch_count[region])];
 }
 /*!

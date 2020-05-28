@@ -41,6 +41,8 @@ struct PatchSizes
     int *patch_count;
     // maximum patch size
     int max_patch_size;
+    // use single column for all regions
+    bool single_column;
 
 };
 
