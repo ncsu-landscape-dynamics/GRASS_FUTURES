@@ -483,8 +483,6 @@ void read_patch_sizes(struct PatchSizes *patch_sizes,
                                 " has inconsistent number of columns"), patch_sizes->filename);
             n_max_patches++;
         }
-        rewind(fp);
-        // flipping rows and columns so each area is a row
         // in a 2D array
         patch_sizes->patch_sizes = (int **) G_malloc(sizeof(int * ) * num_regions);
         // malloc appropriate size for each area
@@ -493,6 +491,7 @@ void read_patch_sizes(struct PatchSizes *patch_sizes,
                     (int *) G_malloc(n_max_patches * sizeof(int));
         }
         /* read first line to skip header */
+        rewind(fp);
         if (use_header)
             G_getl2(buf, buflen, fp);
 
