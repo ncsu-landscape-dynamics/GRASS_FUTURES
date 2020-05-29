@@ -117,7 +117,7 @@ Maintainers: Anna Petrasova, Vaclav Petras
 
 ## License
 
-Copyright (C) 2013-2019 Meentemeyer et al.
+Copyright (C) 2013-2020 Meentemeyer et al.
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
