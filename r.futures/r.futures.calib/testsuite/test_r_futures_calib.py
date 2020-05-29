@@ -41,11 +41,14 @@ class TestPGACalib(TestCase):
         cls.del_temp_region()
 
     def tearDown(self):
-        try:
-            os.remove('data/out_library.txt')
-            os.remove('data/out_calib.csv')
-        except OSError:
-            pass
+        for each in ('data/out_library.txt',
+                     'data/out_library_subregion.csv',
+                     'data/out_calib.csv',
+                     'data/out_calib_subregion.csv'):
+            try:
+                os.remove(each)
+            except OSError:
+                pass
 
     def test_pga_calib_library(self):
         """Test if generated patch library matches the reference"""
@@ -56,6 +59,17 @@ class TestPGACalib(TestCase):
                           subregions='zipcodes',
                           patch_sizes='data/out_library.txt')
         self.assertTrue(filecmp.cmp('data/out_library.txt', 'data/ref_library.txt', shallow=False),
+                        "Patch libraries differ")
+
+    def test_pga_calib_library_subregions(self):
+        """Test if generated patch library matches the reference"""
+        self.assertModule('r.futures.calib', flags='ls',
+                          development_start='urban_1987',
+                          development_end='urban_2002',
+                          patch_threshold=0,
+                          subregions='zipcodes',
+                          patch_sizes='data/out_library_subregion.csv')
+        self.assertTrue(filecmp.cmp('data/out_library_subregion.csv', 'data/ref_library_subregion.csv', shallow=False),
                         "Patch libraries differ")
 
     def test_pga_calib_compactness(self):
@@ -76,6 +90,25 @@ class TestPGACalib(TestCase):
         self.assertTrue(filecmp.cmp('data/out_calib.csv', 'data/ref_calib.csv', shallow=False),
                         "Calibration results differ")
 
+    def test_pga_calib_compactness_subregions(self):
+        """Test if compactness calib file matches the reference"""
+        self.assertModule('r.futures.calib', flags='s',
+                          development_start='urban_1987',
+                          development_end='urban_2002',
+                          patch_threshold=0,
+                          patch_sizes='data/out_library_subregion.csv',
+                          compactness_mean=[0.1, 0.8],
+                          compactness_range=[0.1],
+                          discount_factor=[0.1],
+                          calibration_results='data/out_calib_subregion.csv',
+                          nprocs=1,
+                          repeat=2,
+                          random_seed=1,
+                          **self.pga_params)
+        self.assertTrue(filecmp.cmp('data/out_library_subregion.csv', 'data/ref_library_subregion.csv', shallow=False),
+                        "Patch libraries differ")
+        self.assertTrue(filecmp.cmp('data/out_calib_subregion.csv', 'data/ref_calib_subregion.csv', shallow=False),
+                        "Calibration results differ")
 
 if __name__ == '__main__':
     test()

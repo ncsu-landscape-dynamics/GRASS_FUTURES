@@ -19,6 +19,10 @@ As part of the calibration process, module <em>r.futures.calibration</em>
 produces patch size distribution file specified in <b>patch_sizes</b> parameter,
 which contains sizes (in cells) of all new patches observed
 in the reference period. The format of this file is one patch size per line.
+If flag <b>-s</b> is used, patch sizes will be analyzed per each subregion,
+and written as a CSV file with columns representing patch library for each
+subregion and header containing
+the categories of subregions.
 FUTURES uses this file to determine the size of the simulated patches.
 Often the length of the reference time period does not match
 the time period which we are trying to simulate.
