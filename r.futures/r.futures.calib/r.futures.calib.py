@@ -79,6 +79,11 @@
 #% required: yes
 #% guisection: Calibration
 #%end
+#%flag
+#% key: s
+#% description: Derive patch sizes per subregions
+#% guisection: Calibration
+#%end
 #%option G_OPT_F_OUTPUT
 #% key: calibration_results
 #% description: Output file with calibration results
@@ -219,6 +224,10 @@
 #% description: Control file with number of cells to convert
 #% guisection: PGA
 #%end
+#%option G_OPT_F_SEP
+#% label: Separator used in output patch file
+#% answer: comma
+#%end
 #%flag
 #% key: l
 #% description: Only create patch size distribution file
@@ -270,6 +279,7 @@ from multiprocessing import Process, Queue
 
 import grass.script.core as gcore
 import grass.script.raster as grast
+import grass.script.utils as gutils
 from grass.exceptions import CalledModuleError
 
 
@@ -361,6 +371,7 @@ def run_simulation(development_start, development_end, compactness_mean,
                               development_pressure_approach=fut_options['development_pressure_approach'], gamma=fut_options['gamma'],
                               scaling_factor=fut_options['scaling_factor'],
                               subregions=fut_options['subregions'], demand=fut_options['demand'],
+                              separator=fut_options['separator'],
                               output=development_end, random_seed=seed, quiet=True)
     parameters.update(futures_parameters)
     for not_required in ('potential_weight', 'num_steps', 'incentive_power', 'subregions_potential'):
@@ -378,6 +389,23 @@ def diff_development(development_start, development_end, subregions, development
 def new_development(development_end, development_diff):
     grast.mapcalc(exp="{res} = if({dev_end} > 0, 1, null())".format(res=development_diff,
                   dev_end=development_end), overwrite=True, quiet=True)
+
+
+def patch_analysis_per_subregion(development_diff, subregions, threshold, tmp_clump, tmp_clump_cat):
+    gcore.run_command('r.clump', input=development_diff, output=tmp_clump, overwrite=True, quiet=True)
+    cats = gcore.read_command("r.describe", flags="1", map=subregions, quiet=True).strip().splitlines()
+    subregions_data = {}
+    env = os.environ.copy()
+    for cat in cats:
+        grast.mapcalc('{new} = if ({reg} == {cat}, {clump}, null())'.format(new=tmp_clump_cat, reg=subregions,
+                                                                            cat=cat, clump=tmp_clump),
+                      overwrite=True)
+        env['GRASS_REGION'] = gcore.region_env(zoom=tmp_clump_cat)
+        data = gcore.read_command('r.object.geometry', input=tmp_clump_cat,
+                                  flags='m', separator='comma', env=env, quiet=True).strip()
+        data = np.loadtxt(StringIO(data), delimiter=',', usecols=(1, 2), skiprows=1)
+        subregions_data[cat] = data[data[:, 0] > threshold]
+    return subregions_data
 
 
 def patch_analysis(development_diff, threshold, tmp_clump):
@@ -399,10 +427,34 @@ def create_histograms(data, hist_bins_area_orig, hist_range_area_orig, hist_bins
     return histogram_area, histogram_compactness
 
 
-def write_patches_file(data, cell_size, output_file):
-    areas = data[:, 0]
-    areas = np.round(areas / cell_size)
-    np.savetxt(fname=output_file, X=np.sort(areas.astype(int)), fmt='%u')
+def write_patches_file(data, cell_size, output_file, separator):
+    if isinstance(data, dict):
+        array_list = []
+        keys = list(data.keys())
+        for key in keys:
+            areas = data[key][:, 0]
+            areas = np.round(areas / cell_size)
+            areas = np.sort(areas.astype(int))
+            array_list.append(areas)
+
+        max_patches = max([len(x) for x in array_list])
+        new_array_list = []
+        for array in array_list:
+            new_array_list.append(np.pad(array, (0, max_patches - len(array)),
+                                         'constant', constant_values=-1))
+        data = np.column_stack(new_array_list)
+        np.savetxt(output_file, X=data, fmt='%u')
+        data = np.loadtxt(output_file, dtype=str)
+        data[data == '-1'] = ''
+        with open(output_file, 'wb') as f:
+            f.write(separator.join(keys).encode())
+            f.write(b'\n')
+            np.savetxt(f, X=data, delimiter=separator, fmt='%s')
+    else:
+        areas = data[:, 0]
+        areas = np.round(areas / cell_size)
+        np.savetxt(fname=output_file, X=np.sort(areas.astype(int)),
+                   delimiter=separator, fmt='%u')
 
 
 def compare_histograms(hist1, hist2):
@@ -446,6 +498,7 @@ def main():
     dev_start = options['development_start']
     dev_end = options['development_end']
     only_file = flags['l']
+    patches_per_subregion = flags['s']
     if not only_file:
         repeat = int(options['repeat'])
         compactness_means = [float(each) for each in options['compactness_mean'].split(',')]
@@ -453,6 +506,7 @@ def main():
         discount_factors = [float(each) for each in options['discount_factor'].split(',')]
     patches_file = options['patch_sizes']
     threshold = float(options['patch_threshold'])
+    sep = gutils.separator(options['separator'])
     # v.clean removes size <= threshold, we want to keep size == threshold
     threshold -= 1e-6
 
@@ -469,11 +523,21 @@ def main():
     TMP.append(orig_patch_diff)
     tmp_clump = tmp_name + 'tmp_clump'
     TMP.append(tmp_clump)
+    if patches_per_subregion:
+        tmp_cat_clump = tmp_name + 'tmp_cat_clump'
+        TMP.append(tmp_cat_clump)
 
     gcore.message(_("Analyzing original patches..."))
     diff_development(dev_start, dev_end, options['subregions'], orig_patch_diff)
-    data = patch_analysis(orig_patch_diff, threshold, tmp_clump)
-    write_patches_file(data, cell_size, patches_file)
+    data = write_data = patch_analysis(orig_patch_diff, threshold, tmp_clump)
+    if patches_per_subregion:
+        subregions_data = patch_analysis_per_subregion(orig_patch_diff, options['subregions'],
+                                                       threshold, tmp_clump, tmp_cat_clump)
+        # if there is just one column, write the previous analysis result
+        if len(subregions_data.keys()) > 1:
+            write_data = subregions_data
+    write_patches_file(write_data, cell_size, patches_file, sep)
+
     if only_file:
         return
 

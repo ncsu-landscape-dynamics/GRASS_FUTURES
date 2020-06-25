@@ -322,7 +322,7 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
         /* challenge probability unless we need to convert all */
         if(force_convert_all || G_drand48() < prob) {
             /* ger random patch size */
-            patch_size = get_patch_size(patch_sizes);
+            patch_size = get_patch_size(patch_sizes, region);
             /* last year: we shouldn't grow bigger patches than we have space for */
             if (!overgrow && patch_size + n_done > n_to_convert)
                 patch_size = n_to_convert - n_done;

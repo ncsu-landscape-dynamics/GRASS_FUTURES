@@ -511,7 +511,7 @@ int main(int argc, char **argv)
     /* read Patch sizes file */
     G_verbose_message("Reading patch size file...");
     patch_sizes.filename = opt.patchFile->answer;
-    read_patch_sizes(&patch_sizes, discount_factor);
+    read_patch_sizes(&patch_sizes, region_map, discount_factor);
 
     undev_cells = initialize_undeveloped(region_map->nitems);
     patch_overflow = G_calloc(region_map->nitems, sizeof(int));
