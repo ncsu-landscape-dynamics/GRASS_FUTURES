@@ -393,7 +393,7 @@ def new_development(development_end, development_diff):
 
 def patch_analysis_per_subregion(development_diff, subregions, threshold, tmp_clump, tmp_clump_cat):
     gcore.run_command('r.clump', input=development_diff, output=tmp_clump, overwrite=True, quiet=True)
-    cats = gcore.read_command("r.describe", flags="1", map=subregions, quiet=True).strip().splitlines()
+    cats = gcore.read_command("r.describe", flags="1n", map=subregions, quiet=True).strip().splitlines()
     subregions_data = {}
     env = os.environ.copy()
     for cat in cats:
