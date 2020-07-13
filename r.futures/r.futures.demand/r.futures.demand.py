@@ -193,7 +193,7 @@ def main():
                 elif method == 'logarithmic2':
                     popt, pcov = curve_fit(logarithmic, x, y)
                     initial = (popt[0], popt[1], 0)
-                with np.errstate(invalid='warn'):  # when 'raise' it stops every time on FloatingPointError
+                with np.errstate(invalid='raise'):  # when 'raise' it stops every time on FloatingPointError
                     try:
                         popt, pcov = curve_fit(globals()[method], x, y, p0=initial)
                     except (FloatingPointError, RuntimeError):
