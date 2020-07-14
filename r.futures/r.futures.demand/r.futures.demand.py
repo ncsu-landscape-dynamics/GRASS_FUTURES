@@ -193,9 +193,14 @@ def main():
                 elif method == 'logarithmic2':
                     popt, pcov = curve_fit(logarithmic, x, y)
                     initial = (popt[0], popt[1], 0)
-                with np.errstate(invalid='raise'):  # when 'raise' it stops every time on FloatingPointError
+                with np.errstate(invalid='warn'):  # when 'raise' it stops every time on FloatingPointError
                     try:
                         popt, pcov = curve_fit(globals()[method], x, y, p0=initial)
+                        if np.isnan(popt).any():
+                            raise RuntimeError
+                        # would result in nans in predicted
+                        if method == 'logarithmic2' and np.any(simulated[method] / magn < popt[-1]):
+                            raise RuntimeError
                     except (FloatingPointError, RuntimeError):
                         rmse[method] = sys.maxsize  # so that other method is selected
                         gcore.warning(_("Method '{m}' cannot converge for subregion {reg}".format(m=method, reg=subregionId)))
