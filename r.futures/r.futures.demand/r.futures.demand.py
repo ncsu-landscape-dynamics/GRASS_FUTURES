@@ -232,7 +232,10 @@ def main():
                 coeff[method] = m, c
 
                 if method == 'logarithmic':
-                    predicted[method] = np.log(simulated[method]) * m + c
+                    with np.errstate(invalid='ignore', divide='ignore'):
+                        predicted[method] = np.where(simulated[method] > 1,
+                                                     np.log(simulated[method]) * m + c, 0)
+                    predicted[method] = np.where(predicted[method] > 0, predicted[method], 0)
                     r = (reg_pop * m + c) - table_developed[subregionId]
                 elif method == 'exponential':
                     predicted[method] = np.exp(m * simulated[method] + c)
