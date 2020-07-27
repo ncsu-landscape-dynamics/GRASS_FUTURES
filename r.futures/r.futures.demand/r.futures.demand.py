@@ -199,7 +199,7 @@ def main():
                         if np.isnan(popt).any():
                             raise RuntimeError
                         # would result in nans in predicted
-                        if method == 'logarithmic2' and np.any(simulated[method] / magn < popt[-1]):
+                        if method == 'logarithmic2' and np.any(simulated[method] / magn <= popt[-1]):
                             raise RuntimeError
                     except (FloatingPointError, RuntimeError):
                         rmse[method] = sys.maxsize  # so that other method is selected
