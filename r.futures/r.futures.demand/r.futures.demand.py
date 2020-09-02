@@ -196,6 +196,11 @@ def main():
                 with np.errstate(invalid='warn'):  # when 'raise' it stops every time on FloatingPointError
                     try:
                         popt, pcov = curve_fit(globals()[method], x, y, p0=initial)
+                        if np.isnan(popt).any():
+                            raise RuntimeError
+                        # would result in nans in predicted
+                        if method == 'logarithmic2' and np.any(simulated[method] / magn <= popt[-1]):
+                            raise RuntimeError
                     except (FloatingPointError, RuntimeError):
                         rmse[method] = sys.maxsize  # so that other method is selected
                         gcore.warning(_("Method '{m}' cannot converge for subregion {reg}".format(m=method, reg=subregionId)))
@@ -227,7 +232,10 @@ def main():
                 coeff[method] = m, c
 
                 if method == 'logarithmic':
-                    predicted[method] = np.log(simulated[method]) * m + c
+                    with np.errstate(invalid='ignore', divide='ignore'):
+                        predicted[method] = np.where(simulated[method] > 1,
+                                                     np.log(simulated[method]) * m + c, 0)
+                    predicted[method] = np.where(predicted[method] > 0, predicted[method], 0)
                     r = (reg_pop * m + c) - table_developed[subregionId]
                 elif method == 'exponential':
                     predicted[method] = np.exp(m * simulated[method] + c)
@@ -297,6 +305,7 @@ def main():
     # write demand
     with open(options['demand'], 'w') as f:
         header = observed_popul.dtype.names  # the order is kept here
+        header = [header[0]] + [sub for sub in header[1:] if sub in subregionIds]
         f.write(sep.join(header))
         f.write('\n')
         i = 0
@@ -305,10 +314,7 @@ def main():
             f.write(sep)
             # put 0 where there are more counties but are not in region
             for sub in header[1:]:  # to keep order of subregions
-                if sub not in subregionIds:
-                    f.write('0')
-                else:
-                    f.write(str(int(demand[sub][i])))
+                f.write(str(int(demand[sub][i])))
                 if sub != header[-1]:
                     f.write(sep)
             f.write('\n')
