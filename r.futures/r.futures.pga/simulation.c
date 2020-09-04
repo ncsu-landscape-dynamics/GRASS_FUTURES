@@ -26,6 +26,7 @@
 #include "utils.h"
 #include "simulation.h"
 #include "output.h"
+#include "redistribute.h"
 
 /*!
  * \brief Find a seed cell based on cumulative probability.
@@ -340,6 +341,7 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
                   struct PatchSizes *patch_sizes, struct PatchInfo *patch_info,
                   struct DevPressure *devpressure_info, int *patch_overflow,
                   float *population_overflow,
+                  struct RedistributionMatrix *redistr_matrix,
                   int step, int region, struct KeyValueIntInt *reverse_region_map,
                   bool overgrow)
 {

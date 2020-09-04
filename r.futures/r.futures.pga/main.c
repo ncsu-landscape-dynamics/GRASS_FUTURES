@@ -62,6 +62,7 @@
 #include "patch.h"
 #include "devpressure.h"
 #include "simulation.h"
+#include "redistribute.h"
 
 
 struct Developables *initialize_developables(int num_subregions)
@@ -144,7 +145,7 @@ int main(int argc, char **argv)
                 *incentivePower, *potentialWeight,
                 *cellDemandFile, *populationDemandFile, *separator,
                 *density, *densityCapacity, *outputDensity, *redevelopmentLag,
-                *redevelopmentPotentialFile,
+                *redevelopmentPotentialFile, *redistributionMatrix,
                 *patchFile, *numSteps, *output, *outputSeries, *seed, *memory;
     } opt;
 
@@ -178,6 +179,7 @@ int main(int argc, char **argv)
     struct PatchInfo patch_info;
     struct DevPressure devpressure_info;
     struct Segments segments;
+    struct RedistributionMatrix redistr_matrix;
     int *patch_overflow;
     float *population_overflow;
     char *name_step;
@@ -356,6 +358,12 @@ int main(int argc, char **argv)
     opt.patchFile->description =
         _("File containing list of patch sizes to use");
     opt.patchFile->guisection = _("PGA");
+
+    opt.redistributionMatrix = G_define_standard_option(G_OPT_F_INPUT);
+    opt.redistributionMatrix->key = "redistribution_matrix";
+    opt.redistributionMatrix->required = NO;
+    opt.redistributionMatrix->description = _("Matrix containing probabilities of moving from one subregion to another");
+    opt.redistributionMatrix->guisection = _("Climate scenarios");
 
     opt.numNeighbors = G_define_option();
     opt.numNeighbors->key = "num_neighbors";
@@ -565,6 +573,11 @@ int main(int argc, char **argv)
         raster_inputs.density_capacity = opt.densityCapacity->answer;
     }
 
+    if (opt.redistributionMatrix->answer) {
+        redistr_matrix.filename = opt.redistributionMatrix->answer;
+        read_redistribution_matrix(&redistr_matrix);
+    }
+
     //    read Subregions layer
     region_map = KeyValueIntInt_create();
     reverse_region_map = KeyValueIntInt_create();
@@ -574,7 +587,6 @@ int main(int argc, char **argv)
     read_input_rasters(raster_inputs, &segments, segment_info, region_map,
                        reverse_region_map, potential_region_map, predictor_map,
                        num_predictors);
-
     /* create probability segment*/
     if (Segment_open(&segments.probability, G_tempfile(), Rast_window_rows(),
                      Rast_window_cols(), segment_info.rows, segment_info.cols,
@@ -632,7 +644,7 @@ int main(int argc, char **argv)
         for (region = 0; region < region_map->nitems; region++) {
             compute_step(undev_cells, dev_cells, &demand_info, search_alg, &segments,
                          &patch_sizes, &patch_info, &devpressure_info, patch_overflow,
-                         population_overflow, step, region, reverse_region_map, overgrow);
+                         population_overflow, &redistr_matrix, step, region, reverse_region_map, overgrow);
         }
         /* export developed for that step */
         if (opt.outputSeries->answer) {
@@ -670,6 +682,7 @@ int main(int argc, char **argv)
     KeyValueIntInt_free(region_map);
     KeyValueIntInt_free(reverse_region_map);
     KeyValueCharInt_free(predictor_map);
+    KeyValueIntInt_free(potential_region_map);
     if (demand_info.cells_table) {
         for (int i = 0; i < demand_info.max_subregions; i++)
             G_free(demand_info.cells_table[i]);
@@ -720,7 +733,8 @@ int main(int argc, char **argv)
         if (population_overflow)
             G_free(population_overflow);
     }
-
+    if (opt.redistributionMatrix->answer)
+        free_redistribution_matrix(&redistr_matrix);
     G_free(patch_sizes.patch_sizes);
     G_free(patch_overflow);
 
