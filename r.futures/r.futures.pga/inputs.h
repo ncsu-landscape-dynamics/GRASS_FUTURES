@@ -104,6 +104,22 @@ struct Developables
     struct DevelopableCell **cells;
 };
 
+struct BBox
+{
+    int n;
+    int s;
+    int e;
+    int w;
+};
+
+struct BBoxes
+{
+    int n_bbox;
+    int max_bbox;
+    struct KeyValueIntInt *map;
+    struct BBox *bbox;
+};
+
 void initialize_incentive(struct Potential *potential_info, float exponent);
 void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                         struct SegmentMemory segment_info, struct KeyValueIntInt *region_map,
@@ -115,5 +131,6 @@ void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt 
                          struct KeyValueCharInt *predictor_map);
 void read_patch_sizes(struct PatchSizes *patch_sizes, struct KeyValueIntInt *region_map,
                       double discount_factor);
+void create_bboxes(SEGMENT *raster, SEGMENT *masking, struct BBoxes *bboxes);
 
 #endif // FUTURES_INPUTS_H

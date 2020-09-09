@@ -639,4 +639,56 @@ void read_patch_sizes(struct PatchSizes *patch_sizes,
     }
 }
 
+/**
+ * Create bounding boxes for all categories in a raster.
+ * @param raster CELL map as segment
+ * @param masking CELL raster map as segment containing nulls
+ * @param bboxes
+ */
+void create_bboxes(SEGMENT *raster, SEGMENT *masking, struct BBoxes *bboxes)
+{
+    int rows, cols;
+    int row, col;
+    CELL cat;
+    int index;
 
+    rows = Rast_window_rows();
+    cols = Rast_window_cols();
+    bboxes->map = KeyValueIntInt_create();
+    bboxes->max_bbox = 100;
+    bboxes->n_bbox = 0;
+    bboxes->bbox = (struct BBox *) G_malloc(bboxes->max_bbox * sizeof(struct BBox));
+    for (row = 0; row < rows; row++)
+        for (col = 0; col < cols; col++) {
+            Segment_get(masking, (void *)&cat, row, col);
+            if (Rast_is_null_value(&cat, CELL_TYPE))
+                continue;
+            Segment_get(raster, (void *)&cat, row, col);
+            G_message("cat %d", cat);
+            if (KeyValueIntInt_find(bboxes->map, cat, &index)) {
+                if (bboxes->bbox[index].e < col)
+                    bboxes->bbox[index].e = col;
+                if (bboxes->bbox[index].w > col)
+                    bboxes->bbox[index].w = col;
+                if (bboxes->bbox[index].n > row)
+                    bboxes->bbox[index].n = row;
+                if (bboxes->bbox[index].s < row)
+                    bboxes->bbox[index].s = row;
+            }
+            else {
+                if (bboxes->n_bbox == bboxes->max_bbox) {
+                    bboxes->max_bbox *= 2;
+                    bboxes->bbox =
+                            (struct BBox *) G_realloc(bboxes->bbox,
+                                                      bboxes->max_bbox * sizeof(struct BBox));
+                }
+                KeyValueIntInt_set(bboxes->map, cat, bboxes->n_bbox);
+                G_message("cat %d: i %d", cat, bboxes->n_bbox);
+                bboxes->bbox[bboxes->n_bbox].e = col;
+                bboxes->bbox[bboxes->n_bbox].w = col;
+                bboxes->bbox[bboxes->n_bbox].s = row;
+                bboxes->bbox[bboxes->n_bbox].n = row;
+                bboxes->n_bbox++;
+            }
+        }
+}

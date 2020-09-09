@@ -180,6 +180,7 @@ int main(int argc, char **argv)
     struct DevPressure devpressure_info;
     struct Segments segments;
     struct RedistributionMatrix redistr_matrix;
+    struct BBoxes bboxes;
     int *patch_overflow;
     float *population_overflow;
     char *name_step;
@@ -587,6 +588,7 @@ int main(int argc, char **argv)
     read_input_rasters(raster_inputs, &segments, segment_info, region_map,
                        reverse_region_map, potential_region_map, predictor_map,
                        num_predictors);
+    //create_bboxes(&segments.subregions, &segments.developed, &bboxes);
     /* create probability segment*/
     if (Segment_open(&segments.probability, G_tempfile(), Rast_window_rows(),
                      Rast_window_cols(), segment_info.rows, segment_info.cols,
