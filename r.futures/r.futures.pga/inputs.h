@@ -69,9 +69,11 @@ struct Segments
     SEGMENT weight;
     SEGMENT density;
     SEGMENT density_capacity;
+    SEGMENT HAND;
     bool use_weight;
     bool use_potential_subregions;
     bool use_density;
+    bool use_climate;
 };
 
 struct RasterInputs
@@ -84,6 +86,7 @@ struct RasterInputs
     const char *weights;
     const char *density;
     const char *density_capacity;
+    const char *HAND;
 };
 
 

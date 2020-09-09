@@ -27,13 +27,18 @@ class TestPGA(TestCase):
         cls.runModule('r.grow.distance', input='streets', distance='streets_dist')
         cls.runModule('r.mapcalc', expression="streets_dist_km = streets_dist/1000.")
         cls.runModule('r.futures.devpressure', input='urban_2002', output='devpressure', method='gravity', size=15, flags='n')
+        cls.runModule('r.watershed', elevation='elevation', drainage='drainage', stream='streams', threshold=1000)
+        cls.runModule('r.stream.distance', stream_rast='streams', direction='drainage',
+                      elevation='elevation', method='downstream', difference='HAND')
+        cls.runModule('r.grow.distance', input='HAND', value='HAND_filled')
 
     @classmethod
     def tearDownClass(cls):
         cls.runModule('g.remove', flags='f', type='raster',
                       name=['slope', 'lakes_dist', 'lakes_dist_km', 'streets',
                             'streets_dist', 'streets_dist_km', 'devpressure',
-                            'ndvi_2002', 'ndvi_1987', 'urban_1987', 'urban_2002', cls.result])
+                            'ndvi_2002', 'ndvi_1987', 'urban_1987', 'urban_2002',
+                            'drainage', 'HAND', 'HAND_filled', 'streams', cls.result])
         cls.del_temp_region()
 
     def tearDown(self):
@@ -63,6 +68,21 @@ class TestPGA(TestCase):
                           num_neighbors=4, seed_search='random', development_pressure_approach='gravity',
                           gamma=1.5, scaling_factor=1, subregions='zipcodes',
                           demand='data/demand.csv', output=self.output)
+        self.assertRastersNoDifference(actual=self.output, reference=self.result, precision=1e-6)
+
+    def test_pga_flooding(self):
+        """Test if results is in expected limits"""
+        self.assertModule('r.futures.pga', developed='urban_2002', development_pressure='devpressure',
+                          compactness_mean=0.4, compactness_range=0.05, discount_factor=0.1,
+                          patch_sizes='data/patches.txt',
+                          predictors=['slope', 'lakes_dist_km', 'streets_dist_km'],
+                          n_dev_neighbourhood=15, devpot_params='data/potential.csv',
+                          random_seed=1,
+                          num_neighbors=4, seed_search='random', development_pressure_approach='gravity',
+                          gamma=1.5, scaling_factor=1, subregions='zipcodes',
+                          demand='data/demand.csv',
+                          hand='HAND_filled', redistribution_matrix='data/matrix.csv',
+                          output=self.output)
         self.assertRastersNoDifference(actual=self.output, reference=self.result, precision=1e-6)
 
 if __name__ == '__main__':

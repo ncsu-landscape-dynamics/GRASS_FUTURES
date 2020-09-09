@@ -114,6 +114,9 @@ static int manage_memory(struct SegmentMemory *memory, struct Segments *segments
     /* density + capacity */
     if (segments->use_density)
         size += sizeof(FCELL) * 2;
+    /* climate: HAND */
+    if (segments->use_climate)
+        size += sizeof(FCELL);
     estimate += size * rows * cols;
     size *= memory->rows * memory->cols;
 
@@ -146,6 +149,7 @@ int main(int argc, char **argv)
                 *cellDemandFile, *populationDemandFile, *separator,
                 *density, *densityCapacity, *outputDensity, *redevelopmentLag,
                 *redevelopmentPotentialFile, *redistributionMatrix,
+                *HAND,
                 *patchFile, *numSteps, *output, *outputSeries, *seed, *memory;
     } opt;
 
@@ -366,6 +370,12 @@ int main(int argc, char **argv)
     opt.redistributionMatrix->description = _("Matrix containing probabilities of moving from one subregion to another");
     opt.redistributionMatrix->guisection = _("Climate scenarios");
 
+    opt.HAND = G_define_standard_option(G_OPT_R_INPUT);
+    opt.HAND->key = "hand";
+    opt.HAND->required = NO;
+    opt.HAND->description = _("Height Above Nearest Drainage raster");
+    opt.HAND->guisection = _("Climate scenarios");
+
     opt.numNeighbors = G_define_option();
     opt.numNeighbors->key = "num_neighbors";
     opt.numNeighbors->type = TYPE_INTEGER;
@@ -473,6 +483,7 @@ int main(int argc, char **argv)
     G_option_collective(opt.populationDemandFile, opt.density,
                         opt.densityCapacity, opt.outputDensity,
                         opt.redevelopmentLag, opt.redevelopmentPotentialFile, NULL);
+    G_option_collective(opt.HAND, opt.redistributionMatrix, NULL);
     if (G_parser(argc, argv))
         exit(EXIT_FAILURE);
 
@@ -537,6 +548,10 @@ int main(int argc, char **argv)
     if (opt.density->answer) {
         segments.use_density = true;
     }
+    segments.use_climate = false;
+    if (opt.HAND->answer) {
+        segments.use_climate = true;
+    }
     memory = -1;
     if (opt.memory->answer)
         memory = atof(opt.memory->answer);
@@ -573,10 +588,12 @@ int main(int argc, char **argv)
         raster_inputs.density = opt.density->answer;
         raster_inputs.density_capacity = opt.densityCapacity->answer;
     }
-
     if (opt.redistributionMatrix->answer) {
         redistr_matrix.filename = opt.redistributionMatrix->answer;
         read_redistribution_matrix(&redistr_matrix);
+    }
+    if (opt.HAND->answer) {
+        raster_inputs.HAND = opt.HAND->answer;
     }
 
     //    read Subregions layer
