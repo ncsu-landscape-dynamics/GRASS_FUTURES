@@ -405,6 +405,8 @@ def patch_analysis_per_subregion(development_diff, subregions, threshold, tmp_cl
             data = gcore.read_command('r.object.geometry', input=tmp_clump_cat,
                                     flags='m', separator='comma', env=env, quiet=True).strip()
             data = np.loadtxt(StringIO(data), delimiter=',', usecols=(1, 2), skiprows=1)
+            # in case there is just one record
+            data = data.reshape((-1, 2))
             subregions_data[cat] = data[data[:, 0] > threshold]
         except CalledModuleError:
             gcore.warning("Subregion {cat} has no changes in development, no patches found.".format(cat=cat))
@@ -417,6 +419,8 @@ def patch_analysis(development_diff, threshold, tmp_clump):
     try:
         data = gcore.read_command('r.object.geometry', input=tmp_clump, flags='m', separator='comma', quiet=True).strip()
         data = np.loadtxt(StringIO(data), delimiter=',', usecols=(1, 2), skiprows=1)
+        # in case there is just one record
+        data = data.reshape((-1, 2))
         data = data[data[:, 0] > threshold]
     except CalledModuleError:
         gcore.warning("No changes in development, no patches found.")
