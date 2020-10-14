@@ -614,7 +614,7 @@ int main(int argc, char **argv)
     read_input_rasters(raster_inputs, &segments, segment_info, region_map,
                        reverse_region_map, potential_region_map, predictor_map,
                        num_predictors, max_flood_probability_map);
-    //create_bboxes(&segments.subregions, &segments.developed, &bboxes);
+    create_bboxes(&segments.subregions, &segments.developed, &bboxes);
     /* create probability segment*/
     if (Segment_open(&segments.probability, G_tempfile(), Rast_window_rows(),
                      Rast_window_cols(), segment_info.rows, segment_info.cols,
@@ -673,6 +673,11 @@ int main(int argc, char **argv)
             compute_step(undev_cells, dev_cells, &demand_info, search_alg, &segments,
                          &patch_sizes, &patch_info, &devpressure_info, patch_overflow,
                          population_overflow, &redistr_matrix, step, region, reverse_region_map, overgrow);
+        }
+        /* simulate abandonment due to climate (flooding) */
+        if (segments.use_climate) {
+            for (region = 0; region < region_map->nitems; region++)
+                climate_step(&segments, &bboxes, max_flood_probability_map, region);
         }
         /* export developed for that step */
         if (opt.outputSeries->answer) {

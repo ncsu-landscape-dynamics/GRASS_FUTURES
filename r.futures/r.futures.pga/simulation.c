@@ -27,6 +27,7 @@
 #include "simulation.h"
 #include "output.h"
 #include "redistribute.h"
+#include "climate.h"
 
 /*!
  * \brief Find a seed cell based on cumulative probability.
@@ -584,3 +585,38 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
 //        G_debug(2, "There is %f extra population for next timestep", extra_population);
 //    G_free(added_ids);
 //}
+
+void climate_step(struct Segments *segments, const struct BBoxes *bboxes,
+                  const struct KeyValueIntFloat *flood_probability_map, int region_idx)
+{
+    float flood_probability;
+    float max_HAND;
+    int row, col;
+    struct BBox bbox;
+    CELL region_value;
+    CELL developed_value;
+    float ap;
+
+
+    if (generate_flood(flood_probability_map, region_idx, &flood_probability)) {
+        bbox = bboxes->bbox[region_idx];
+        max_HAND = get_max_HAND(segments, &bbox, flood_probability);
+        for (row = bbox.n; row <= bbox.s; row++)
+            for (col = bbox.w; col <= bbox.e; col++) {
+                // check nulls
+                Segment_get(&segments->developed, (void *)&developed_value, row, col);
+                if (Rast_is_null_value(&developed_value, CELL_TYPE))
+                    continue;
+                Segment_get(&segments->subregions, (void *)&region_value, row, col);
+                if (region_idx != region_value)
+                    continue;
+                ap = get_abandonment_probability(segments, max_HAND, row, col);
+                if (developed_value >= 0 && G_drand48() < ap) {
+                    developed_value = DEV_TYPE_ABANDONED;
+                    Segment_put(&segments->developed, (void *)&developed_value, row, col);
+                }
+                // decrease potential
+                // redistribute
+            }
+    }
+}

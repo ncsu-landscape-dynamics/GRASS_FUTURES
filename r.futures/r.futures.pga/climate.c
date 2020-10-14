@@ -10,6 +10,7 @@
    
    \author Anna Petrasova
  */
+#include <math.h>
 
 #include <grass/gis.h>
 #include <grass/segment.h>
@@ -17,12 +18,16 @@
 #include "inputs.h"
 #include "keyvalue.h"
 
+static float depth_to_damage(float depth, float height, float max_damage, float curve_shape)
+{
+    return pow((depth / height), curve_shape) * max_damage;
+}
 
-bool generate_flood(struct KeyValueIntFloat *flood_probability_map, int region_idx, float *flood_probability)
+bool generate_flood(const struct KeyValueIntFloat *flood_probability_map, int region_idx, float *flood_probability)
 {
     float max_flood_probability;
     double p;
-    
+
     KeyValueIntFloat_find(flood_probability_map, region_idx, &max_flood_probability);
     p = G_drand48();
     if (p <= max_flood_probability) {
@@ -32,13 +37,13 @@ bool generate_flood(struct KeyValueIntFloat *flood_probability_map, int region_i
     return false;
 }
 
-float get_max_HAND(struct Segments *segments, struct BBox *bbox, float flood_probability)
+float get_max_HAND(struct Segments *segments, const struct BBox *bbox, float flood_probability)
 {
     FCELL flood_probability_value;
     FCELL HAND_value;
     FCELL max_HAND_value;
     int row, col;
-    
+
     max_HAND_value = 0;
     for (row = bbox->n; row <= bbox->s; row++)
         for (col = bbox->w; col <= bbox->w; col++) {
@@ -51,4 +56,17 @@ float get_max_HAND(struct Segments *segments, struct BBox *bbox, float flood_pro
             }
         }
     return max_HAND_value;
+}
+
+float get_abandonment_probability(struct Segments *segments, float flood_depth, int row, int col)
+{
+    FCELL HAND_value;
+    float depth;
+    float damage;
+
+    Segment_get(&segments->HAND, (void *)&HAND_value, row, col);
+    depth = flood_depth - HAND_value;
+    damage = depth_to_damage(depth, 5, 0.6, 0.5);
+    // adaptive capacity here
+    return damage;
 }

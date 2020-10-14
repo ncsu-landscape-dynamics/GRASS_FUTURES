@@ -270,7 +270,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                     ((FCELL *) weights_row)[col] = fc;
                 }
             }
-            /* HAND - just check nulls */
+            /* flooding */
             if (segments->use_climate) {
                 if (Rast_is_null_value(&((FCELL *) HAND_row)[col], FCELL_TYPE))
                     isnull = true;
