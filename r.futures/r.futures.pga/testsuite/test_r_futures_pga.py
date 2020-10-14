@@ -31,6 +31,14 @@ class TestPGA(TestCase):
         cls.runModule('r.stream.distance', stream_rast='streams', direction='drainage',
                       elevation='elevation', method='downstream', difference='HAND')
         cls.runModule('r.grow.distance', input='HAND', value='HAND_filled')
+        cls.runModule('r.lake', elevation='HAND_filled', water_level=8, lake='flood_1', seed='streams')
+        cls.runModule('r.lake', elevation='HAND_filled', water_level=4, lake='flood_2', seed='streams')
+        cls.runModule('r.lake', elevation='HAND_filled', water_level=2, lake='flood_3', seed='streams')
+        cls.runModule('r.mapcalc', expression="flood_1 = if (flood_1, 0.05, null())", overwrite=True)
+        cls.runModule('r.mapcalc', expression="flood_2 = if (flood_2, 0.1, null())", overwrite=True)
+        cls.runModule('r.mapcalc', expression="flood_3 = if (flood_3, 0.2, null())", overwrite=True)
+        cls.runModule('r.patch', input='flood_3,flood_2,flood_1', output='flood_probability')
+        cls.runModule('r.null', map='flood_probability', null=0)
 
     @classmethod
     def tearDownClass(cls):
@@ -38,7 +46,8 @@ class TestPGA(TestCase):
                       name=['slope', 'lakes_dist', 'lakes_dist_km', 'streets',
                             'streets_dist', 'streets_dist_km', 'devpressure',
                             'ndvi_2002', 'ndvi_1987', 'urban_1987', 'urban_2002',
-                            'drainage', 'HAND', 'HAND_filled', 'streams', cls.result])
+                            'drainage', 'HAND', 'HAND_filled', 'streams',
+                            'flood_10', 'flood_5', 'flood_2', cls.result])
         cls.del_temp_region()
 
     def tearDown(self):
@@ -82,8 +91,8 @@ class TestPGA(TestCase):
                           gamma=1.5, scaling_factor=1, subregions='zipcodes',
                           demand='data/demand.csv',
                           hand='HAND_filled', redistribution_matrix='data/matrix.csv',
+                          flood_probability='flood_probability',
                           output=self.output)
-        self.assertRastersNoDifference(actual=self.output, reference=self.result, precision=1e-6)
 
 if __name__ == '__main__':
     test()

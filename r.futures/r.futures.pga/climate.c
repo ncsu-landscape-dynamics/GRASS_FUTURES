@@ -29,10 +29,12 @@ bool generate_flood(const struct KeyValueIntFloat *flood_probability_map, int re
     double p;
 
     KeyValueIntFloat_find(flood_probability_map, region_idx, &max_flood_probability);
-    p = G_drand48();
-    if (p <= max_flood_probability) {
-        *flood_probability = p;
-        return true;
+    if (max_flood_probability > 0) {
+        p = G_drand48();
+        if (p <= max_flood_probability) {
+            *flood_probability = p;
+            return true;
+        }
     }
     return false;
 }
@@ -58,15 +60,18 @@ float get_max_HAND(struct Segments *segments, const struct BBox *bbox, float flo
     return max_HAND_value;
 }
 
-float get_abandonment_probability(struct Segments *segments, float flood_depth, int row, int col)
+float get_abandonment_probability(struct Segments *segments, float flood_level, int row, int col)
 {
     FCELL HAND_value;
     float depth;
     float damage;
 
+    damage = 0;
     Segment_get(&segments->HAND, (void *)&HAND_value, row, col);
-    depth = flood_depth - HAND_value;
-    damage = depth_to_damage(depth, 5, 0.6, 0.5);
-    // adaptive capacity here
+    depth = flood_level - HAND_value;
+    if (depth > 0) {
+        damage = depth_to_damage(depth, 5, 0.6, 0.5);
+        // adaptive capacity here
+    }
     return damage;
 }
