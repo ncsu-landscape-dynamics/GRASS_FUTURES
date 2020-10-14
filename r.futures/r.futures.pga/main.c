@@ -116,7 +116,7 @@ static int manage_memory(struct SegmentMemory *memory, struct Segments *segments
         size += sizeof(FCELL) * 2;
     /* climate: HAND */
     if (segments->use_climate)
-        size += sizeof(FCELL);
+        size += sizeof(FCELL) * 2;
     estimate += size * rows * cols;
     size *= memory->rows * memory->cols;
 
@@ -149,7 +149,7 @@ int main(int argc, char **argv)
                 *cellDemandFile, *populationDemandFile, *separator,
                 *density, *densityCapacity, *outputDensity, *redevelopmentLag,
                 *redevelopmentPotentialFile, *redistributionMatrix,
-                *HAND,
+                *HAND, *floodProbability,
                 *patchFile, *numSteps, *output, *outputSeries, *seed, *memory;
     } opt;
 
@@ -173,6 +173,7 @@ int main(int argc, char **argv)
     struct KeyValueIntInt *reverse_region_map;
     struct KeyValueIntInt *potential_region_map;
     struct KeyValueCharInt *predictor_map;
+    struct KeyValueIntFloat *max_flood_probability_map;
     struct Developables *undev_cells;
     struct Developables *dev_cells;
     struct Demand demand_info;
@@ -376,6 +377,12 @@ int main(int argc, char **argv)
     opt.HAND->description = _("Height Above Nearest Drainage raster");
     opt.HAND->guisection = _("Climate scenarios");
 
+    opt.floodProbability = G_define_standard_option(G_OPT_R_INPUT);
+    opt.floodProbability->key = "flood_probability";
+    opt.floodProbability->required = NO;
+    opt.floodProbability->description = _("Flood probability raster");
+    opt.floodProbability->guisection = _("Climate scenarios");
+
     opt.numNeighbors = G_define_option();
     opt.numNeighbors->key = "num_neighbors";
     opt.numNeighbors->type = TYPE_INTEGER;
@@ -483,7 +490,7 @@ int main(int argc, char **argv)
     G_option_collective(opt.populationDemandFile, opt.density,
                         opt.densityCapacity, opt.outputDensity,
                         opt.redevelopmentLag, opt.redevelopmentPotentialFile, NULL);
-    G_option_collective(opt.HAND, opt.redistributionMatrix, NULL);
+    G_option_collective(opt.HAND, opt.redistributionMatrix, opt.floodProbability, NULL);
     if (G_parser(argc, argv))
         exit(EXIT_FAILURE);
 
@@ -594,6 +601,8 @@ int main(int argc, char **argv)
     }
     if (opt.HAND->answer) {
         raster_inputs.HAND = opt.HAND->answer;
+        raster_inputs.flood_probability = opt.floodProbability->answer;
+        max_flood_probability_map = KeyValueIntFloat_create();
     }
 
     //    read Subregions layer
@@ -604,7 +613,7 @@ int main(int argc, char **argv)
     G_verbose_message("Reading input rasters...");
     read_input_rasters(raster_inputs, &segments, segment_info, region_map,
                        reverse_region_map, potential_region_map, predictor_map,
-                       num_predictors);
+                       num_predictors, max_flood_probability_map);
     //create_bboxes(&segments.subregions, &segments.developed, &bboxes);
     /* create probability segment*/
     if (Segment_open(&segments.probability, G_tempfile(), Rast_window_rows(),
@@ -697,6 +706,11 @@ int main(int argc, char **argv)
     if (segments.use_density) {
         Segment_close(&segments.density);
         Segment_close(&segments.density_capacity);
+    }
+    if (segments.use_climate) {
+        Segment_close(&segments.HAND);
+        Segment_close(&segments.flood_probability);
+        KeyValueIntFloat_free(max_flood_probability_map);
     }
     KeyValueIntInt_free(region_map);
     KeyValueIntInt_free(reverse_region_map);

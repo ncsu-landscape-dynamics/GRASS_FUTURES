@@ -208,3 +208,97 @@ void KeyValueCharInt_free(struct KeyValueCharInt *kv)
     kv->nalloc = 0;
     G_free(kv);
 }
+
+/*!
+   \brief Allocate and initialize KeyValueIntFloat structure
+
+   \return poiter to allocated KeyValueIntFloat structure
+ */
+struct KeyValueIntFloat *KeyValueIntFloat_create()
+{
+    struct KeyValueIntFloat *kv = (struct KeyValueIntFloat *) G_malloc(sizeof(struct KeyValueIntFloat));
+    G_zero(kv, sizeof(struct KeyValueIntFloat));
+
+    return kv;
+}
+
+/*!
+   \brief Set value for given key
+
+   \param[in,out] kv KeyValueIntFloat structure to be modified
+   \param key key to be set up
+   \param value value for given key
+ */
+void KeyValueIntFloat_set(struct KeyValueIntFloat *kv, int key, float value)
+{
+    int n;
+
+    for (n = 0; n < kv->nitems; n++)
+        if (key == kv->key[n])
+            break;
+
+    if (n == kv->nitems) {
+        if (n >= kv->nalloc) {
+            size_t size;
+
+            if (kv->nalloc <= 0)
+                kv->nalloc = 8;
+            else
+                kv->nalloc *= 2;
+
+            size = kv->nalloc * sizeof(int);
+            kv->key = (int *) G_realloc(kv->key, size);
+            kv->value = (float *) G_realloc(kv->value, kv->nalloc * sizeof(float));
+        }
+
+        kv->key[n] = key;
+        kv->value[n] = value;
+        kv->nitems++;
+        return;
+    }
+
+    kv->value[n] = value;
+}
+
+/*!
+   \brief Find given key
+
+   \param key key to be found
+   \param[out] value pointer to store the value if found
+   \param kv pointer to KeyValueIntFloat structure
+
+   \returns TRUE if the key is found (and sets the value)
+   \returns FALSE if no key found
+ */
+int KeyValueIntFloat_find(const struct KeyValueIntFloat *kv, int key, float *value)
+{
+    int n;
+
+    if (!kv)
+        return FALSE;
+
+    for (n = 0; n < kv->nitems; n++)
+        if (key == kv->key[n]) {
+            *value = kv->value[n];
+            return TRUE;
+        }
+
+    return FALSE;
+}
+
+/*!
+   \brief Free allocated KeyValueIntFloat structure
+
+   \param[in] kv KeyValueIntFloat structure to be G_freed
+ */
+void KeyValueIntFloat_free(struct KeyValueIntFloat *kv)
+{
+    if (!kv)
+        return;
+
+    G_free(kv->key);
+    G_free(kv->value);
+    kv->nitems = 0;                /* just for safe measure */
+    kv->nalloc = 0;
+    G_free(kv);
+}
