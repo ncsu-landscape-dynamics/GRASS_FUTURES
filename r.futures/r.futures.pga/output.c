@@ -119,6 +119,16 @@ void output_developed_step(SEGMENT *developed_segment, const char *name,
     Rast_init_colors(&colors);
     // TODO: the map max is 36 for 36 steps, it is correct?
 
+    if (!undeveloped_as_null) {
+        val1 = DEV_TYPE_ABANDONED;
+        val2 = DEV_TYPE_ABANDONED;
+        Rast_add_c_color_rule(&val1, 120, 155, 200, &val2, 120, 155, 200,
+                              &colors);
+        val1 = DEV_TYPE_UNDEVELOPED;
+        val2 = DEV_TYPE_UNDEVELOPED;
+        Rast_add_c_color_rule(&val1, 180, 255, 160, &val2, 180, 255, 160,
+                              &colors);
+    }
     if (developed_as_one) {
         val1 = 1;
         val2 = 1;
@@ -133,12 +143,6 @@ void output_developed_step(SEGMENT *developed_segment, const char *name,
         val1 = 1;
         val2 = nsteps;
         Rast_add_c_color_rule(&val1, 255, 100, 50, &val2, 255, 255, 0,
-                              &colors);
-    }
-    if (!undeveloped_as_null) {
-        val1 = -1;
-        val2 = -1;
-        Rast_add_c_color_rule(&val1, 180, 255, 160, &val2, 180, 255, 160,
                               &colors);
     }
 
