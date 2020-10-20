@@ -6,6 +6,7 @@
 #include "inputs.h"
 #include "patch.h"
 #include "redistribute.h"
+#include "climate.h"
 
 
 enum seed_search {RANDOM, PROBABILITY};
@@ -42,6 +43,7 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
                   int step, int region, struct KeyValueIntInt *reverse_region_map,
                   bool overgrow);
 void climate_step(struct Segments *segments, const struct BBoxes *bboxes,
-                  const struct KeyValueIntFloat *flood_probability_map, int region_idx);
+                  const struct KeyValueIntFloat *flood_probability_map,
+                  const struct DepthDamageFunc *func, int region_idx);
 
 #endif // FUTURES_SIMULATION_H

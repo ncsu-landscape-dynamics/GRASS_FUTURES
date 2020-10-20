@@ -126,7 +126,6 @@ struct BBoxes
 };
 
 
-
 void initialize_incentive(struct Potential *potential_info, float exponent);
 void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                         struct SegmentMemory segment_info, struct KeyValueIntInt *region_map,

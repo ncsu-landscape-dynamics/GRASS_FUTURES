@@ -587,7 +587,8 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
 //}
 
 void climate_step(struct Segments *segments, const struct BBoxes *bboxes,
-                  const struct KeyValueIntFloat *flood_probability_map, int region_idx)
+                  const struct KeyValueIntFloat *flood_probability_map,
+                  const struct DepthDamageFunc *func, int region_idx)
 {
     float flood_probability;
     float max_HAND;
@@ -613,7 +614,7 @@ void climate_step(struct Segments *segments, const struct BBoxes *bboxes,
                 Segment_get(&segments->subregions, (void *)&region_value, row, col);
                 if (region_idx != region_value)
                     continue;
-                ap = get_abandonment_probability(segments, max_HAND, row, col);
+                ap = get_abandonment_probability(segments, func, max_HAND, row, col);
                 if (ap > 0 && developed_value >= 0 && G_drand48() < ap) {
                     developed_value = DEV_TYPE_ABANDONED;
                     Segment_put(&segments->developed, (void *)&developed_value, row, col);

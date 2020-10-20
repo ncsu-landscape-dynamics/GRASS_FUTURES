@@ -17,10 +17,11 @@
 
 #include "inputs.h"
 #include "keyvalue.h"
+#include "climate.h"
 
-static float depth_to_damage(float depth, float height, float max_damage, float curve_shape)
+static float depth_to_damage(float depth, const struct DepthDamageFunc *func)
 {
-    return pow((depth / height), curve_shape) * max_damage;
+    return pow((depth / func->H), func->r) * func->M / 100;
 }
 
 bool generate_flood(const struct KeyValueIntFloat *flood_probability_map, int region_idx, float *flood_probability)
@@ -60,7 +61,8 @@ float get_max_HAND(struct Segments *segments, const struct BBox *bbox, float flo
     return max_HAND_value;
 }
 
-float get_abandonment_probability(struct Segments *segments, float flood_level, int row, int col)
+float get_abandonment_probability(struct Segments *segments, const struct DepthDamageFunc *func,
+                                  float flood_level, int row, int col)
 {
     FCELL HAND_value;
     float depth;
@@ -70,7 +72,7 @@ float get_abandonment_probability(struct Segments *segments, float flood_level, 
     Segment_get(&segments->HAND, (void *)&HAND_value, row, col);
     depth = flood_level - HAND_value;
     if (depth > 0) {
-        damage = depth_to_damage(depth, 5, 0.6, 0.5);
+        damage = depth_to_damage(depth, func);
         // adaptive capacity here
     }
     return damage;

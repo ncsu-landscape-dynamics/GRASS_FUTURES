@@ -63,6 +63,7 @@
 #include "devpressure.h"
 #include "simulation.h"
 #include "redistribute.h"
+#include "climate.h"
 
 
 struct Developables *initialize_developables(int num_subregions)
@@ -149,7 +150,7 @@ int main(int argc, char **argv)
                 *cellDemandFile, *populationDemandFile, *separator,
                 *density, *densityCapacity, *outputDensity, *redevelopmentLag,
                 *redevelopmentPotentialFile, *redistributionMatrix,
-                *HAND, *floodProbability,
+                *HAND, *floodProbability, *depthDamageFunc,
                 *patchFile, *numSteps, *output, *outputSeries, *seed, *memory;
     } opt;
 
@@ -186,6 +187,7 @@ int main(int argc, char **argv)
     struct Segments segments;
     struct RedistributionMatrix redistr_matrix;
     struct BBoxes bboxes;
+    struct DepthDamageFunc damage_func;
     int *patch_overflow;
     float *population_overflow;
     char *name_step;
@@ -383,6 +385,16 @@ int main(int argc, char **argv)
     opt.floodProbability->description = _("Flood probability raster");
     opt.floodProbability->guisection = _("Climate scenarios");
 
+    opt.depthDamageFunc = G_define_option();
+    opt.depthDamageFunc->key = "depth_damage_function";
+    opt.depthDamageFunc->type = TYPE_DOUBLE;
+    opt.depthDamageFunc->required = NO;
+    opt.depthDamageFunc->key_desc = "r,M,H";
+    opt.depthDamageFunc->answer = "0.3,56,7.3";
+    opt.depthDamageFunc->description =
+        _("Parameters for depth damage function");
+    opt.depthDamageFunc->guisection = _("Climate scenarios");
+
     opt.numNeighbors = G_define_option();
     opt.numNeighbors->key = "num_neighbors";
     opt.numNeighbors->type = TYPE_INTEGER;
@@ -490,7 +502,8 @@ int main(int argc, char **argv)
     G_option_collective(opt.populationDemandFile, opt.density,
                         opt.densityCapacity, opt.outputDensity,
                         opt.redevelopmentLag, opt.redevelopmentPotentialFile, NULL);
-    G_option_collective(opt.HAND, opt.redistributionMatrix, opt.floodProbability, NULL);
+    G_option_collective(opt.HAND, opt.redistributionMatrix,
+                        opt.floodProbability, NULL);
     if (G_parser(argc, argv))
         exit(EXIT_FAILURE);
 
@@ -603,6 +616,9 @@ int main(int argc, char **argv)
         raster_inputs.HAND = opt.HAND->answer;
         raster_inputs.flood_probability = opt.floodProbability->answer;
         max_flood_probability_map = KeyValueIntFloat_create();
+        damage_func.r = atof(opt.depthDamageFunc->answers[0]);
+        damage_func.M = atof(opt.depthDamageFunc->answers[1]);
+        damage_func.H = atof(opt.depthDamageFunc->answers[2]);
     }
 
     //    read Subregions layer
@@ -677,7 +693,7 @@ int main(int argc, char **argv)
         /* simulate abandonment due to climate (flooding) */
         if (segments.use_climate) {
             for (region = 0; region < region_map->nitems; region++)
-                climate_step(&segments, &bboxes, max_flood_probability_map, region);
+                climate_step(&segments, &bboxes, max_flood_probability_map, &damage_func, region);
         }
         /* export developed for that step */
         if (opt.outputSeries->answer) {
