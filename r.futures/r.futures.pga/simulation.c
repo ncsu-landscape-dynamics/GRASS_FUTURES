@@ -138,7 +138,7 @@ double get_develop_probability_xy(struct Segments *segments,
     if (segments->use_weight) {
         Segment_get(&segments->weight, (void *)&weight, row, col);
         if (weight < 0)
-            probability *= fabs(weight);
+            probability *= 1 - fabs(weight);
         else if (weight > 0)
             probability = probability + weight - probability * weight;
     }
