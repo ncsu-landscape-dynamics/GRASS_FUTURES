@@ -150,7 +150,7 @@ int main(int argc, char **argv)
                 *cellDemandFile, *populationDemandFile, *separator,
                 *density, *densityCapacity, *outputDensity, *redevelopmentLag,
                 *redevelopmentPotentialFile, *redistributionMatrix,
-                *HAND, *floodProbability, *depthDamageFunc,
+                *HAND, *floodProbability, *depthDamageFunc, *adaptiveCapacity,
                 *patchFile, *numSteps, *output, *outputSeries, *seed, *memory;
     } opt;
 
@@ -385,6 +385,12 @@ int main(int argc, char **argv)
     opt.floodProbability->description = _("Flood probability raster");
     opt.floodProbability->guisection = _("Climate scenarios");
 
+    opt.adaptiveCapacity = G_define_standard_option(G_OPT_R_INPUT);
+    opt.adaptiveCapacity->key = "adaptive_capacity";
+    opt.adaptiveCapacity->required = NO;
+    opt.adaptiveCapacity->description = _("Adaptive capacity raster");
+    opt.adaptiveCapacity->guisection = _("Climate scenarios");
+
     opt.depthDamageFunc = G_define_option();
     opt.depthDamageFunc->key = "depth_damage_function";
     opt.depthDamageFunc->type = TYPE_DOUBLE;
@@ -503,7 +509,7 @@ int main(int argc, char **argv)
                         opt.densityCapacity, opt.outputDensity,
                         opt.redevelopmentLag, opt.redevelopmentPotentialFile, NULL);
     G_option_collective(opt.HAND, opt.redistributionMatrix,
-                        opt.floodProbability, NULL);
+                        opt.floodProbability, opt.adaptiveCapacity, NULL);
     if (G_parser(argc, argv))
         exit(EXIT_FAILURE);
 
@@ -731,6 +737,7 @@ int main(int argc, char **argv)
     if (segments.use_climate) {
         Segment_close(&segments.HAND);
         Segment_close(&segments.flood_probability);
+        Segment_close(&segments.adaptive_capacity);
         KeyValueIntFloat_free(max_flood_probability_map);
     }
     KeyValueIntInt_free(region_map);

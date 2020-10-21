@@ -71,6 +71,7 @@ struct Segments
     SEGMENT density_capacity;
     SEGMENT HAND;
     SEGMENT flood_probability;
+    SEGMENT adaptive_capacity;
     bool use_weight;
     bool use_potential_subregions;
     bool use_density;
@@ -89,6 +90,7 @@ struct RasterInputs
     const char *density_capacity;
     const char *HAND;
     const char *flood_probability;
+    const char *adaptive_capacity;
 };
 
 

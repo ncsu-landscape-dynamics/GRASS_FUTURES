@@ -63,7 +63,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
     int row, col;
     int rows, cols;
     int fd_developed, fd_reg, fd_devpressure, fd_weights,
-            fd_pot_reg, fd_density, fd_density_cap, fd_HAND, fd_flood_probability;
+            fd_pot_reg, fd_density, fd_density_cap,
+            fd_HAND, fd_flood_probability, fd_adaptive_capacity;
     int *fds_predictors;
     int count_regions, pot_count_regions;
     int region_index, pot_region_index;
@@ -85,6 +86,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
     FCELL *density_capacity_row;
     FCELL *HAND_row;
     FCELL *flood_probability_row;
+    FCELL *adaptive_capacity_row;
 
 
     rows = Rast_window_rows();
@@ -109,6 +111,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
     if (segments->use_climate) {
         fd_HAND = Rast_open_old(inputs.HAND, "");
         fd_flood_probability = Rast_open_old(inputs.flood_probability, "");
+        fd_adaptive_capacity = Rast_open_old(inputs.adaptive_capacity, "");
     }
     for (i = 0; i < num_predictors; i++) {
         fds_predictors[i] = Rast_open_old(inputs.predictors[i], "");
@@ -169,6 +172,10 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                          cols, segment_info.rows, segment_info.cols,
                          Rast_cell_size(FCELL_TYPE), segment_info.in_memory) != 1)
             G_fatal_error(_("Cannot create temporary file with segments of a raster map of flood probability"));
+        if (Segment_open(&segments->adaptive_capacity, G_tempfile(), rows,
+                         cols, segment_info.rows, segment_info.cols,
+                         Rast_cell_size(FCELL_TYPE), segment_info.in_memory) != 1)
+            G_fatal_error(_("Cannot create temporary file with segments of a raster map of adaptive capacity"));
     }
     developed_row = Rast_allocate_buf(CELL_TYPE);
     subregions_row = Rast_allocate_buf(CELL_TYPE);
@@ -186,6 +193,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
     if (segments->use_climate) {
         HAND_row = Rast_allocate_buf(FCELL_TYPE);
         flood_probability_row = Rast_allocate_buf(FCELL_TYPE);
+        adaptive_capacity_row = Rast_allocate_buf(FCELL_TYPE);
     }
 
     for (row = 0; row < rows; row++) {
@@ -204,6 +212,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         if (segments->use_climate) {
             Rast_get_row(fd_HAND, HAND_row, row, FCELL_TYPE);
             Rast_get_row(fd_flood_probability, flood_probability_row, row, FCELL_TYPE);
+            Rast_get_row(fd_adaptive_capacity, adaptive_capacity_row, row, FCELL_TYPE);
         }
         for (col = 0; col < cols; col++) {
             isnull = false;
@@ -274,6 +283,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
             if (segments->use_climate) {
                 if (Rast_is_null_value(&((FCELL *) HAND_row)[col], FCELL_TYPE))
                     isnull = true;
+                if (Rast_is_null_value(&((FCELL *) adaptive_capacity_row)[col], FCELL_TYPE))
+                    isnull = true;
                 if (Rast_is_null_value(&((FCELL *) flood_probability_row)[col], FCELL_TYPE))
                     isnull = true;
                 else {
@@ -318,6 +329,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         if (segments->use_climate) {
             Segment_put_row(&segments->HAND, HAND_row, row);
             Segment_put_row(&segments->flood_probability, flood_probability_row, row);
+            Segment_put_row(&segments->adaptive_capacity, adaptive_capacity_row, row);
         }
     }
 
@@ -337,6 +349,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
     if (segments->use_climate) {
         Segment_flush(&segments->HAND);
         Segment_flush(&segments->flood_probability);
+        Segment_flush(&segments->adaptive_capacity);
     }
     /* close raster maps */
     Rast_close(fd_developed);
@@ -353,6 +366,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
     if (segments->use_climate) {
         Rast_close(fd_HAND);
         Rast_close(fd_flood_probability);
+        Rast_close(fd_adaptive_capacity);
     }
     for (i = 0; i < num_predictors; i++)
         Rast_close(fds_predictors[i]);
@@ -374,6 +388,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
     if (segments->use_climate) {
         G_free(HAND_row);
         G_free(flood_probability_row);
+        G_free(adaptive_capacity_row);
     }
 }
 
