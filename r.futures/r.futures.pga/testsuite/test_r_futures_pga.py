@@ -39,6 +39,7 @@ class TestPGA(TestCase):
         cls.runModule('r.mapcalc', expression="flood_3 = if (flood_3, 0.2, null())", overwrite=True)
         cls.runModule('r.patch', input='flood_3,flood_2,flood_1', output='flood_probability')
         cls.runModule('r.null', map='flood_probability', null=0)
+        cls.runModule('r.mapcalc', expression="acapacity = 1")
 
     @classmethod
     def tearDownClass(cls):
@@ -47,7 +48,8 @@ class TestPGA(TestCase):
                             'streets_dist', 'streets_dist_km', 'devpressure',
                             'ndvi_2002', 'ndvi_1987', 'urban_1987', 'urban_2002',
                             'drainage', 'HAND', 'HAND_filled', 'streams',
-                            'flood_10', 'flood_5', 'flood_2', cls.result])
+                            'flood_1', 'flood_2', 'flood_3',
+                            'flood_probability', 'acapacity', cls.result])
         cls.del_temp_region()
 
     def tearDown(self):
@@ -91,7 +93,7 @@ class TestPGA(TestCase):
                           gamma=1.5, scaling_factor=1, subregions='zipcodes',
                           demand='data/demand.csv',
                           hand='HAND_filled', redistribution_matrix='data/matrix.csv',
-                          flood_probability='flood_probability',
+                          flood_probability='flood_probability', adaptive_capacity='acapacity',
                           output=self.output)
 
 if __name__ == '__main__':
