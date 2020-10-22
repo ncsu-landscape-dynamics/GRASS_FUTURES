@@ -28,6 +28,8 @@ class TestPGA(TestCase):
         cls.runModule('r.mapcalc', expression="streets_dist_km = streets_dist/1000.")
         cls.runModule('r.futures.devpressure', input='urban_2002', output='devpressure', method='gravity', size=15, flags='n')
         cls.runModule('r.watershed', elevation='elevation', drainage='drainage', stream='streams', threshold=1000)
+        cls.runModule('r.watershed', elevation='elevation', basin='basin', threshold=5000)
+        cls.runModule('r.null', map='basin', null=1000)
         cls.runModule('r.stream.distance', stream_rast='streams', direction='drainage',
                       elevation='elevation', method='downstream', difference='HAND')
         cls.runModule('r.grow.distance', input='HAND', value='HAND_filled')
@@ -49,7 +51,7 @@ class TestPGA(TestCase):
                             'ndvi_2002', 'ndvi_1987', 'urban_1987', 'urban_2002',
                             'drainage', 'HAND', 'HAND_filled', 'streams',
                             'flood_1', 'flood_2', 'flood_3',
-                            'flood_probability', 'acapacity', cls.result])
+                            'flood_probability', 'acapacity', 'basin', cls.result])
         cls.del_temp_region()
 
     def tearDown(self):
@@ -94,6 +96,7 @@ class TestPGA(TestCase):
                           demand='data/demand.csv',
                           hand='HAND_filled', redistribution_matrix='data/matrix.csv',
                           flood_probability='flood_probability', adaptive_capacity='acapacity',
+                          huc='basin',
                           output=self.output)
 
 if __name__ == '__main__':

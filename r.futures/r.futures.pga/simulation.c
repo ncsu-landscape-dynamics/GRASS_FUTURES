@@ -588,18 +588,15 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
 
 void climate_step(struct Segments *segments, const struct BBoxes *bboxes,
                   const struct KeyValueIntFloat *flood_probability_map,
-                  const struct KeyValueIntInt *HUC_map,
                   const struct DepthDamageFunc *func, int HUC_idx)
 {
     float flood_probability;
     float max_HAND;
     int row, col;
     struct BBox bbox;
-    CELL region_value;
+    CELL HUC_value;
     CELL developed_value;
     float ap;
-    int HUC_id;
-
 
     if (generate_flood(flood_probability_map, HUC_idx, &flood_probability)) {
         bbox = bboxes->bbox[HUC_idx];
@@ -607,16 +604,14 @@ void climate_step(struct Segments *segments, const struct BBoxes *bboxes,
         /* no flood */
         if (max_HAND == 0)
             return;
-        KeyValueIntInt_find(HUC_map, HUC_idx, &HUC_id);
-        G_verbose_message("Simulating flood of %f in area %d.", flood_probability, HUC_id);
         for (row = bbox.n; row <= bbox.s; row++)
             for (col = bbox.w; col <= bbox.e; col++) {
                 // check nulls
                 Segment_get(&segments->developed, (void *)&developed_value, row, col);
                 if (Rast_is_null_value(&developed_value, CELL_TYPE))
                     continue;
-                Segment_get(&segments->subregions, (void *)&region_value, row, col);
-                if (HUC_idx != region_value)
+                Segment_get(&segments->HUC, (void *)&HUC_value, row, col);
+                if (HUC_idx != HUC_value)
                     continue;
                 ap = get_abandonment_probability(segments, func, max_HAND, row, col);
                 if (ap > 0 && developed_value >= 0 && G_drand48() < ap) {

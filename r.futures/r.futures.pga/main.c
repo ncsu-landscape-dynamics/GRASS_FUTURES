@@ -712,7 +712,7 @@ int main(int argc, char **argv)
         /* simulate abandonment due to climate (flooding) */
         if (segments.use_climate) {
             for (HUC = 0; HUC < HUC_map->nitems; HUC++)
-                climate_step(&segments, &bboxes, max_flood_probability_map, HUC_map, &damage_func, HUC);
+                climate_step(&segments, &bboxes, max_flood_probability_map, &damage_func, HUC);
         }
         /* export developed for that step */
         if (opt.outputSeries->answer) {
