@@ -649,7 +649,9 @@ int main(int argc, char **argv)
     read_input_rasters(raster_inputs, &segments, segment_info, region_map,
                        reverse_region_map, potential_region_map, predictor_map,
                        num_predictors, HUC_map, max_flood_probability_map);
-    create_bboxes(&segments.HUC, &segments.developed, &bboxes);
+    if (opt.HAND->answer) {
+        create_bboxes(&segments.HUC, &segments.developed, &bboxes);
+    }
     /* create probability segment*/
     if (Segment_open(&segments.probability, G_tempfile(), Rast_window_rows(),
                      Rast_window_cols(), segment_info.rows, segment_info.cols,
