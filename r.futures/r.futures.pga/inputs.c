@@ -739,7 +739,6 @@ void create_bboxes(SEGMENT *raster, SEGMENT *masking, struct BBoxes *bboxes)
             if (Rast_is_null_value(&cat, CELL_TYPE))
                 continue;
             Segment_get(raster, (void *)&cat, row, col);
-            G_message("cat %d", cat);
             if (KeyValueIntInt_find(bboxes->map, cat, &index)) {
                 if (bboxes->bbox[index].e < col)
                     bboxes->bbox[index].e = col;
@@ -758,7 +757,6 @@ void create_bboxes(SEGMENT *raster, SEGMENT *masking, struct BBoxes *bboxes)
                                                       bboxes->max_bbox * sizeof(struct BBox));
                 }
                 KeyValueIntInt_set(bboxes->map, cat, bboxes->n_bbox);
-                G_message("cat %d: i %d", cat, bboxes->n_bbox);
                 bboxes->bbox[bboxes->n_bbox].e = col;
                 bboxes->bbox[bboxes->n_bbox].w = col;
                 bboxes->bbox[bboxes->n_bbox].s = row;

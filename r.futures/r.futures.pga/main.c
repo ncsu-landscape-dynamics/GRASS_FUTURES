@@ -621,6 +621,7 @@ int main(int argc, char **argv)
     if (opt.HAND->answer) {
         raster_inputs.HAND = opt.HAND->answer;
         raster_inputs.flood_probability = opt.floodProbability->answer;
+        raster_inputs.adaptive_capacity = opt.adaptiveCapacity->answer;
         max_flood_probability_map = KeyValueIntFloat_create();
         damage_func.r = atof(opt.depthDamageFunc->answers[0]);
         damage_func.M = atof(opt.depthDamageFunc->answers[1]);
