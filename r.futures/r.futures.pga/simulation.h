@@ -44,6 +44,7 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
                   bool overgrow);
 void climate_step(struct Segments *segments, const struct BBoxes *bboxes,
                   const struct KeyValueIntFloat *flood_probability_map,
-                  const struct DepthDamageFunc *func, int region_idx);
+                  const struct KeyValueIntInt *HUC_map,
+                  const struct DepthDamageFunc *func, int HUC_idx);
 
 #endif // FUTURES_SIMULATION_H

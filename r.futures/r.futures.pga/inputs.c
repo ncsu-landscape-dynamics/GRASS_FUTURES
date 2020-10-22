@@ -57,6 +57,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                         struct KeyValueIntInt *reverse_region_map,
                         struct KeyValueIntInt *potential_region_map,
                         struct KeyValueCharInt *predictor_map, int num_predictors,
+                        struct KeyValueIntInt *HUC_map,
                         struct KeyValueIntFloat *max_flood_probability_map)
 {
     int i;
@@ -64,10 +65,10 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
     int rows, cols;
     int fd_developed, fd_reg, fd_devpressure, fd_weights,
             fd_pot_reg, fd_density, fd_density_cap,
-            fd_HAND, fd_flood_probability, fd_adaptive_capacity;
+            fd_HAND, fd_flood_probability, fd_adaptive_capacity, fd_HUC;
     int *fds_predictors;
-    int count_regions, pot_count_regions;
-    int region_index, pot_region_index;
+    int count_regions, pot_count_regions, HUC_count;
+    int region_index, pot_region_index, HUC_index;
     float max_flood_probability;
     CELL c;
     FCELL fc;
@@ -87,12 +88,13 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
     FCELL *HAND_row;
     FCELL *flood_probability_row;
     FCELL *adaptive_capacity_row;
+    CELL *HUC_row;
 
 
     rows = Rast_window_rows();
     cols = Rast_window_cols();
-    count_regions = region_index = 0;
-    pot_count_regions = pot_region_index = 0;
+    count_regions = region_index = HUC_count = 0;
+    pot_count_regions = pot_region_index = HUC_index = 0;
 
     fds_predictors = G_malloc(num_predictors * sizeof(int));
 
@@ -112,6 +114,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         fd_HAND = Rast_open_old(inputs.HAND, "");
         fd_flood_probability = Rast_open_old(inputs.flood_probability, "");
         fd_adaptive_capacity = Rast_open_old(inputs.adaptive_capacity, "");
+        fd_HUC = Rast_open_old(inputs.HUC, "");
     }
     for (i = 0; i < num_predictors; i++) {
         fds_predictors[i] = Rast_open_old(inputs.predictors[i], "");
@@ -176,6 +179,10 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                          cols, segment_info.rows, segment_info.cols,
                          Rast_cell_size(FCELL_TYPE), segment_info.in_memory) != 1)
             G_fatal_error(_("Cannot create temporary file with segments of a raster map of adaptive capacity"));
+        if (Segment_open(&segments->HUC, G_tempfile(), rows,
+                         cols, segment_info.rows, segment_info.cols,
+                         Rast_cell_size(CELL_TYPE), segment_info.in_memory) != 1)
+            G_fatal_error(_("Cannot create temporary file with segments of a raster map of HUCs"));
     }
     developed_row = Rast_allocate_buf(CELL_TYPE);
     subregions_row = Rast_allocate_buf(CELL_TYPE);
@@ -194,6 +201,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         HAND_row = Rast_allocate_buf(FCELL_TYPE);
         flood_probability_row = Rast_allocate_buf(FCELL_TYPE);
         adaptive_capacity_row = Rast_allocate_buf(FCELL_TYPE);
+        HUC_row = Rast_allocate_buf(CELL_TYPE);
     }
 
     for (row = 0; row < rows; row++) {
@@ -213,6 +221,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
             Rast_get_row(fd_HAND, HAND_row, row, FCELL_TYPE);
             Rast_get_row(fd_flood_probability, flood_probability_row, row, FCELL_TYPE);
             Rast_get_row(fd_adaptive_capacity, adaptive_capacity_row, row, FCELL_TYPE);
+            Rast_get_row(fd_HUC, HUC_row, row, CELL_TYPE);
         }
         for (col = 0; col < cols; col++) {
             isnull = false;
@@ -285,18 +294,28 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                     isnull = true;
                 if (Rast_is_null_value(&((FCELL *) adaptive_capacity_row)[col], FCELL_TYPE))
                     isnull = true;
-                if (Rast_is_null_value(&((FCELL *) flood_probability_row)[col], FCELL_TYPE))
-                    isnull = true;
-                else {
-                    fc = ((FCELL *) flood_probability_row)[col];
-                    if (KeyValueIntFloat_find(max_flood_probability_map, region_index, &max_flood_probability)) {
-                        if (fc > max_flood_probability)
-                            KeyValueIntFloat_set(max_flood_probability_map, region_index, fc);
+                if (!Rast_is_null_value(&((CELL *) HUC_row)[col], CELL_TYPE)) {
+                    c = ((CELL *) HUC_row)[col];
+                    /* mapping: index -> HUC id */
+                    if (!KeyValueIntInt_find(HUC_map, HUC_index, &c)) {
+                        KeyValueIntInt_set(HUC_map, HUC_count, c);
+                        HUC_index = HUC_count;
+                        HUC_count++;
                     }
-                    else {
-                        KeyValueIntFloat_set(max_flood_probability_map, region_index, fc);
+                    ((CELL *) HUC_row)[col] = HUC_index;
+                    /* save the max flood value for each HUC */
+                    if (!Rast_is_null_value(&((FCELL *) flood_probability_row)[col], FCELL_TYPE)) {
+                        fc = ((FCELL *) flood_probability_row)[col];
+                        if (KeyValueIntFloat_find(max_flood_probability_map, HUC_index, &max_flood_probability)) {
+                            if (fc > max_flood_probability)
+                                KeyValueIntFloat_set(max_flood_probability_map, HUC_index, fc);
+                        }
+                        else
+                            KeyValueIntFloat_set(max_flood_probability_map, HUC_index, fc);
                     }
                 }
+                else
+                    isnull = true;
             }
             /* if in developed, subregions, devpressure or weights are any nulls
                propagate them into developed */
@@ -330,6 +349,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
             Segment_put_row(&segments->HAND, HAND_row, row);
             Segment_put_row(&segments->flood_probability, flood_probability_row, row);
             Segment_put_row(&segments->adaptive_capacity, adaptive_capacity_row, row);
+            Segment_put_row(&segments->HUC, HUC_row, row);
         }
     }
 
@@ -350,6 +370,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         Segment_flush(&segments->HAND);
         Segment_flush(&segments->flood_probability);
         Segment_flush(&segments->adaptive_capacity);
+        Segment_flush(&segments->HUC);
     }
     /* close raster maps */
     Rast_close(fd_developed);
@@ -367,6 +388,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         Rast_close(fd_HAND);
         Rast_close(fd_flood_probability);
         Rast_close(fd_adaptive_capacity);
+        Rast_close(fd_HUC);
     }
     for (i = 0; i < num_predictors; i++)
         Rast_close(fds_predictors[i]);
@@ -389,6 +411,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         G_free(HAND_row);
         G_free(flood_probability_row);
         G_free(adaptive_capacity_row);
+        G_free(HUC_row);
     }
 }
 

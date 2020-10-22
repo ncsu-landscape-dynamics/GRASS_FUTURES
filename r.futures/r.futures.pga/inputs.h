@@ -70,6 +70,7 @@ struct Segments
     SEGMENT density;
     SEGMENT density_capacity;
     SEGMENT HAND;
+    SEGMENT HUC;
     SEGMENT flood_probability;
     SEGMENT adaptive_capacity;
     bool use_weight;
@@ -89,6 +90,7 @@ struct RasterInputs
     const char *density;
     const char *density_capacity;
     const char *HAND;
+    const char *HUC;
     const char *flood_probability;
     const char *adaptive_capacity;
 };
@@ -134,6 +136,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                         struct KeyValueIntInt *reverse_region_map,
                         struct KeyValueIntInt *potential_region_map,
                         struct KeyValueCharInt *predictor_map, int num_predictors,
+                        struct KeyValueIntInt *HUC_map,
                         struct KeyValueIntFloat *max_flood_probability_map);
 void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_map);
 void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt *region_map,

@@ -115,9 +115,11 @@ static int manage_memory(struct SegmentMemory *memory, struct Segments *segments
     /* density + capacity */
     if (segments->use_density)
         size += sizeof(FCELL) * 2;
-    /* climate: HAND */
-    if (segments->use_climate)
-        size += sizeof(FCELL) * 2;
+    /* climate: HAND (F) + AC (F) + flood prob (F) + HUC (C) */
+    if (segments->use_climate) {
+        size += sizeof(FCELL) * 3;
+        size += sizeof(CELL);
+    }
     estimate += size * rows * cols;
     size *= memory->rows * memory->cols;
 
@@ -150,7 +152,7 @@ int main(int argc, char **argv)
                 *cellDemandFile, *populationDemandFile, *separator,
                 *density, *densityCapacity, *outputDensity, *redevelopmentLag,
                 *redevelopmentPotentialFile, *redistributionMatrix,
-                *HAND, *floodProbability, *depthDamageFunc, *adaptiveCapacity,
+                *HAND, *floodProbability, *depthDamageFunc, *adaptiveCapacity, *HUCs,
                 *patchFile, *numSteps, *output, *outputSeries, *seed, *memory;
     } opt;
 
@@ -164,6 +166,7 @@ int main(int argc, char **argv)
     int num_steps;
     int nseg;
     int region;
+    int HUC;
     int step;
     float memory;
     double discount_factor;
@@ -175,6 +178,7 @@ int main(int argc, char **argv)
     struct KeyValueIntInt *potential_region_map;
     struct KeyValueCharInt *predictor_map;
     struct KeyValueIntFloat *max_flood_probability_map;
+    struct KeyValueIntInt *HUC_map;
     struct Developables *undev_cells;
     struct Developables *dev_cells;
     struct Demand demand_info;
@@ -385,6 +389,12 @@ int main(int argc, char **argv)
     opt.floodProbability->description = _("Flood probability raster");
     opt.floodProbability->guisection = _("Climate scenarios");
 
+    opt.HUCs = G_define_standard_option(G_OPT_R_INPUT);
+    opt.HUCs->key = "huc";
+    opt.HUCs->required = NO;
+    opt.HUCs->description = _("Raster of HUCs");
+    opt.HUCs->guisection = _("Climate scenarios");
+
     opt.adaptiveCapacity = G_define_standard_option(G_OPT_R_INPUT);
     opt.adaptiveCapacity->key = "adaptive_capacity";
     opt.adaptiveCapacity->required = NO;
@@ -509,7 +519,7 @@ int main(int argc, char **argv)
                         opt.densityCapacity, opt.outputDensity,
                         opt.redevelopmentLag, opt.redevelopmentPotentialFile, NULL);
     G_option_collective(opt.HAND, opt.redistributionMatrix,
-                        opt.floodProbability, opt.adaptiveCapacity, NULL);
+                        opt.floodProbability, opt.adaptiveCapacity, opt.HUCs, NULL);
     if (G_parser(argc, argv))
         exit(EXIT_FAILURE);
 
@@ -622,7 +632,9 @@ int main(int argc, char **argv)
         raster_inputs.HAND = opt.HAND->answer;
         raster_inputs.flood_probability = opt.floodProbability->answer;
         raster_inputs.adaptive_capacity = opt.adaptiveCapacity->answer;
+        raster_inputs.HUC = opt.HUCs->answer;
         max_flood_probability_map = KeyValueIntFloat_create();
+        HUC_map = KeyValueIntInt_create();
         damage_func.r = atof(opt.depthDamageFunc->answers[0]);
         damage_func.M = atof(opt.depthDamageFunc->answers[1]);
         damage_func.H = atof(opt.depthDamageFunc->answers[2]);
@@ -636,8 +648,8 @@ int main(int argc, char **argv)
     G_verbose_message("Reading input rasters...");
     read_input_rasters(raster_inputs, &segments, segment_info, region_map,
                        reverse_region_map, potential_region_map, predictor_map,
-                       num_predictors, max_flood_probability_map);
-    create_bboxes(&segments.subregions, &segments.developed, &bboxes);
+                       num_predictors, HUC_map, max_flood_probability_map);
+    create_bboxes(&segments.HUC, &segments.developed, &bboxes);
     /* create probability segment*/
     if (Segment_open(&segments.probability, G_tempfile(), Rast_window_rows(),
                      Rast_window_cols(), segment_info.rows, segment_info.cols,
@@ -699,8 +711,8 @@ int main(int argc, char **argv)
         }
         /* simulate abandonment due to climate (flooding) */
         if (segments.use_climate) {
-            for (region = 0; region < region_map->nitems; region++)
-                climate_step(&segments, &bboxes, max_flood_probability_map, &damage_func, region);
+            for (HUC = 0; HUC < HUC_map->nitems; HUC++)
+                climate_step(&segments, &bboxes, max_flood_probability_map, HUC_map, &damage_func, HUC);
         }
         /* export developed for that step */
         if (opt.outputSeries->answer) {
@@ -739,7 +751,9 @@ int main(int argc, char **argv)
         Segment_close(&segments.HAND);
         Segment_close(&segments.flood_probability);
         Segment_close(&segments.adaptive_capacity);
+        Segment_close(&segments.HUC);
         KeyValueIntFloat_free(max_flood_probability_map);
+        KeyValueIntInt_free(HUC_map);
     }
     KeyValueIntInt_free(region_map);
     KeyValueIntInt_free(reverse_region_map);
