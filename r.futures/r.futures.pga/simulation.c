@@ -614,7 +614,10 @@ void climate_step(struct Segments *segments, const struct BBoxes *bboxes,
                 if (HUC_idx != HUC_value)
                     continue;
                 ap = get_abandonment_probability(segments, func, max_HAND, row, col);
-                if (ap > 0 && developed_value >= 0 && G_drand48() < ap) {
+                /* We generate it here (vs after the developed condition) to reproduce the same develeped
+                   cells independent on damage curves and AC,
+                   may not hold if we allow redevelop abandoned. */
+                if (G_drand48() < ap && developed_value >= 0) {
                     developed_value = DEV_TYPE_ABANDONED;
                     Segment_put(&segments->developed, (void *)&developed_value, row, col);
                 }

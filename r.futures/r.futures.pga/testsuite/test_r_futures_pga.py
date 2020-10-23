@@ -41,7 +41,7 @@ class TestPGA(TestCase):
         cls.runModule('r.mapcalc', expression="flood_3 = if (flood_3, 0.2, null())", overwrite=True)
         cls.runModule('r.patch', input='flood_3,flood_2,flood_1', output='flood_probability')
         cls.runModule('r.null', map='flood_probability', null=0)
-        cls.runModule('r.mapcalc', expression="acapacity = 1")
+        cls.runModule('r.mapcalc', expression="acapacity = rand(-100, 100) * 0.01", seed=1)
 
     @classmethod
     def tearDownClass(cls):

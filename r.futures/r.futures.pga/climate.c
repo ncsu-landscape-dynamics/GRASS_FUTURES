@@ -19,6 +19,20 @@
 #include "keyvalue.h"
 #include "climate.h"
 
+static float apply_adaptive_capacity(struct Segments *segments, int row, int col, float input_index)
+{
+    FCELL ac_value;
+    Segment_get(&segments->adaptive_capacity, (void *)&ac_value, row, col);
+    /* assumes ac from -1 to 1
+       -1 most vulnerable
+        1 most resilient
+    */
+    if (ac_value < 0)
+        return input_index + fabs(ac_value) - input_index * fabs(ac_value);
+    else
+        return input_index * (1 - ac_value);
+}
+
 static float depth_to_damage(float depth, const struct DepthDamageFunc *func)
 {
     return pow((depth / func->H), func->r) * func->M / 100;
@@ -66,14 +80,14 @@ float get_abandonment_probability(struct Segments *segments, const struct DepthD
 {
     FCELL HAND_value;
     float depth;
-    float damage;
+    float probability;
 
-    damage = 0;
+    probability = 0;
     Segment_get(&segments->HAND, (void *)&HAND_value, row, col);
     depth = flood_level - HAND_value;
     if (depth > 0) {
-        damage = depth_to_damage(depth, func);
-        // adaptive capacity here
+        probability = depth_to_damage(depth, func);
+        probability = apply_adaptive_capacity(segments, row, col, probability);
     }
-    return damage;
+    return probability;
 }
