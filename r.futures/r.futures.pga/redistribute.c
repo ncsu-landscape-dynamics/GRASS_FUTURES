@@ -19,6 +19,7 @@
 
 #include "keyvalue.h"
 #include "redistribute.h"
+#include "inputs.h"
 
 
 /*!
@@ -52,17 +53,40 @@ int pick_region(const float *probabilities, int size)
  * \param regionID ID of region (like FIPS)
  * \return id of region where to move to, -1 if regionID not in the matrix as 'from' region
  */
-int redistribute(const struct RedistributionMatrix *matrix, int regionID)
+void redistribute(const struct RedistributionMatrix *matrix, struct Demand *demand,
+                  int regionID, int num_px, const struct KeyValueIntInt *region_map,
+                  int step, float *leaving_population)
 {
     int from_idx, to_idx, to_ID;
+    int demand_to_idx, demand_from_idx;
+    float density_from, density_to;
+    float to_px;
+
     if (!KeyValueIntInt_find(matrix->from_map, regionID, &from_idx)) {
         G_warning("Region %d is not in redistribution matrix rows", regionID);
-        return -1;
+        return;
     }
     to_idx = pick_region(matrix->matrix[from_idx], matrix->dim_to);
     KeyValueIntInt_find(matrix->to_map, to_idx, &to_ID);
-    return to_ID;
-    
+    /* should always be there */
+    KeyValueIntInt_find(region_map, regionID, &demand_from_idx);
+    density_from = demand->population_table[demand_from_idx][step] / demand->cells_table[demand_from_idx][step];
+    if (KeyValueIntInt_find(region_map, to_ID, &demand_to_idx)) {
+        density_to = demand->population_table[demand_to_idx][step] / demand->cells_table[demand_to_idx][step];
+        /* number of pixels in 'to' region */
+        to_px = num_px * density_from / density_to;
+        /* increase number of px to grow next step */
+        if (step + 1 < demand->max_steps) {
+            demand->cells_table[demand_to_idx][step + 1] += to_px;
+            G_debug(2, "%f cells moved from %d to %d in step %d", to_px, regionID, to_ID, step);
+        }
+        else {
+            /* ignore last year */
+        }
+    }
+    /* outside of simulation extent */
+    else
+        *leaving_population =+ num_px * density_from;
 }
 
 
@@ -71,7 +95,7 @@ int redistribute(const struct RedistributionMatrix *matrix, int regionID)
  * 
  * Matrix is in CSV file such as:
  *      ,27642,27645, ...
- * 27642,0.22,1.01, ...   sum of line except of region code should be < 1 
+ * 27642,0.22,1.01, ...   sum of line except of region code should be < 100
  * 27645,9.12,0.28,...
  * 
  * This means probability that someone from 27642 moves to 27645 is 1.01%
@@ -100,7 +124,7 @@ void read_redistribution_matrix(struct RedistributionMatrix *matrix)
 
     /* read first line */
     if (G_getl2(buf, buflen, fin) == 0)
-        G_fatal_error(_("Development potential parameters file <%s>"
+        G_fatal_error(_("Redistribution matrix file <%s>"
                         " contains less than one line"), matrix->filename);
     else {
         tokens = G_tokenize2(buf, fs, td);

@@ -416,7 +416,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
 }
 
 static int _read_demand_file(FILE *fp, const char *separator,
-                             int **table, int *demand_years,
+                             float **table, int *demand_years,
                              struct KeyValueIntInt *region_map)
 {
 
@@ -465,7 +465,7 @@ static int _read_demand_file(FILE *fp, const char *separator,
             int idx;
             if (KeyValueIntInt_find(region_map, ids->value[count], &idx)) {
                 G_chop(tokens[i]);
-                table[idx][years] = atoi(tokens[i]);
+                table[idx][years] = atof(tokens[i]);
             }
             count++;
         }
@@ -490,7 +490,7 @@ void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_m
             countlines++;
     rewind(fp_cell);
 
-    if (demandInfo->use_density) {
+    if (demandInfo->has_population) {
         if ((fp_population = fopen(demandInfo->population_filename, "r")) == NULL)
             G_fatal_error(_("Cannot open population demand file <%s>"),
                           demandInfo->population_filename);
@@ -507,9 +507,9 @@ void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_m
     }
 
     demandInfo->years = (int *) G_malloc(countlines * sizeof(int));
-    demandInfo->cells_table = (int **) G_malloc(region_map->nitems * sizeof(int *));
+    demandInfo->cells_table = (float **) G_malloc(region_map->nitems * sizeof(float *));
     for (int i = 0; i < region_map->nitems; i++) {
-        demandInfo->cells_table[i] = (int *) G_malloc(countlines * sizeof(int));
+        demandInfo->cells_table[i] = (float *) G_malloc(countlines * sizeof(float));
     }
     int num_years = _read_demand_file(fp_cell, demandInfo->separator,
                                       demandInfo->cells_table,
@@ -519,11 +519,11 @@ void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_m
     G_verbose_message("Number of steps in area demand file: %d", num_years);
     fclose(fp_cell);
 
-    if (demandInfo->use_density) {
+    if (demandInfo->has_population) {
         int *years2 = (int *) G_malloc(countlines * sizeof(int));
-        demandInfo->population_table = (int **) G_malloc(region_map->nitems * sizeof(int *));
+        demandInfo->population_table = (float **) G_malloc(region_map->nitems * sizeof(float *));
         for (int i = 0; i < region_map->nitems; i++) {
-            demandInfo->population_table[i] = (int *) G_malloc(countlines * sizeof(int));
+            demandInfo->population_table[i] = (float *) G_malloc(countlines * sizeof(float));
         }
         int num_years2 = _read_demand_file(fp_population, demandInfo->separator,
                                           demandInfo->population_table,

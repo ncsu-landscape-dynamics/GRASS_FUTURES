@@ -195,6 +195,7 @@ int main(int argc, char **argv)
     int *patch_overflow;
     float *population_overflow;
     char *name_step;
+    float leaving_population;
     bool overgrow;
 
     G_gisinit(argv[0]);
@@ -515,10 +516,10 @@ int main(int argc, char **argv)
     // provided XOR generated
     G_option_exclusive(opt.seed, flg.generateSeed, NULL);
     G_option_required(opt.seed, flg.generateSeed, NULL);
-    G_option_collective(opt.populationDemandFile, opt.density,
-                        opt.densityCapacity, opt.outputDensity,
+    G_option_requires_all(opt.density, opt.populationDemandFile, NULL);
+    G_option_collective(opt.density, opt.densityCapacity, opt.outputDensity,
                         opt.redevelopmentLag, opt.redevelopmentPotentialFile, NULL);
-    G_option_collective(opt.HAND, opt.redistributionMatrix,
+    G_option_collective(opt.HAND, opt.redistributionMatrix, opt.populationDemandFile,
                         opt.floodProbability, opt.adaptiveCapacity, opt.HUCs, NULL);
     if (G_parser(argc, argv))
         exit(EXIT_FAILURE);
@@ -675,10 +676,10 @@ int main(int argc, char **argv)
 
     /* read Demand file */
     G_verbose_message("Reading demand file...");
-    demand_info.use_density = false;
+    demand_info.has_population = false;
     demand_info.cells_filename = opt.cellDemandFile->answer;
     if (opt.populationDemandFile->answer) {
-        demand_info.use_density = true;
+        demand_info.has_population = true;
         demand_info.population_filename = opt.populationDemandFile->answer;
     }
     demand_info.separator = G_option_to_separator(opt.separator);
@@ -693,16 +694,19 @@ int main(int argc, char **argv)
 
     undev_cells = initialize_developables(region_map->nitems);
     patch_overflow = G_calloc(region_map->nitems, sizeof(int));
-    if (demand_info.use_density) {
+
+    /* redevelopment */
+    if (segments.use_density) {
         dev_cells = initialize_developables(region_map->nitems);
         population_overflow = G_calloc(region_map->nitems, sizeof(float));
     }
     /* here do the modeling */
     overgrow = true;
     G_verbose_message("Starting simulation...");
+    leaving_population = 0;
     for (step = 0; step < num_steps; step++) {
         recompute_probabilities(undev_cells, &segments, &potential_info, false);
-        if (demand_info.use_density)
+        if (segments.use_density)
             recompute_probabilities(dev_cells, &segments, &redev_potential_info, true);
         if (step == num_steps - 1)
             overgrow = false;
@@ -714,7 +718,10 @@ int main(int argc, char **argv)
         /* simulate abandonment due to climate (flooding) */
         if (segments.use_climate) {
             for (HUC = 0; HUC < HUC_map->nitems; HUC++)
-                climate_step(&segments, &bboxes, max_flood_probability_map, &damage_func, HUC);
+                climate_step(&segments, &demand_info, &bboxes,
+                             &redistr_matrix, region_map, reverse_region_map,
+                             step, &leaving_population,
+                             max_flood_probability_map, &damage_func, HUC);
         }
         /* export developed for that step */
         if (opt.outputSeries->answer) {
@@ -767,7 +774,7 @@ int main(int argc, char **argv)
         G_free(demand_info.cells_table);
         G_free(demand_info.years);
     }
-    if (demand_info.use_density) {
+    if (demand_info.has_population) {
         for (int i = 0; i < demand_info.max_subregions; i++)
             G_free(demand_info.population_table[i]);
         G_free(demand_info.population_table);
@@ -801,7 +808,7 @@ int main(int argc, char **argv)
         G_free(undev_cells->cells);
         G_free(undev_cells);
     }
-    if (demand_info.use_density) {
+    if (segments.use_density) {
         G_free(dev_cells->num);
         G_free(dev_cells->max);
         for (int i = 0; i < dev_cells->max_subregions; i++)

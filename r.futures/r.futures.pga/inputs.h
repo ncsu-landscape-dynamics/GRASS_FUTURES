@@ -14,13 +14,13 @@ struct Demand
 {
     const char *cells_filename;
     const char *population_filename;
-    int **cells_table;
-    int **population_table;
+    float **cells_table;
+    float **population_table;
     int *years;
     int max_subregions;
     int max_steps;
     const char *separator;
-    bool use_density;
+    bool has_population;
 };
 
 struct Potential

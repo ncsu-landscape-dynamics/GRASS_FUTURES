@@ -96,7 +96,7 @@ class TestPGA(TestCase):
                           demand='data/demand.csv',
                           hand='HAND_filled', redistribution_matrix='data/matrix.csv',
                           flood_probability='flood_probability', adaptive_capacity='acapacity',
-                          huc='basin',
+                          huc='basin', population_demand='data/population_demand.csv',
                           output=self.output)
 
 if __name__ == '__main__':

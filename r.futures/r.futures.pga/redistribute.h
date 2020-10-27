@@ -3,6 +3,7 @@
 
 
 #include "keyvalue.h"
+#include "inputs.h"
 
 struct RedistributionMatrix
 {
@@ -17,7 +18,9 @@ struct RedistributionMatrix
     //struct KeyValueIntInt *index_map;  /* key is index */
 };
 
-int redistribute(const struct RedistributionMatrix *matrix, int regionID);
+void redistribute(const struct RedistributionMatrix *matrix, struct Demand *demand,
+                  int regionID, int num_px, const struct KeyValueIntInt *region_map,
+                  int step, float *leaving_population);
 void read_redistribution_matrix(struct RedistributionMatrix *matrix);
 void free_redistribution_matrix(struct RedistributionMatrix *matrix);
 #endif // FUTURES_REDISTRIBUTE_H

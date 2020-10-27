@@ -364,7 +364,7 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
     force_convert_all = false;
     allow_already_tried_ones = false;
     unsuccessful_tries = 0;
-    n_to_convert = demand->cells_table[region][step];
+    n_to_convert = lroundf(demand->cells_table[region][step]);
     n_done = 0;
     extra = patch_overflow[region];
 
@@ -388,7 +388,7 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
         force_convert_all = true;
     }
 
-    if (demand->use_density) {
+    if (segments->use_density) {
         n_done_redevelop = 0;
         popul_to_place = demand->population_table[region][step];
         popul_done = 0;
@@ -411,7 +411,7 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
                            false, overgrow, force_convert_all, &allow_already_tried_ones,
                            &unsuccessful_tries, added_ids, n_to_convert, &n_done, &popul_done);
     }
-    if (demand->use_density) {
+    if (segments->use_density) {
         force_convert_all = false;
         allow_already_tried_ones = false;
         unsuccessful_tries = 0;
@@ -425,7 +425,7 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
     extra += (n_done - n_to_convert);
     patch_overflow[region] = extra;
     G_debug(2, "There are %d extra cells for next timestep", extra);
-    if (demand->use_density) {
+    if (segments->use_density) {
         extra_population += (popul_done - popul_to_place);
         population_overflow[region] = extra_population;
         G_debug(2, "There is %f extra population for next timestep", extra_population);
@@ -586,7 +586,10 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
 //    G_free(added_ids);
 //}
 
-void climate_step(struct Segments *segments, const struct BBoxes *bboxes,
+void climate_step(struct Segments *segments, struct Demand *demand,
+                  const struct BBoxes *bboxes, const struct RedistributionMatrix *matrix,
+                  const struct KeyValueIntInt *region_map, const struct KeyValueIntInt *reverse_region_map,
+                  int step, float *leaving_population,
                   const struct KeyValueIntFloat *flood_probability_map,
                   const struct DepthDamageFunc *func, int HUC_idx)
 {
@@ -596,6 +599,8 @@ void climate_step(struct Segments *segments, const struct BBoxes *bboxes,
     struct BBox bbox;
     CELL HUC_value;
     CELL developed_value;
+    CELL region_from_ID;
+    int region_from_idx;
     float ap;
 
     if (generate_flood(flood_probability_map, HUC_idx, &flood_probability)) {
@@ -620,9 +625,13 @@ void climate_step(struct Segments *segments, const struct BBoxes *bboxes,
                 if (G_drand48() < ap && developed_value >= 0) {
                     developed_value = DEV_TYPE_ABANDONED;
                     Segment_put(&segments->developed, (void *)&developed_value, row, col);
+                    /* redistribute */
+                    Segment_get(&segments->subregions, (void *)&region_from_idx, row, col);
+                    KeyValueIntInt_find(reverse_region_map, region_from_idx, &region_from_ID);
+                    redistribute(matrix, demand, region_from_ID, 1,
+                                 region_map, step, leaving_population);
                 }
                 // decrease potential
-                // redistribute
             }
     }
 }
