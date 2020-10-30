@@ -151,7 +151,7 @@ int main(int argc, char **argv)
                 *incentivePower, *potentialWeight,
                 *cellDemandFile, *populationDemandFile, *separator,
                 *density, *densityCapacity, *outputDensity, *redevelopmentLag,
-                *redevelopmentPotentialFile, *redistributionMatrix,
+                *redevelopmentPotentialFile, *redistributionMatrix, *redistributionMatrixOutput,
                 *HAND, *floodProbability, *depthDamageFunc, *adaptiveCapacity, *HUCs,
                 *patchFile, *numSteps, *output, *outputSeries, *seed, *memory;
     } opt;
@@ -377,6 +377,12 @@ int main(int argc, char **argv)
     opt.redistributionMatrix->required = NO;
     opt.redistributionMatrix->description = _("Matrix containing probabilities of moving from one subregion to another");
     opt.redistributionMatrix->guisection = _("Climate scenarios");
+
+    opt.redistributionMatrixOutput = G_define_standard_option(G_OPT_F_OUTPUT);
+    opt.redistributionMatrixOutput->key = "redistribution_output";
+    opt.redistributionMatrixOutput->required = NO;
+    opt.redistributionMatrixOutput->description = _("Base name for output file containing matrix of pixels moved from one subregion to another");
+    opt.redistributionMatrixOutput->guisection = _("Climate scenarios");
 
     opt.HAND = G_define_standard_option(G_OPT_R_INPUT);
     opt.HAND->key = "hand";
@@ -687,6 +693,15 @@ int main(int argc, char **argv)
     if (num_steps == 0)
         num_steps = demand_info.max_steps;
 
+    /* check redistribution matrixoutput files */
+    if (opt.redistributionMatrixOutput->answer) {
+        redistr_matrix.output_basename = opt.redistributionMatrixOutput->answer;
+        if (check_matrix_filenames_exist(&redistr_matrix, num_steps)) {
+            if (!G_check_overwrite(argc, argv))
+                G_fatal_error(_("At least one of the requested matrix output files exists. Use --o to overwrite."));
+        }
+    }
+
     /* read Patch sizes file */
     G_verbose_message("Reading patch size file...");
     patch_sizes.filename = opt.patchFile->answer;
@@ -722,6 +737,8 @@ int main(int argc, char **argv)
                              &redistr_matrix, region_map, reverse_region_map,
                              step, &leaving_population,
                              max_flood_probability_map, &damage_func, HUC);
+            if (opt.redistributionMatrixOutput->answer)
+                write_redistribution_matrix(&redistr_matrix, step, num_steps);
         }
         /* export developed for that step */
         if (opt.outputSeries->answer) {

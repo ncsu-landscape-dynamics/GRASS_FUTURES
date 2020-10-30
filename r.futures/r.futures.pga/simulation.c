@@ -435,7 +435,7 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
 
 
 void climate_step(struct Segments *segments, struct Demand *demand,
-                  const struct BBoxes *bboxes, const struct RedistributionMatrix *matrix,
+                  const struct BBoxes *bboxes, struct RedistributionMatrix *matrix,
                   const struct KeyValueIntInt *region_map, const struct KeyValueIntInt *reverse_region_map,
                   int step, float *leaving_population,
                   const struct KeyValueIntFloat *flood_probability_map,
