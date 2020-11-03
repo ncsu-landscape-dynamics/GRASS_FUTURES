@@ -207,6 +207,7 @@ void recompute_probabilities(struct Undeveloped *undeveloped_cells,
             
         }
     }
+    Segment_flush(&segments->probability);
 
     i = 0;
     for (region_idx = 0; region_idx < undeveloped_cells->max_subregions; region_idx++) {
@@ -338,6 +339,7 @@ void compute_step(struct Undeveloped *undev_cells, struct Demand *demand,
                 get_xy_from_idx(added_ids[i], Rast_window_cols(), &row, &col);
                 update_development_pressure_precomputed(row, col, segments, devpressure_info);
             }
+            Segment_flush(&segments->devpressure);
             n_done += found;
         }
     }

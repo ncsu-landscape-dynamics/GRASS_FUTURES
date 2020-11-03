@@ -279,6 +279,7 @@ int grow_patch(int seed_row, int seed_col, int patch_size, int step, int region,
     if (candidates.max_n > 0)
         G_free(candidates.candidates);
 
+    Segment_flush(&segments->developed);
     return found_in_this_region;
 }
 
