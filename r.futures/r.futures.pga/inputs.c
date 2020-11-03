@@ -302,6 +302,7 @@ void read_predictors(struct RasterInputs inputs, struct Segments *segments,
         Segment_put_row(&segments->aggregated_predictor, aggregated_row, row);
     }
     Segment_flush(&segments->aggregated_predictor);
+    Segment_flush(&segments->developed);
     for (i = 0; i < potential->max_predictors; i++) {
         Rast_close(fds_predictors[i]);
         G_free(predictor_rows[i]);
