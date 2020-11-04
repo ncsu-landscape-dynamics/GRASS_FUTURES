@@ -123,6 +123,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         pot_subregions_row = Rast_allocate_buf(CELL_TYPE);
 
     for (row = 0; row < rows; row++) {
+        G_percent(row, rows, 5);
         /* read developed row */
         Rast_get_row(fd_developed, developed_row, row, CELL_TYPE);
         Rast_get_row(fd_devpressure, devpressure_row, row, FCELL_TYPE);
@@ -203,6 +204,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         if (segments->use_potential_subregions)
             Segment_put_row(&segments->potential_subregions, pot_subregions_row, row);
     }
+    G_percent(row, rows, 5);
 
     /* flush all segments */
     Segment_flush(&segments->developed);
