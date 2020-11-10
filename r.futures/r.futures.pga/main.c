@@ -82,7 +82,7 @@ struct Developables *initialize_developables(int num_subregions)
 
 
 static int manage_memory(struct SegmentMemory *memory, struct Segments *segments,
-                         float input_memory, int n_predictors)
+                         float input_memory)
 {
     int nseg, nseg_total;
     int cols, rows;
@@ -107,7 +107,7 @@ static int manage_memory(struct SegmentMemory *memory, struct Segments *segments
     /* developed, subregions */
     size = sizeof(CELL) * 2;
     /* predictors, devpressure, probability */
-    size += sizeof(FCELL) * (n_predictors + 2);
+    size += sizeof(FCELL) * 3;
     if (segments->use_weight)
         size += sizeof(FCELL);
     if (segments->use_potential_subregions)
@@ -598,8 +598,7 @@ int main(int argc, char **argv)
     memory = -1;
     if (opt.memory->answer)
         memory = atof(opt.memory->answer);
-    nseg = manage_memory(&segment_info, &segments, memory,
-                         num_predictors);
+    nseg = manage_memory(&segment_info, &segments, memory);
     segment_info.in_memory = nseg;
 
     potential_info.incentive_transform_size = 0;
@@ -654,8 +653,8 @@ int main(int argc, char **argv)
     predictor_map = KeyValueCharInt_create();
     G_verbose_message("Reading input rasters...");
     read_input_rasters(raster_inputs, &segments, segment_info, region_map,
-                       reverse_region_map, potential_region_map, predictor_map,
-                       num_predictors, HUC_map, max_flood_probability_map);
+                       reverse_region_map, potential_region_map,
+                       HUC_map, max_flood_probability_map);
     if (opt.HAND->answer) {
         create_bboxes(&segments.HUC, &segments.developed, &bboxes);
     }
@@ -664,6 +663,10 @@ int main(int argc, char **argv)
                      Rast_window_cols(), segment_info.rows, segment_info.cols,
                      Rast_cell_size(FCELL_TYPE), segment_info.in_memory) != 1)
         G_fatal_error(_("Cannot create temporary file with segments of a raster map"));
+
+    /* fill predictor map for potential reading */
+    for (i = 0; i < num_predictors; i++)
+        KeyValueCharInt_set(predictor_map, raster_inputs.predictors[i], i);
 
     /* read Potential file */
     G_verbose_message("Reading potential file...");
@@ -679,6 +682,10 @@ int main(int argc, char **argv)
                             opt.potentialSubregions->answer ? potential_region_map : region_map,
                             predictor_map);
     }
+    /* read in predictors and aggregate to save memory */
+    G_verbose_message("Reading predictors...");
+    read_predictors(raster_inputs, &segments, &potential_info,
+                    segment_info);
 
     /* read Demand file */
     G_verbose_message("Reading demand file...");
@@ -763,7 +770,7 @@ int main(int argc, char **argv)
     Segment_close(&segments.subregions);
     Segment_close(&segments.devpressure);
     Segment_close(&segments.probability);
-    Segment_close(&segments.predictors);
+    Segment_close(&segments.aggregated_predictor);
     if (opt.potentialWeight->answer) {
         Segment_close(&segments.weight);
     }

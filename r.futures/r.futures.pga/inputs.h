@@ -64,7 +64,7 @@ struct Segments
     SEGMENT subregions;
     SEGMENT potential_subregions;
     SEGMENT devpressure;
-    SEGMENT predictors;
+    SEGMENT aggregated_predictor;
     SEGMENT probability;
     SEGMENT weight;
     SEGMENT density;
@@ -135,9 +135,11 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                         struct SegmentMemory segment_info, struct KeyValueIntInt *region_map,
                         struct KeyValueIntInt *reverse_region_map,
                         struct KeyValueIntInt *potential_region_map,
-                        struct KeyValueCharInt *predictor_map, int num_predictors,
                         struct KeyValueIntInt *HUC_map,
                         struct KeyValueIntFloat *max_flood_probability_map);
+void read_predictors(struct RasterInputs inputs, struct Segments *segments,
+                     const struct Potential *potential,
+                     const struct SegmentMemory segment_info);
 void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_map);
 void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt *region_map,
                          struct KeyValueCharInt *predictor_map);
