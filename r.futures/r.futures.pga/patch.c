@@ -177,11 +177,13 @@ static void compute_abandonment_candidate_info(struct CandidateNeighbor *candida
  * \param[in] col column
  * \param[in] seed_row initial seed row
  * \param[in] seed_col initial seed column
+ * \param[in] rows number of rows
+ * \param[in] cols number of cols
  * \param[in,out] candidate_list list of candidate cells
  * \param[in,out] segments segments
  * \param[in] patch_info patch parameters
  */
-void add_neighbour(int row, int col, int seed_row, int seed_col,
+void add_neighbour(int row, int col, int seed_row, int seed_col, int rows, int cols,
                    struct CandidateNeighborsList *candidate_list,
                    struct Segments *segments, struct PatchInfo *patch_info,
                    int step, enum patch_type type)
@@ -189,7 +191,10 @@ void add_neighbour(int row, int col, int seed_row, int seed_col,
     int i;
     size_t idx;
     CELL value;
-    
+
+    if (row < 0 || row >= rows || col < 0 || col >= cols)
+        return;
+
     Segment_get(&segments->developed, (void *)&value, row, col);
     if (Rast_is_null_value(&value, CELL_TYPE))
         return;
@@ -239,31 +244,42 @@ void add_neighbour(int row, int col, int seed_row, int seed_col,
  * \param[in] col column
  * \param[in] seed_row initial seed row
  * \param[in] seed_col initial seed column
+ * \param[in] rows number of rows
+ * \param[in] cols number of cols
  * \param[in,out] candidate_list list of candidate cells
  * \param[in,out] segments segments
  * \param[in] patch_info patch parameters
  */
 void add_neighbours(int row, int col, int seed_row, int seed_col,
+                    int rows, int cols,
                     struct CandidateNeighborsList *candidate_list,
                     struct Segments *segments, struct PatchInfo *patch_info,
                     int step, enum patch_type type)
 {
-    add_neighbour(row - 1, col, seed_row, seed_col, candidate_list,
+    add_neighbour(row - 1, col, seed_row, seed_col,
+                  rows, cols, candidate_list,
                   segments, patch_info, step, type);  // left
-    add_neighbour(row + 1, col, seed_row, seed_col, candidate_list, 
+    add_neighbour(row + 1, col, seed_row, seed_col,
+                  rows, cols, candidate_list, 
                   segments, patch_info, step, type);  // right
-    add_neighbour(row, col - 1, seed_row, seed_col, candidate_list, 
+    add_neighbour(row, col - 1, seed_row, seed_col,
+                  rows, cols, candidate_list, 
                   segments, patch_info, step, type);  // down
-    add_neighbour(row, col + 1, seed_row, seed_col, candidate_list, 
+    add_neighbour(row, col + 1, seed_row, seed_col,
+                  rows, cols, candidate_list, 
                   segments, patch_info, step, type);  // up
     if (patch_info->num_neighbors == 8) {
-        add_neighbour(row - 1, col - 1, seed_row, seed_col, candidate_list, 
+        add_neighbour(row - 1, col - 1, seed_row, seed_col,
+                      rows, cols, candidate_list, 
                       segments, patch_info, step, type);
-        add_neighbour(row - 1, col + 1, seed_row, seed_col, candidate_list, 
+        add_neighbour(row - 1, col + 1, seed_row, seed_col,
+                      rows, cols, candidate_list, 
                       segments, patch_info, step, type);
-        add_neighbour(row + 1, col - 1, seed_row, seed_col, candidate_list, 
+        add_neighbour(row + 1, col - 1, seed_row, seed_col,
+                      rows, cols, candidate_list, 
                       segments, patch_info, step, type);
-        add_neighbour(row + 1, col + 1, seed_row, seed_col, candidate_list, 
+        add_neighbour(row + 1, col + 1, seed_row, seed_col,
+                      rows, cols, candidate_list, 
                       segments, patch_info, step, type);
     }
 }
@@ -297,7 +313,7 @@ int grow_patch(int seed_row, int seed_col, int patch_size, int step, int region,
     double r, p;
     int found, found_in_this_region;
     bool force, skip;
-    int row, col, cols;
+    int row, col, cols, rows;
     CELL test_region;
     int patch_develop_value;
 
@@ -308,6 +324,7 @@ int grow_patch(int seed_row, int seed_col, int patch_size, int step, int region,
     candidates.n = 0;
     
     cols = Rast_window_cols();
+    rows = Rast_window_rows();
     force = false;
     skip = false;
     found = 1;  /* seed is the first cell */
@@ -323,7 +340,7 @@ int grow_patch(int seed_row, int seed_col, int patch_size, int step, int region,
     added_ids[0] = get_idx_from_xy(seed_row, seed_col, Rast_window_cols());
 
     /* add surrounding neighbors */
-    add_neighbours(seed_row, seed_col, seed_row, seed_col,
+    add_neighbours(seed_row, seed_col, seed_row, seed_col, rows, cols,
                    &candidates, segments, patch_info, step, type);
     iter = 0;
     while (candidates.n > 0 && found < patch_size && !skip) {
@@ -347,7 +364,7 @@ int grow_patch(int seed_row, int seed_col, int patch_size, int step, int region,
                 /* reduce the size of the list */
                 candidates.n--;
                 /* find and add new candidates */
-                add_neighbours(row, col, seed_row, seed_col,
+                add_neighbours(row, col, seed_row, seed_col, rows, cols,
                                &candidates, segments, patch_info, step, type);
                 /* sort candidates based on probability */
                 qsort(candidates.candidates, candidates.n, sizeof(struct CandidateNeighbor), sort_neighbours);
