@@ -266,9 +266,15 @@ def main():
                             " of newly developed cells, changing to zero".format(sub=subregionId)))
             demand[subregionId][demand[subregionId] < 0] = 0
         if coeff[method][0] < 0:
-            demand[subregionId].fill(0)
+            # couldn't establish reliable population-area
+            # project by number of developed pixels in analyzed period
+            range_developed = table_developed[subregionId][-1] - table_developed[subregionId][0]
+            range_times = observed_times[-1] - observed_times[0]
+            dev_per_step = math.ceil(range_developed / float(range_times))
+            # this assumes demand is projected yearly
+            demand[subregionId].fill(dev_per_step if dev_per_step > 0 else 0)
             gcore.warning(_("For subregion {sub} population and development are inversely proportional,"
-                            "will result in zero demand".format(sub=subregionId)))
+                            " demand will be interpolated based on prior change in development only.".format(sub=subregionId)))
         # write population demand
         population_demand[subregionId] = np.diff(population_for_simulated_times[subregionId])
         # draw
