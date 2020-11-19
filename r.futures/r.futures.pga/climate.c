@@ -13,12 +13,51 @@
 #include <math.h>
 
 #include <grass/gis.h>
+#include <grass/raster.h>
 #include <grass/segment.h>
+#include <grass/glocale.h>
 
 #include "inputs.h"
 #include "keyvalue.h"
 #include "climate.h"
 #include "random.h"
+
+void initilize_adaptation(SEGMENT *adaptation,
+                          const struct SegmentMemory *segment_info)
+{
+    CELL *adaptation_row;
+    int row;
+    int rows;
+
+    rows = Rast_window_rows();
+    adaptation_row = Rast_allocate_buf(CELL_TYPE); /* uses calloc */
+    if (Segment_open(adaptation, G_tempfile(), Rast_window_rows(),
+                     Rast_window_cols(), segment_info->rows, segment_info->cols,
+                     Rast_cell_size(CELL_TYPE), segment_info->in_memory) != 1)
+        G_fatal_error(_("Cannot create temporary file with segments of a raster map"));
+    /* make sure there are zeroes */
+    for (row = 0; row < rows; row++)
+        Segment_put_row(adaptation, adaptation_row, row);
+    Segment_flush(adaptation);
+    G_free(adaptation_row);
+}
+
+void adapt(SEGMENT *adaptation, int row, int col)
+{
+    int adapted;
+
+    /*  this will be level of adaptation (flood probability or depth) */
+    adapted = 1;
+    Segment_put(adaptation, (void *)&adapted, row, col);
+}
+
+bool is_adapted(SEGMENT *adaptation, int row, int col)
+{
+    int adapted;
+
+    Segment_get(adaptation, (void *)&adapted, row, col);
+    return (bool)adapted;
+}
 
 static float depth_to_damage(float depth, const struct DepthDamageFunc *func)
 {
@@ -73,7 +112,8 @@ float get_damage(struct Segments *segments, const struct DepthDamageFunc *func,
     Segment_get(&segments->HAND, (void *)&HAND_value, row, col);
     depth = flood_level - HAND_value;
     if (depth > 0) {
-        damage = depth_to_damage(depth, func);
+        if (!is_adapted(&segments->adaptation, row, col))
+            damage = depth_to_damage(depth, func);
     }
     return damage;
 }

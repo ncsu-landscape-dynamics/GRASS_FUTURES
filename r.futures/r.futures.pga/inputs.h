@@ -73,6 +73,7 @@ struct Segments
     SEGMENT HUC;
     SEGMENT flood_probability;
     SEGMENT adaptive_capacity;
+    SEGMENT adaptation;
     bool use_weight;
     bool use_potential_subregions;
     bool use_density;

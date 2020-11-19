@@ -652,6 +652,7 @@ int main(int argc, char **argv)
         damage_func.r = atof(opt.depthDamageFunc->answers[0]);
         damage_func.M = atof(opt.depthDamageFunc->answers[1]);
         damage_func.H = atof(opt.depthDamageFunc->answers[2]);
+        initilize_adaptation(&segments.adaptation, &segment_info);
     }
     initialize_flood_response(&response_relation);
 
@@ -795,6 +796,7 @@ int main(int argc, char **argv)
         Segment_close(&segments.flood_probability);
         Segment_close(&segments.adaptive_capacity);
         Segment_close(&segments.HUC);
+        Segment_close(&segments.adaptation);
         KeyValueIntFloat_free(max_flood_probability_map);
         KeyValueIntInt_free(HUC_map);
     }

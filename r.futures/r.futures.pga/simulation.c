@@ -482,6 +482,9 @@ void climate_step(struct Segments *segments, struct Demand *demand,
                             redistribute(matrix, demand, region_from_ID, 1,
                                          region_map, step, leaving_population);
                         }
+                        else if (response == Adapt) {
+                            adapt(&segments->adaptation, row, col);
+                        }
                     }
                     // decrease potential
                 }

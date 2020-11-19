@@ -24,12 +24,15 @@ struct DepthDamageFunc
     float H;
 };
 
-
+void initilize_adaptation(SEGMENT *adaptation,
+                          const struct SegmentMemory *segment_info);
 float get_max_HAND(struct Segments *segments, const struct BBox *bbox, float flood_probability);
 bool generate_flood(const struct KeyValueIntFloat *flood_probability_map, int region_idx, float *flood_probability);
 float get_damage(struct Segments *segments, const struct DepthDamageFunc *func,
                  float flood_depth, int row, int col);
 enum FloodResponse flood_response(float damage, float adaptive_capacity,
                                   const struct ACDamageRelation *response);
+bool is_adapted(SEGMENT *adaptation, int row, int col);
+void adapt(SEGMENT *adaptation, int row, int col);
 
 #endif // FUTURES_CLIMATE_H
