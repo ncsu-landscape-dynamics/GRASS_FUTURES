@@ -47,6 +47,7 @@ void climate_step(struct Segments *segments, struct Demand *demand,
                   const struct KeyValueIntInt *region_map, const struct KeyValueIntInt *reverse_region_map,
                   int step, float *leaving_population,
                   const struct KeyValueIntFloat *flood_probability_map,
-                  const struct DepthDamageFunc *func, int HUC_idx);
+                  const struct DepthDamageFunc *func,
+                  const struct ACDamageRelation *response_relation, int HUC_idx);
 
 #endif // FUTURES_SIMULATION_H

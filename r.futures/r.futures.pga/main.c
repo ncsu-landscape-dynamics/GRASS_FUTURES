@@ -80,6 +80,13 @@ struct Developables *initialize_developables(int num_subregions)
     return dev;
 }
 
+void initialize_flood_response(struct ACDamageRelation *response_relation)
+{
+    response_relation->resilience_a = 1;
+    response_relation->resilience_b = 0;
+    response_relation->vulnerability_a = -1;
+    response_relation->vulnerability_b = 0;
+}
 
 static int manage_memory(struct SegmentMemory *memory, struct Segments *segments,
                          float input_memory)
@@ -192,6 +199,7 @@ int main(int argc, char **argv)
     struct RedistributionMatrix redistr_matrix;
     struct BBoxes bboxes;
     struct DepthDamageFunc damage_func;
+    struct ACDamageRelation response_relation;
     int *patch_overflow;
     float *population_overflow;
     char *name_step;
@@ -645,6 +653,7 @@ int main(int argc, char **argv)
         damage_func.M = atof(opt.depthDamageFunc->answers[1]);
         damage_func.H = atof(opt.depthDamageFunc->answers[2]);
     }
+    initialize_flood_response(&response_relation);
 
     //    read Subregions layer
     region_map = KeyValueIntInt_create();
@@ -743,7 +752,8 @@ int main(int argc, char **argv)
                 climate_step(&segments, &demand_info, &bboxes,
                              &redistr_matrix, region_map, reverse_region_map,
                              step, &leaving_population,
-                             max_flood_probability_map, &damage_func, HUC);
+                             max_flood_probability_map, &damage_func,
+                             &response_relation, HUC);
             if (opt.redistributionMatrixOutput->answer)
                 write_redistribution_matrix(&redistr_matrix, step, num_steps);
         }

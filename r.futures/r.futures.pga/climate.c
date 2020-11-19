@@ -18,20 +18,7 @@
 #include "inputs.h"
 #include "keyvalue.h"
 #include "climate.h"
-
-static float apply_adaptive_capacity(struct Segments *segments, int row, int col, float input_index)
-{
-    FCELL ac_value;
-    Segment_get(&segments->adaptive_capacity, (void *)&ac_value, row, col);
-    /* assumes ac from -1 to 1
-       -1 most vulnerable
-        1 most resilient
-    */
-    if (ac_value < 0)
-        return input_index + fabs(ac_value) - input_index * fabs(ac_value);
-    else
-        return input_index * (1 - ac_value);
-}
+#include "random.h"
 
 static float depth_to_damage(float depth, const struct DepthDamageFunc *func)
 {
@@ -75,19 +62,49 @@ float get_max_HAND(struct Segments *segments, const struct BBox *bbox, float flo
     return max_HAND_value;
 }
 
-float get_abandonment_probability(struct Segments *segments, const struct DepthDamageFunc *func,
-                                  float flood_level, int row, int col)
+float get_damage(struct Segments *segments, const struct DepthDamageFunc *func,
+                 float flood_level, int row, int col)
 {
     FCELL HAND_value;
     float depth;
-    float probability;
+    float damage;
 
-    probability = 0;
+    damage = 0;
     Segment_get(&segments->HAND, (void *)&HAND_value, row, col);
     depth = flood_level - HAND_value;
     if (depth > 0) {
-        probability = depth_to_damage(depth, func);
-        probability = apply_adaptive_capacity(segments, row, col, probability);
+        damage = depth_to_damage(depth, func);
     }
-    return probability;
+    return damage;
+}
+
+/*!
+ * \brief Stochastically simulates flood response (retreat, adaptation, stay)
+ * as a function of damage and adaptive capacity.
+ * \param damage damage (0-1)
+ * \param adaptive_capacity adaptive capacity (0-1)
+ * \param response structure containing info about damage-AC relation
+ * \return one of Retreat, Adapt, Stay
+ */
+enum FloodResponse flood_response(float damage, float adaptive_capacity,
+                                  const struct ACDamageRelation *response)
+{
+    double x, y;
+    double response_val;
+
+    gauss_xy(0, 0.1, &x, &y);
+    if (adaptive_capacity > 0) {
+        response_val = response->resilience_a * (adaptive_capacity + y) + response->resilience_b;
+        if (damage + x > response_val)
+            return Retreat;
+        else
+            return Adapt;
+    }
+    else {
+        response_val = response->vulnerability_a * (adaptive_capacity + y) + response->vulnerability_b;
+        if (damage + x > response_val)
+            return Retreat;
+        else
+            return Stay;
+    }
 }

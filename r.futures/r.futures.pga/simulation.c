@@ -438,7 +438,8 @@ void climate_step(struct Segments *segments, struct Demand *demand,
                   const struct KeyValueIntInt *region_map, const struct KeyValueIntInt *reverse_region_map,
                   int step, float *leaving_population,
                   const struct KeyValueIntFloat *flood_probability_map,
-                  const struct DepthDamageFunc *func, int HUC_idx)
+                  const struct DepthDamageFunc *func,
+                  const struct ACDamageRelation *response_relation, int HUC_idx)
 {
     float flood_probability;
     float max_HAND;
@@ -447,8 +448,10 @@ void climate_step(struct Segments *segments, struct Demand *demand,
     CELL HUC_value;
     CELL developed_value;
     CELL region_from_ID;
+    FCELL ac;
     int region_from_idx;
-    float ap;
+    float damage;
+    enum FloodResponse response;
 
     if (generate_flood(flood_probability_map, HUC_idx, &flood_probability)) {
         bbox = bboxes->bbox[HUC_idx];
@@ -465,20 +468,23 @@ void climate_step(struct Segments *segments, struct Demand *demand,
                 Segment_get(&segments->HUC, (void *)&HUC_value, row, col);
                 if (HUC_idx != HUC_value)
                     continue;
-                ap = get_abandonment_probability(segments, func, max_HAND, row, col);
-                /* We generate it here (vs after the developed condition) to reproduce the same develeped
-                   cells independent on damage curves and AC,
-                   may not hold if we allow redevelop abandoned. */
-                if (G_drand48() < ap && developed_value >= 0) {
-                    developed_value = DEV_TYPE_ABANDONED;
-                    Segment_put(&segments->developed, (void *)&developed_value, row, col);
-                    /* redistribute */
-                    Segment_get(&segments->subregions, (void *)&region_from_idx, row, col);
-                    KeyValueIntInt_find(reverse_region_map, region_from_idx, &region_from_ID);
-                    redistribute(matrix, demand, region_from_ID, 1,
-                                 region_map, step, leaving_population);
+                damage = get_damage(segments, func, max_HAND, row, col);
+                if (damage > 0) {
+                    if (developed_value >= 0) {
+                        Segment_get(&segments->adaptive_capacity, (void *)&ac, row, col);
+                        response = flood_response(damage, ac, response_relation);
+                        if (response == Retreat) {
+                            developed_value = DEV_TYPE_ABANDONED;
+                            Segment_put(&segments->developed, (void *)&developed_value, row, col);
+                            /* redistribute */
+                            Segment_get(&segments->subregions, (void *)&region_from_idx, row, col);
+                            KeyValueIntInt_find(reverse_region_map, region_from_idx, &region_from_ID);
+                            redistribute(matrix, demand, region_from_ID, 1,
+                                         region_map, step, leaving_population);
+                        }
+                    }
+                    // decrease potential
                 }
-                // decrease potential
             }
     }
 }
