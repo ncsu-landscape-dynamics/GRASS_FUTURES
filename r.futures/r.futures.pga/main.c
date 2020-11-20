@@ -122,10 +122,10 @@ static int manage_memory(struct SegmentMemory *memory, struct Segments *segments
     /* density + capacity */
     if (segments->use_density)
         size += sizeof(FCELL) * 2;
-    /* climate: HAND (F) + AC (F) + flood prob (F) + HUC (C) */
+    /* climate: HAND (F) + AC (F) + flood prob (F) + HUC (C) + adaptation (C) */
     if (segments->use_climate) {
         size += sizeof(FCELL) * 3;
-        size += sizeof(CELL);
+        size += sizeof(CELL) * 2;
     }
     estimate += size * rows * cols;
     size *= memory->rows * memory->cols;
