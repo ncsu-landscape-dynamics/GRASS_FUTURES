@@ -120,6 +120,10 @@ void output_developed_step(SEGMENT *developed_segment, const char *name,
     // TODO: the map max is 36 for 36 steps, it is correct?
 
     if (!undeveloped_as_null) {
+        val1 = DEV_TYPE_TRAPPED;
+        val2 = DEV_TYPE_TRAPPED;
+        Rast_add_c_color_rule(&val1, 220, 150, 250, &val2, 220, 150, 250,
+                              &colors);
         val1 = DEV_TYPE_ABANDONED;
         val2 = DEV_TYPE_ABANDONED;
         Rast_add_c_color_rule(&val1, 120, 155, 200, &val2, 120, 155, 200,
@@ -170,38 +174,40 @@ void output_developed_step(SEGMENT *developed_segment, const char *name,
 }
 
 /*!
- * \brief Write current state of density.
- * \param density_segment segment with density
- * \param developed_segment segment of developed cells
+ * \brief Write out current state of a segment.
+ * \param segment segment for output
+ * \param developed_segment segment of developed cells (serves as mask)
  * \param name name for output map
+ * \param data_type data type (CELL_TYPE, FCELL_TYPE, DCELL_TYPE)
  */
-void output_density_step(SEGMENT *density_segment, SEGMENT *developed_segment, const char *name)
+void output_step(SEGMENT *output_segment, SEGMENT *developed_segment,
+                 const char *name, RASTER_MAP_TYPE data_type)
 {
     int out_fd;
     int row, col, rows, cols;
-    FCELL *out_row;
-    FCELL density;
+    void *out_row;
+    void *cell;
     CELL developed;
 
     rows = Rast_window_rows();
     cols = Rast_window_cols();
 
-    Segment_flush(density_segment);
-    out_fd = Rast_open_new(name, FCELL_TYPE);
-    out_row = Rast_allocate_f_buf();
+    Segment_flush(output_segment);
+    out_fd = Rast_open_new(name, data_type);
+    out_row = Rast_allocate_buf(data_type);
 
     for (row = 0; row < rows; row++) {
-        Rast_set_f_null_value(out_row, cols);
+        cell = out_row;
+        /* set row to null, so we need to just set non-nulls */
+        Rast_set_null_value(out_row, cols, data_type);
         for (col = 0; col < cols; col++) {
-            Segment_get(density_segment, (void *)&density, row, col);
             Segment_get(developed_segment, (void *)&developed, row, col);
-            if (Rast_is_c_null_value(&developed))
-                continue;
-            if (Rast_is_f_null_value(&density))
-                continue;
-            out_row[col] = density;
+            if (!Rast_is_c_null_value(&developed)) {
+                Segment_get(output_segment, cell, row, col);
+            }
+            cell = G_incr_void_ptr(cell, Rast_cell_size(data_type));
         }
-        Rast_put_f_row(out_fd, out_row);
+        Rast_put_row(out_fd, out_row, data_type);
     }
     G_free(out_row);
     Rast_close(out_fd);

@@ -35,11 +35,13 @@ bool can_develop(CELL development, enum patch_type type, int step, int lag)
             return true;
     }
     else if (type == PATCH_TYPE_REDEVELOP) {
-        if (development == DEV_TYPE_INITIAL || (development < (step + 1) - lag))
+        if (development == DEV_TYPE_INITIAL
+                || development == DEV_TYPE_TRAPPED
+                || (development < (step + 1) - lag))
             return true;
     }
     else if (type == PATCH_TYPE_ABANDON) {
-        if (development >= DEV_TYPE_INITIAL)
+        if (development >= DEV_TYPE_INITIAL || development == DEV_TYPE_TRAPPED)
             return true;
     }
     return false;

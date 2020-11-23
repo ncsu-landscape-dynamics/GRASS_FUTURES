@@ -159,7 +159,7 @@ int main(int argc, char **argv)
                 *cellDemandFile, *populationDemandFile, *separator,
                 *density, *densityCapacity, *outputDensity, *redevelopmentLag,
                 *redevelopmentPotentialFile, *redistributionMatrix, *redistributionMatrixOutput,
-                *HAND, *floodProbability, *depthDamageFunc, *adaptiveCapacity, *HUCs,
+                *HAND, *floodProbability, *depthDamageFunc, *adaptiveCapacity, *HUCs, *outputAdaptation,
                 *patchFile, *numSteps, *output, *outputSeries, *seed, *memory;
     } opt;
 
@@ -342,7 +342,7 @@ int main(int argc, char **argv)
     opt.outputDensity->required = NO;
     opt.outputDensity->label =
         _("Basename for raster maps of density generated after each step");
-    opt.outputDensity->guisection = _("Output");    
+    opt.outputDensity->guisection = _("Output");
 
     opt.potentialFile = G_define_standard_option(G_OPT_F_INPUT);
     opt.potentialFile->key = "devpot_params";
@@ -415,6 +415,13 @@ int main(int argc, char **argv)
     opt.adaptiveCapacity->required = NO;
     opt.adaptiveCapacity->description = _("Adaptive capacity raster");
     opt.adaptiveCapacity->guisection = _("Climate scenarios");
+
+    opt.outputAdaptation = G_define_standard_option(G_OPT_R_BASENAME_OUTPUT);
+    opt.outputAdaptation->key = "output_adaptation";
+    opt.outputAdaptation->required = NO;
+    opt.outputAdaptation->label =
+        _("Basename for raster maps of adaptation generated after each step");
+    opt.outputAdaptation->guisection = _("Output");
 
     opt.depthDamageFunc = G_define_option();
     opt.depthDamageFunc->key = "depth_damage_function";
@@ -535,6 +542,7 @@ int main(int argc, char **argv)
                         opt.redevelopmentLag, opt.redevelopmentPotentialFile, NULL);
     G_option_collective(opt.HAND, opt.redistributionMatrix, opt.populationDemandFile,
                         opt.floodProbability, opt.adaptiveCapacity, opt.HUCs, NULL);
+    G_option_requires(opt.outputAdaptation, opt.adaptiveCapacity, NULL);
     if (G_parser(argc, argv))
         exit(EXIT_FAILURE);
 
@@ -767,7 +775,12 @@ int main(int argc, char **argv)
         /* export density for that step */
         if (opt.outputDensity->answer) {
             name_step = name_for_step(opt.outputDensity->answer, step, num_steps);
-            output_density_step(&segments.density, &segments.developed, name_step);
+            output_step(&segments.density, &segments.developed, name_step, FCELL_TYPE);
+        }
+        /* export density for that step */
+        if (opt.outputAdaptation->answer) {
+            name_step = name_for_step(opt.outputAdaptation->answer, step, num_steps);
+            output_step(&segments.adaptation, &segments.developed, name_step, CELL_TYPE);
         }
     }
 

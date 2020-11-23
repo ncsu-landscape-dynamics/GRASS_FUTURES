@@ -470,7 +470,7 @@ void climate_step(struct Segments *segments, struct Demand *demand,
                     continue;
                 damage = get_damage(segments, func, max_HAND, row, col);
                 if (damage > 0) {
-                    if (developed_value >= 0) {
+                    if (developed_value >= 0 || developed_value == DEV_TYPE_TRAPPED) {
                         Segment_get(&segments->adaptive_capacity, (void *)&ac, row, col);
                         response = flood_response(damage, ac, response_relation);
                         if (response == Retreat) {
