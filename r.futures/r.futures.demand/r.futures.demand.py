@@ -326,7 +326,6 @@ def main():
         for time in simulation_times[1:]:
             f.write(str(int(time)))
             f.write(sep)
-            # put 0 where there are more counties but are not in region
             for sub in header[1:]:  # to keep order of subregions
                 f.write(str(int(demand[sub][i])))
                 if sub != header[-1]:
@@ -338,18 +337,15 @@ def main():
     if options['population_demand']:
         with open(options['population_demand'], 'w') as f:
             header = observed_popul.dtype.names  # the order is kept here
+            header = [header[0]] + [sub for sub in header[1:] if sub in subregionIds]
             f.write(sep.join(header))
             f.write('\n')
             i = 0
             for time in simulation_times[1:]:
                 f.write(str(int(time)))
                 f.write(sep)
-                # put 0 where there are more counties but are not in region
                 for sub in header[1:]:  # to keep order of subregions
-                    if sub not in subregionIds:
-                        f.write('0')
-                    else:
-                        f.write(str(int(population_demand[sub][i])))
+                    f.write(str(int(population_demand[sub][i])))
                     if sub != header[-1]:
                         f.write(sep)
                 f.write('\n')
