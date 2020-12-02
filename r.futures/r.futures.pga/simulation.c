@@ -465,6 +465,7 @@ void climate_step(struct Segments *segments, struct Demand *demand,
                 Segment_get(&segments->developed, (void *)&developed_value, row, col);
                 if (Rast_is_null_value(&developed_value, CELL_TYPE))
                     continue;
+                // check if inside HUC
                 Segment_get(&segments->HUC, (void *)&HUC_value, row, col);
                 if (HUC_idx != HUC_value)
                     continue;

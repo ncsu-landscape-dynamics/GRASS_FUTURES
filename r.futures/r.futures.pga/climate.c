@@ -22,6 +22,11 @@
 #include "climate.h"
 #include "random.h"
 
+/*!
+ * \brief Initialize adaptation segment
+ * \param adaptation segment
+ * \param segment_info
+ */
 void initilize_adaptation(SEGMENT *adaptation,
                           const struct SegmentMemory *segment_info)
 {
@@ -41,7 +46,16 @@ void initilize_adaptation(SEGMENT *adaptation,
     Segment_flush(adaptation);
     G_free(adaptation_row);
 }
-
+/*!
+ * \brief Adapt pixel to flooding.
+ *
+ * Currently, only it's 0 or 1,
+ * for future there should be level of adaptation.
+ *
+ * \param adaptation Adaptation segment
+ * \param row
+ * \param col
+ */
 void adapt(SEGMENT *adaptation, int row, int col)
 {
     int adapted;
@@ -50,7 +64,14 @@ void adapt(SEGMENT *adaptation, int row, int col)
     adapted = 1;
     Segment_put(adaptation, (void *)&adapted, row, col);
 }
-
+/*!
+ * \brief Check if pixel is adapted.
+ *
+ * \param adaptation Adaptation segment
+ * \param row
+ * \param col
+ * \return
+ */
 bool is_adapted(SEGMENT *adaptation, int row, int col)
 {
     int adapted;
@@ -59,12 +80,31 @@ bool is_adapted(SEGMENT *adaptation, int row, int col)
     return (bool)adapted;
 }
 
+/*!
+ * \brief Converts water depth to structural damage
+ * using depth-damage-function.
+ *
+ * \param water depth (height from bottom of structure)
+ * \param func depth-damage function
+ * \return structural damage (0: no damage, 1: total destruction)
+ */
 static float depth_to_damage(float depth, const struct DepthDamageFunc *func)
 {
     return pow((depth / func->H), func->r) * func->M / 100;
 }
 
-bool generate_flood(const struct KeyValueIntFloat *flood_probability_map, int region_idx, float *flood_probability)
+/*!
+ * \brief Decide if flood event occurrs and if yes,
+ * what probability is the flood associated with
+ * (e.g. 100yr flood = 0.01)
+ *
+ * \param flood_probability_map contains flood frequencies/probabilities (0-1)
+ * \param region_idx region index (HUC)
+ * \param flood_probability resulting flood frequency (as probability)
+ * \return true if flood event occures, otherwise false
+ */
+bool generate_flood(const struct KeyValueIntFloat *flood_probability_map,
+                    int region_idx, float *flood_probability)
 {
     float max_flood_probability;
     double p;
@@ -80,7 +120,19 @@ bool generate_flood(const struct KeyValueIntFloat *flood_probability_map, int re
     return false;
 }
 
-float get_max_HAND(struct Segments *segments, const struct BBox *bbox, float flood_probability)
+/*!
+ * \brief Get maximum Height Above Nearest Drainage within flooded area.
+ *
+ * This assumes flood probabilities do not correspond well to HAND,
+ * therefore we take worst case inundation height.
+ *
+ * \param segments segments (flood probability and HAND)
+ * \param bbox BBox of area where to search for it
+ * \param flood_probability
+ * \return max HAND value
+ */
+float get_max_HAND(struct Segments *segments, const struct BBox *bbox,
+                   float flood_probability)
 {
     FCELL flood_probability_value;
     FCELL HAND_value;
@@ -101,6 +153,20 @@ float get_max_HAND(struct Segments *segments, const struct BBox *bbox, float flo
     return max_HAND_value;
 }
 
+/*!
+ * \brief Get damage caused by flooding.
+ *
+ * Checks if pixel was adapted (in the future adaptation
+ * could be for certain level).
+ * If yes, damage is 0.
+ *
+ * \param segments HAND and adaptation segments
+ * \param func depth-damage function
+ * \param flood_level height of inundation
+ * \param row row
+ * \param col col
+ * \return structural damage (0: no damage, 1: total destruction)
+ */
 float get_damage(struct Segments *segments, const struct DepthDamageFunc *func,
                  float flood_level, int row, int col)
 {
