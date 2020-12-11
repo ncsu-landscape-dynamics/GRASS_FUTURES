@@ -53,6 +53,16 @@ struct PatchSizes
 
 };
 
+struct DepthDamageFunctions
+{
+    const char *filename;
+    double **damage;
+    double *levels;
+    int max_levels;
+    int max_subregions;
+    const char *separator;
+};
+
 struct SegmentMemory
 {
     int rows;
@@ -76,6 +86,7 @@ struct Segments
     SEGMENT flood_probability;
     SEGMENT adaptive_capacity;
     SEGMENT adaptation;
+    SEGMENT DDF_subregions;
     bool use_weight;
     bool use_potential_subregions;
     bool use_density;
@@ -96,6 +107,7 @@ struct RasterInputs
     const char *HUC;
     const char *flood_probability;
     const char *adaptive_capacity;
+    const char *DDF_regions;
 };
 
 
@@ -139,7 +151,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                         struct KeyValueIntInt *reverse_region_map,
                         struct KeyValueIntInt *potential_region_map,
                         struct KeyValueIntInt *HUC_map,
-                        struct KeyValueIntFloat *max_flood_probability_map);
+                        struct KeyValueIntFloat *max_flood_probability_map,
+                        struct KeyValueIntInt *DDF_region_map);
 void read_predictors(struct RasterInputs inputs, struct Segments *segments,
                      const struct Potential *potential,
                      const struct SegmentMemory segment_info);
@@ -148,6 +161,8 @@ void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt 
                          struct KeyValueCharInt *predictor_map);
 void read_patch_sizes(struct PatchSizes *patch_sizes, struct KeyValueIntInt *region_map,
                       double discount_factor);
+void read_DDF_file(struct DepthDamageFunctions *ddf,
+                   struct KeyValueIntInt *DDF_region_map);
 void create_bboxes(SEGMENT *raster, SEGMENT *masking, struct BBoxes *bboxes);
 
 #endif // FUTURES_INPUTS_H

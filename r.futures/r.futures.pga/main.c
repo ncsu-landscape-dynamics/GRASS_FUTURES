@@ -159,7 +159,8 @@ int main(int argc, char **argv)
                 *cellDemandFile, *populationDemandFile, *separator,
                 *density, *densityCapacity, *outputDensity, *redevelopmentLag,
                 *redevelopmentPotentialFile, *redistributionMatrix, *redistributionMatrixOutput,
-                *HAND, *floodProbability, *depthDamageFunc, *adaptiveCapacity, *HUCs, *outputAdaptation,
+                *HAND, *floodProbability, *depthDamageFunc, *ddf_subregions,
+                *adaptiveCapacity, *HUCs, *outputAdaptation,
                 *patchFile, *numSteps, *output, *outputSeries, *seed, *memory;
     } opt;
 
@@ -186,6 +187,7 @@ int main(int argc, char **argv)
     struct KeyValueCharInt *predictor_map;
     struct KeyValueIntFloat *max_flood_probability_map;
     struct KeyValueIntInt *HUC_map;
+    struct KeyValueIntInt * DDF_region_map;
     struct Developables *undev_cells;
     struct Developables *dev_cells;
     struct Demand demand_info;
@@ -198,7 +200,7 @@ int main(int argc, char **argv)
     struct Segments segments;
     struct RedistributionMatrix redistr_matrix;
     struct BBoxes bboxes;
-    struct DepthDamageFunc damage_func;
+    struct DepthDamageFunctions DDF;
     struct ACDamageRelation response_relation;
     int *patch_overflow;
     float *population_overflow;
@@ -423,15 +425,18 @@ int main(int argc, char **argv)
         _("Basename for raster maps of adaptation generated after each step");
     opt.outputAdaptation->guisection = _("Output");
 
-    opt.depthDamageFunc = G_define_option();
-    opt.depthDamageFunc->key = "depth_damage_function";
-    opt.depthDamageFunc->type = TYPE_DOUBLE;
+    opt.depthDamageFunc = G_define_standard_option(G_OPT_F_INPUT);
+    opt.depthDamageFunc->key = "depth_damage_functions";
     opt.depthDamageFunc->required = NO;
-    opt.depthDamageFunc->key_desc = "r,M,H";
-    opt.depthDamageFunc->answer = "0.3,56,7.3";
     opt.depthDamageFunc->description =
-        _("Parameters for depth damage function");
+        _("CSV file with depth-damage function");
     opt.depthDamageFunc->guisection = _("Climate scenarios");
+
+    opt.ddf_subregions = G_define_standard_option(G_OPT_R_INPUT);
+    opt.ddf_subregions->key = "ddf_subregions";
+    opt.ddf_subregions->required = NO;
+    opt.ddf_subregions->description = _("Subregions raster for depth-damage functions");
+    opt.ddf_subregions->guisection = _("Climate scenarios");
 
     opt.numNeighbors = G_define_option();
     opt.numNeighbors->key = "num_neighbors";
@@ -541,7 +546,8 @@ int main(int argc, char **argv)
     G_option_collective(opt.density, opt.densityCapacity, opt.outputDensity,
                         opt.redevelopmentLag, opt.redevelopmentPotentialFile, NULL);
     G_option_collective(opt.HAND, opt.redistributionMatrix, opt.populationDemandFile,
-                        opt.floodProbability, opt.adaptiveCapacity, opt.HUCs, NULL);
+                        opt.floodProbability, opt.adaptiveCapacity, opt.HUCs,
+                        opt.ddf_subregions, opt.depthDamageFunc, NULL);
     G_option_requires(opt.outputAdaptation, opt.adaptiveCapacity, NULL);
     if (G_parser(argc, argv))
         exit(EXIT_FAILURE);
@@ -655,11 +661,11 @@ int main(int argc, char **argv)
         raster_inputs.flood_probability = opt.floodProbability->answer;
         raster_inputs.adaptive_capacity = opt.adaptiveCapacity->answer;
         raster_inputs.HUC = opt.HUCs->answer;
+        raster_inputs.DDF_regions = opt.ddf_subregions->answer;
         max_flood_probability_map = KeyValueIntFloat_create();
         HUC_map = KeyValueIntInt_create();
-        damage_func.r = atof(opt.depthDamageFunc->answers[0]);
-        damage_func.M = atof(opt.depthDamageFunc->answers[1]);
-        damage_func.H = atof(opt.depthDamageFunc->answers[2]);
+        DDF.filename = opt.depthDamageFunc->answer;
+        DDF.separator = G_option_to_separator(opt.separator);
         initilize_adaptation(&segments.adaptation, &segment_info);
     }
     initialize_flood_response(&response_relation);
@@ -669,10 +675,12 @@ int main(int argc, char **argv)
     reverse_region_map = KeyValueIntInt_create();
     potential_region_map = KeyValueIntInt_create();
     predictor_map = KeyValueCharInt_create();
+    DDF_region_map = KeyValueIntInt_create();
     G_verbose_message("Reading input rasters...");
     read_input_rasters(raster_inputs, &segments, segment_info, region_map,
                        reverse_region_map, potential_region_map,
-                       HUC_map, max_flood_probability_map);
+                       HUC_map, max_flood_probability_map,
+                       DDF_region_map);
     if (opt.HAND->answer) {
         create_bboxes(&segments.HUC, &segments.developed, &bboxes);
     }
@@ -718,13 +726,16 @@ int main(int argc, char **argv)
     if (num_steps == 0)
         num_steps = demand_info.max_steps;
 
-    /* check redistribution matrixoutput files */
+    /* check redistribution matrix output files */
     if (opt.redistributionMatrixOutput->answer) {
         redistr_matrix.output_basename = opt.redistributionMatrixOutput->answer;
         if (check_matrix_filenames_exist(&redistr_matrix, num_steps)) {
             if (!G_check_overwrite(argc, argv))
                 G_fatal_error(_("At least one of the requested matrix output files exists. Use --o to overwrite."));
         }
+    }
+    if (opt.depthDamageFunc->answer) {
+        read_DDF_file(&DDF, DDF_region_map);
     }
 
     /* read Patch sizes file */
@@ -761,7 +772,7 @@ int main(int argc, char **argv)
                 climate_step(&segments, &demand_info, &bboxes,
                              &redistr_matrix, region_map, reverse_region_map,
                              step, &leaving_population,
-                             max_flood_probability_map, &damage_func,
+                             max_flood_probability_map, &DDF,
                              &response_relation, HUC);
             if (opt.redistributionMatrixOutput->answer)
                 write_redistribution_matrix(&redistr_matrix, step, num_steps);
@@ -817,6 +828,7 @@ int main(int argc, char **argv)
     KeyValueIntInt_free(reverse_region_map);
     KeyValueCharInt_free(predictor_map);
     KeyValueIntInt_free(potential_region_map);
+    KeyValueIntInt_free(DDF_region_map);
     if (demand_info.cells_table) {
         for (int i = 0; i < demand_info.max_subregions; i++)
             G_free(demand_info.cells_table[i]);

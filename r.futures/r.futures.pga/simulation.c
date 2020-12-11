@@ -438,7 +438,7 @@ void climate_step(struct Segments *segments, struct Demand *demand,
                   const struct KeyValueIntInt *region_map, const struct KeyValueIntInt *reverse_region_map,
                   int step, float *leaving_population,
                   const struct KeyValueIntFloat *flood_probability_map,
-                  const struct DepthDamageFunc *func,
+                  const struct DepthDamageFunctions *ddf,
                   const struct ACDamageRelation *response_relation, int HUC_idx)
 {
     float flood_probability;
@@ -469,7 +469,7 @@ void climate_step(struct Segments *segments, struct Demand *demand,
                 Segment_get(&segments->HUC, (void *)&HUC_value, row, col);
                 if (HUC_idx != HUC_value)
                     continue;
-                damage = get_damage(segments, func, max_HAND, row, col);
+                damage = get_damage(segments, ddf, max_HAND, row, col);
                 if (damage > 0) {
                     if (developed_value >= 0 || developed_value == DEV_TYPE_TRAPPED) {
                         Segment_get(&segments->adaptive_capacity, (void *)&ac, row, col);

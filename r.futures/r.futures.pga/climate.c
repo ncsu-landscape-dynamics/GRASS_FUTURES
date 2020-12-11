@@ -88,9 +88,16 @@ bool is_adapted(SEGMENT *adaptation, int row, int col)
  * \param func depth-damage function
  * \return structural damage (0: no damage, 1: total destruction)
  */
-static float depth_to_damage(float depth, const struct DepthDamageFunc *func)
+static float depth_to_damage(float depth, int region_idx,
+                             const struct DepthDamageFunctions *ddf)
 {
-    return pow((depth / func->H), func->r) * func->M / 100;
+    int i;
+
+    for (i = 0; i < ddf->max_levels; i++) {
+        if (depth < ddf->levels[i])
+            return ddf->damage[region_idx][i] / 100;
+    }
+    return ddf->damage[region_idx][ddf->max_levels - 1] / 100;
 }
 
 /*!
@@ -161,16 +168,17 @@ float get_max_HAND(struct Segments *segments, const struct BBox *bbox,
  * If yes, damage is 0.
  *
  * \param segments HAND and adaptation segments
- * \param func depth-damage function
+ * \param ddf depth-damage functions
  * \param flood_level height of inundation
  * \param row row
  * \param col col
  * \return structural damage (0: no damage, 1: total destruction)
  */
-float get_damage(struct Segments *segments, const struct DepthDamageFunc *func,
+float get_damage(struct Segments *segments, const struct DepthDamageFunctions *ddf,
                  float flood_level, int row, int col)
 {
     FCELL HAND_value;
+    CELL DDF_region_idx;
     float depth;
     float damage;
 
@@ -178,8 +186,10 @@ float get_damage(struct Segments *segments, const struct DepthDamageFunc *func,
     Segment_get(&segments->HAND, (void *)&HAND_value, row, col);
     depth = flood_level - HAND_value;
     if (depth > 0) {
-        if (!is_adapted(&segments->adaptation, row, col))
-            damage = depth_to_damage(depth, func);
+        if (!is_adapted(&segments->adaptation, row, col)) {
+            Segment_get(&segments->DDF_subregions, (void *)&DDF_region_idx, row, col);
+            damage = depth_to_damage(depth, DDF_region_idx, ddf);
+        }
     }
     return damage;
 }

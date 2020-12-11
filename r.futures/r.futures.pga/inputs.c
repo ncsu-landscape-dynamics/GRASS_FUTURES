@@ -56,15 +56,17 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                         struct KeyValueIntInt *reverse_region_map,
                         struct KeyValueIntInt *potential_region_map,
                         struct KeyValueIntInt *HUC_map,
-                        struct KeyValueIntFloat *max_flood_probability_map)
+                        struct KeyValueIntFloat *max_flood_probability_map,
+                        struct KeyValueIntInt *DDF_region_map)
 {
     int row, col;
     int rows, cols;
     int fd_developed, fd_reg, fd_devpressure, fd_weights,
             fd_pot_reg, fd_density, fd_density_cap,
-            fd_HAND, fd_flood_probability, fd_adaptive_capacity, fd_HUC;
-    int count_regions, pot_count_regions, HUC_count;
-    int region_index, pot_region_index, HUC_index;
+            fd_HAND, fd_flood_probability, fd_adaptive_capacity,
+            fd_HUC, fd_DDF;
+    int count_regions, pot_count_regions, HUC_count, DDF_count;
+    int region_index, pot_region_index, HUC_index, DDF_index;
     float max_flood_probability;
     CELL c;
     FCELL fc;
@@ -81,12 +83,13 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
     FCELL *flood_probability_row;
     FCELL *adaptive_capacity_row;
     CELL *HUC_row;
+    CELL *DDF_row;
 
 
     rows = Rast_window_rows();
     cols = Rast_window_cols();
-    count_regions = region_index = HUC_count = 0;
-    pot_count_regions = pot_region_index = HUC_index = 0;
+    count_regions = region_index = HUC_count = DDF_count = 0;
+    pot_count_regions = pot_region_index = HUC_index = DDF_index = 0;
 
     /* open existing raster maps for reading */
     fd_developed = Rast_open_old(inputs.developed, "");
@@ -105,6 +108,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         fd_flood_probability = Rast_open_old(inputs.flood_probability, "");
         fd_adaptive_capacity = Rast_open_old(inputs.adaptive_capacity, "");
         fd_HUC = Rast_open_old(inputs.HUC, "");
+        fd_DDF = Rast_open_old(inputs.DDF_regions, "");
     }
 
     /* Segment open developed */
@@ -163,6 +167,10 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                          cols, segment_info.rows, segment_info.cols,
                          Rast_cell_size(CELL_TYPE), segment_info.in_memory) != 1)
             G_fatal_error(_("Cannot create temporary file with segments of a raster map of HUCs"));
+        if (Segment_open(&segments->DDF_subregions, G_tempfile(), rows,
+                         cols, segment_info.rows, segment_info.cols,
+                         Rast_cell_size(CELL_TYPE), segment_info.in_memory) != 1)
+            G_fatal_error(_("Cannot create temporary file with segments of a raster map of DDF subregions"));
     }
     developed_row = Rast_allocate_buf(CELL_TYPE);
     subregions_row = Rast_allocate_buf(CELL_TYPE);
@@ -180,6 +188,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         flood_probability_row = Rast_allocate_buf(FCELL_TYPE);
         adaptive_capacity_row = Rast_allocate_buf(FCELL_TYPE);
         HUC_row = Rast_allocate_buf(CELL_TYPE);
+        DDF_row = Rast_allocate_buf(CELL_TYPE);
     }
 
     for (row = 0; row < rows; row++) {
@@ -293,6 +302,16 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                             KeyValueIntFloat_set(max_flood_probability_map, HUC_index, fc);
                     }
                 }
+                /* DDF subregions */
+                if (!Rast_is_null_value(&((CELL *) DDF_row)[col], CELL_TYPE)) {
+                    c = ((CELL *) DDF_row)[col];
+                    if (!KeyValueIntInt_find(DDF_region_map, c, &DDF_index)) {
+                        KeyValueIntInt_set(DDF_region_map, c, DDF_count);
+                        DDF_index = DDF_count;
+                        DDF_count++;
+                    }
+                    ((CELL *) DDF_row)[col] = DDF_index;
+                }
                 else
                     isnull = true;
             }
@@ -317,6 +336,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
             Segment_put_row(&segments->flood_probability, flood_probability_row, row);
             Segment_put_row(&segments->adaptive_capacity, adaptive_capacity_row, row);
             Segment_put_row(&segments->HUC, HUC_row, row);
+            Segment_put_row(&segments->DDF_subregions, DDF_row, row);
         }
     }
     G_percent(row, rows, 5);
@@ -338,6 +358,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         Segment_flush(&segments->flood_probability);
         Segment_flush(&segments->adaptive_capacity);
         Segment_flush(&segments->HUC);
+        Segment_flush(&segments->DDF_subregions);
     }
     /* close raster maps */
     Rast_close(fd_developed);
@@ -356,6 +377,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         Rast_close(fd_flood_probability);
         Rast_close(fd_adaptive_capacity);
         Rast_close(fd_HUC);
+        Rast_close(fd_DDF);
     }
 
     G_free(developed_row);
@@ -374,6 +396,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         G_free(flood_probability_row);
         G_free(adaptive_capacity_row);
         G_free(HUC_row);
+        G_free(DDF_row);
     }
 }
 
@@ -780,6 +803,89 @@ void read_patch_sizes(struct PatchSizes *patch_sizes,
         G_free_tokens(tokens);
         fclose(fp);
     }
+}
+/**
+ * @brief Read file with Depth-Damage functions
+ * Header includes inundation levels in vertical units
+ * (typically meters/feet), first column is id of the region
+ * and values are percentages of structural damage.
+ *
+ * ID,0.3,0.6,0.9
+ * 101,0,15,20
+ * 102,10,20,30
+ * ...
+ * @param ddf structure
+ * @param DDF_region_map
+ */
+void read_DDF_file(struct DepthDamageFunctions *ddf,
+                   struct KeyValueIntInt *DDF_region_map)
+{
+    FILE *fp;
+    if ((fp = fopen(ddf->filename, "r")) == NULL)
+        G_fatal_error(_("Cannot open file <%s> with depth-damage functions"),
+                      ddf->filename);
+
+    const char *td = "\"";
+    char **tokens;
+    char **header_tokens;
+    int header_ntokens;
+    int ntokens;
+    int i;
+    int num_levels;
+    int idx;
+    int id;
+    double val;
+    int j;
+
+    size_t buflen = 4000;
+    char buf[buflen];
+    if (G_getl2(buf, buflen, fp) == 0)
+        G_fatal_error(_("Depth-damage functions file <%s>"
+                        " contains less than one line"), ddf->filename);
+    header_tokens = G_tokenize2(buf, ddf->separator, td);
+    header_ntokens = G_number_of_tokens(header_tokens);
+    num_levels = header_ntokens - 1;
+    if (num_levels < 0)
+        G_fatal_error(_("Incorrect header in depth-damage functions file <%s>"),
+                      ddf->filename);
+    ddf->max_levels = num_levels;
+    ddf->max_subregions = DDF_region_map->nitems;
+    ddf->levels = (double *) G_malloc(num_levels * sizeof(double));
+    ddf->damage = (double **) G_calloc(DDF_region_map->nitems, sizeof(double *));
+    for (i = 0; i < DDF_region_map->nitems; i++) {
+        ddf->damage[i] = (double *) G_malloc(num_levels * sizeof(double));
+    }
+    /* read inundation levels */
+    for (i = 0; i < num_levels; i++) {
+        ddf->levels[i] = atof(header_tokens[i + 1]);
+    }
+
+    while (G_getl2(buf, buflen, fp)) {
+        if (buf[0] == '\0')
+            continue;
+        tokens = G_tokenize2(buf, ddf->separator, td);
+        ntokens = G_number_of_tokens(tokens);
+        if (ntokens == 0)
+            continue;
+        // id + intercept + devpressure + predictores
+        if (ntokens != num_levels + 1)
+            G_fatal_error(_("DDF: wrong number of columns: %s"), buf);
+
+        G_chop(tokens[0]);
+        id = atoi(tokens[0]);
+        if (KeyValueIntInt_find(DDF_region_map, id, &idx)) {
+            for (j = 0; j < num_levels; j++) {
+                G_chop(tokens[j + 1]);
+                val = atof(tokens[j + 1]);
+                ddf->damage[idx][j] = val;
+            }
+        }
+        // else ignoring the line with region which is not used
+
+        G_free_tokens(tokens);
+    }
+
+    fclose(fp);
 }
 
 /**
