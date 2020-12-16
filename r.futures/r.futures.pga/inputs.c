@@ -108,7 +108,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         fd_flood_probability = Rast_open_old(inputs.flood_probability, "");
         fd_adaptive_capacity = Rast_open_old(inputs.adaptive_capacity, "");
         fd_HUC = Rast_open_old(inputs.HUC, "");
-        fd_DDF = Rast_open_old(inputs.DDF_regions, "");
+        if (inputs.DDF_regions)
+            fd_DDF = Rast_open_old(inputs.DDF_regions, "");
     }
 
     /* Segment open developed */
@@ -167,10 +168,11 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                          cols, segment_info.rows, segment_info.cols,
                          Rast_cell_size(CELL_TYPE), segment_info.in_memory) != 1)
             G_fatal_error(_("Cannot create temporary file with segments of a raster map of HUCs"));
-        if (Segment_open(&segments->DDF_subregions, G_tempfile(), rows,
-                         cols, segment_info.rows, segment_info.cols,
-                         Rast_cell_size(CELL_TYPE), segment_info.in_memory) != 1)
-            G_fatal_error(_("Cannot create temporary file with segments of a raster map of DDF subregions"));
+        if (inputs.DDF_regions)
+            if (Segment_open(&segments->DDF_subregions, G_tempfile(), rows,
+                             cols, segment_info.rows, segment_info.cols,
+                             Rast_cell_size(CELL_TYPE), segment_info.in_memory) != 1)
+                G_fatal_error(_("Cannot create temporary file with segments of a raster map of DDF subregions"));
     }
     developed_row = Rast_allocate_buf(CELL_TYPE);
     subregions_row = Rast_allocate_buf(CELL_TYPE);
@@ -188,7 +190,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         flood_probability_row = Rast_allocate_buf(FCELL_TYPE);
         adaptive_capacity_row = Rast_allocate_buf(FCELL_TYPE);
         HUC_row = Rast_allocate_buf(CELL_TYPE);
-        DDF_row = Rast_allocate_buf(CELL_TYPE);
+        if (inputs.DDF_regions)
+            DDF_row = Rast_allocate_buf(CELL_TYPE);
     }
 
     for (row = 0; row < rows; row++) {
@@ -210,6 +213,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
             Rast_get_row(fd_flood_probability, flood_probability_row, row, FCELL_TYPE);
             Rast_get_row(fd_adaptive_capacity, adaptive_capacity_row, row, FCELL_TYPE);
             Rast_get_row(fd_HUC, HUC_row, row, CELL_TYPE);
+            if (inputs.DDF_regions)
+                Rast_get_row(fd_DDF, DDF_row, row, CELL_TYPE);
         }
         for (col = 0; col < cols; col++) {
             isnull = false;
@@ -303,17 +308,19 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                     }
                 }
                 /* DDF subregions */
-                if (!Rast_is_null_value(&((CELL *) DDF_row)[col], CELL_TYPE)) {
-                    c = ((CELL *) DDF_row)[col];
-                    if (!KeyValueIntInt_find(DDF_region_map, c, &DDF_index)) {
-                        KeyValueIntInt_set(DDF_region_map, c, DDF_count);
-                        DDF_index = DDF_count;
-                        DDF_count++;
+                if (inputs.DDF_regions) {
+                    if (!Rast_is_null_value(&((CELL *) DDF_row)[col], CELL_TYPE)) {
+                        c = ((CELL *) DDF_row)[col];
+                        if (!KeyValueIntInt_find(DDF_region_map, c, &DDF_index)) {
+                            KeyValueIntInt_set(DDF_region_map, c, DDF_count);
+                            DDF_index = DDF_count;
+                            DDF_count++;
+                        }
+                        ((CELL *) DDF_row)[col] = DDF_index;
                     }
-                    ((CELL *) DDF_row)[col] = DDF_index;
+                    else
+                        isnull = true;
                 }
-                else
-                    isnull = true;
             }
             /* if in developed, subregions, devpressure or weights are any nulls
                propagate them into developed */
@@ -336,7 +343,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
             Segment_put_row(&segments->flood_probability, flood_probability_row, row);
             Segment_put_row(&segments->adaptive_capacity, adaptive_capacity_row, row);
             Segment_put_row(&segments->HUC, HUC_row, row);
-            Segment_put_row(&segments->DDF_subregions, DDF_row, row);
+            if (inputs.DDF_regions)
+                Segment_put_row(&segments->DDF_subregions, DDF_row, row);
         }
     }
     G_percent(row, rows, 5);
@@ -358,7 +366,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         Segment_flush(&segments->flood_probability);
         Segment_flush(&segments->adaptive_capacity);
         Segment_flush(&segments->HUC);
-        Segment_flush(&segments->DDF_subregions);
+        if (inputs.DDF_regions)
+            Segment_flush(&segments->DDF_subregions);
     }
     /* close raster maps */
     Rast_close(fd_developed);
@@ -377,7 +386,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         Rast_close(fd_flood_probability);
         Rast_close(fd_adaptive_capacity);
         Rast_close(fd_HUC);
-        Rast_close(fd_DDF);
+        if (inputs.DDF_regions)
+            Rast_close(fd_DDF);
     }
 
     G_free(developed_row);
@@ -396,7 +406,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         G_free(flood_probability_row);
         G_free(adaptive_capacity_row);
         G_free(HUC_row);
-        G_free(DDF_row);
+        if (inputs.DDF_regions)
+            G_free(DDF_row);
     }
 }
 

@@ -61,6 +61,9 @@ struct DepthDamageFunctions
     int max_levels;
     int max_subregions;
     const char *separator;
+    bool use_DDF_subregions;
+    bool use_subregions;
+    bool use_potential_subregions;
 };
 
 struct SegmentMemory

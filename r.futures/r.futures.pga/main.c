@@ -661,11 +661,17 @@ int main(int argc, char **argv)
         raster_inputs.flood_probability = opt.floodProbability->answer;
         raster_inputs.adaptive_capacity = opt.adaptiveCapacity->answer;
         raster_inputs.HUC = opt.HUCs->answer;
-        raster_inputs.DDF_regions = opt.ddf_subregions->answer;
+        if (opt.ddf_subregions->answer) {
+            raster_inputs.DDF_regions = opt.ddf_subregions->answer;
+            DDF.filename = opt.depthDamageFunc->answer;
+        }
+        else {
+            raster_inputs.DDF_regions = NULL;
+            DDF.filename = NULL;
+        }
+        DDF.separator = G_option_to_separator(opt.separator);
         max_flood_probability_map = KeyValueIntFloat_create();
         HUC_map = KeyValueIntInt_create();
-        DDF.filename = opt.depthDamageFunc->answer;
-        DDF.separator = G_option_to_separator(opt.separator);
         initilize_adaptation(&segments.adaptation, &segment_info);
     }
     initialize_flood_response(&response_relation);
@@ -735,7 +741,29 @@ int main(int argc, char **argv)
         }
     }
     if (opt.depthDamageFunc->answer) {
-        read_DDF_file(&DDF, DDF_region_map);
+        DDF.use_DDF_subregions = false;
+        DDF.use_subregions = false;
+        DDF.use_potential_subregions = false;
+        /* if no DDF subregions, assume one DDF for entire area */
+        if (!opt.ddf_subregions->answer) {
+            KeyValueIntInt_set(DDF_region_map, 1, 1);
+            read_DDF_file(&DDF, DDF_region_map);
+        }
+        /* use subregions */
+        else if (strcmp(opt.ddf_subregions->answer, opt.subregions->answer) == 0) {
+            DDF.use_subregions = true;
+            read_DDF_file(&DDF, region_map);
+        }
+        /* use potential subregions */
+        else if (opt.potentialSubregions->answer && 
+                 strcmp(opt.ddf_subregions->answer, opt.potentialSubregions->answer) == 0) {
+            DDF.use_potential_subregions = true;
+            read_DDF_file(&DDF, potential_region_map);
+        }
+        else {
+            DDF.use_DDF_subregions = true;
+            read_DDF_file(&DDF, DDF_region_map);
+        }
     }
 
     /* read Patch sizes file */
