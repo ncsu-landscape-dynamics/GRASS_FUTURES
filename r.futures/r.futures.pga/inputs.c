@@ -565,6 +565,13 @@ void read_patch_sizes(struct PatchSizes *patch_sizes,
         G_free_tokens(tokens);
         fclose(fp);
     }
+    /* ensure there is at least one patch in each region (of size 1) */
+    for (region_id = 0; region_id < region_map->nitems; region_id++) {
+        if (patch_sizes->patch_count[region_id] == 0) {
+            patch_sizes->patch_sizes[region_id][0] = 1;
+            patch_sizes->patch_count[region_id]++;
+        }
+    }
 }
 
 
