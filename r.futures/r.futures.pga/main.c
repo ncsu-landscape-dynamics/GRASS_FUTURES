@@ -547,7 +547,7 @@ int main(int argc, char **argv)
                         opt.redevelopmentLag, opt.redevelopmentPotentialFile, NULL);
     G_option_collective(opt.HAND, opt.redistributionMatrix, opt.populationDemandFile,
                         opt.floodProbability, opt.adaptiveCapacity, opt.HUCs,
-                        opt.ddf_subregions, opt.depthDamageFunc, NULL);
+                        opt.depthDamageFunc, NULL);
     G_option_requires(opt.outputAdaptation, opt.adaptiveCapacity, NULL);
     if (G_parser(argc, argv))
         exit(EXIT_FAILURE);

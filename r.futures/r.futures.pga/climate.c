@@ -101,6 +101,33 @@ static float depth_to_damage(float depth, int region_idx,
 }
 
 /*!
+ * \brief Returns region index for which to look up
+ * DDF. If DDF is the same for entire area, returns 1.
+ * Doesn't check for nulls.
+ *
+ * \param segments Segments
+ * \param ddf DepthDamageFunctions structure
+ * \param row row
+ * \param col col
+ * \return index of a region
+ */
+static int get_DDF_region_index(struct Segments *segments,
+                                const struct DepthDamageFunctions *ddf,
+                                int row, int col) {
+    CELL DDF_region_idx;
+
+    if (ddf->use_DDF_subregions)
+        Segment_get(&segments->DDF_subregions, (void *)&DDF_region_idx, row, col);
+    else if (ddf->use_subregions)
+        Segment_get(&segments->subregions, (void *)&DDF_region_idx, row, col);
+    else if (ddf->use_potential_subregions)
+        Segment_get(&segments->potential_subregions, (void *)&DDF_region_idx, row, col);
+    else
+        DDF_region_idx = 1;
+
+    return DDF_region_idx;
+}
+/*!
  * \brief Decide if flood event occurrs and if yes,
  * what probability is the flood associated with
  * (e.g. 100yr flood = 0.01)
@@ -178,7 +205,7 @@ float get_damage(struct Segments *segments, const struct DepthDamageFunctions *d
                  float flood_level, int row, int col)
 {
     FCELL HAND_value;
-    CELL DDF_region_idx;
+    int DDF_region_idx;
     float depth;
     float damage;
 
@@ -187,7 +214,7 @@ float get_damage(struct Segments *segments, const struct DepthDamageFunctions *d
     depth = flood_level - HAND_value;
     if (depth > 0) {
         if (!is_adapted(&segments->adaptation, row, col)) {
-            Segment_get(&segments->DDF_subregions, (void *)&DDF_region_idx, row, col);
+            DDF_region_idx = get_DDF_region_index(segments, ddf, row, col);
             damage = depth_to_damage(depth, DDF_region_idx, ddf);
         }
     }

@@ -96,6 +96,23 @@ class TestPGA(TestCase):
                           demand='data/demand.csv',
                           hand='HAND_filled', redistribution_matrix='data/matrix.csv',
                           flood_probability='flood_probability', adaptive_capacity='acapacity',
+                          huc='basin', depth_damage_functions='data/damage_curves_single.csv', ddf_subregions='zipcodes',
+                          population_demand='data/population_demand.csv',
+                          output=self.output)
+
+    def test_pga_flooding_DDF(self):
+        """Test if results is in expected limits"""
+        self.assertModule('r.futures.pga', developed='urban_2002', development_pressure='devpressure',
+                          compactness_mean=0.4, compactness_range=0.05, discount_factor=0.1,
+                          patch_sizes='data/patches.txt',
+                          predictors=['slope', 'lakes_dist_km', 'streets_dist_km'],
+                          n_dev_neighbourhood=15, devpot_params='data/potential.csv',
+                          random_seed=1,
+                          num_neighbors=4, seed_search='random', development_pressure_approach='gravity',
+                          gamma=1.5, scaling_factor=1, subregions='zipcodes',
+                          demand='data/demand.csv',
+                          hand='HAND_filled', redistribution_matrix='data/matrix.csv',
+                          flood_probability='flood_probability', adaptive_capacity='acapacity',
                           huc='basin', depth_damage_functions='data/damage_curves.csv', ddf_subregions='zipcodes',
                           population_demand='data/population_demand.csv',
                           output=self.output)
