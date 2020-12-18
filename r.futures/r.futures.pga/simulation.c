@@ -469,6 +469,7 @@ void climate_step(struct Segments *segments, struct Demand *demand,
                 Segment_get(&segments->HUC, (void *)&HUC_value, row, col);
                 if (HUC_idx != HUC_value)
                     continue;
+                // TODO: get damage only for developed
                 damage = get_damage(segments, ddf, max_HAND, row, col);
                 if (damage > 0) {
                     if (developed_value >= 0 || developed_value == DEV_TYPE_TRAPPED) {

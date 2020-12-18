@@ -863,8 +863,10 @@ void read_DDF_file(struct DepthDamageFunctions *ddf,
     ddf->max_subregions = DDF_region_map->nitems;
     ddf->levels = (double *) G_malloc(num_levels * sizeof(double));
     ddf->damage = (double **) G_calloc(DDF_region_map->nitems, sizeof(double *));
+    ddf->loaded = (bool *) G_malloc(DDF_region_map->nitems * sizeof(bool));
     for (i = 0; i < DDF_region_map->nitems; i++) {
         ddf->damage[i] = (double *) G_malloc(num_levels * sizeof(double));
+        ddf->loaded[i] = false;
     }
     /* read inundation levels */
     for (i = 0; i < num_levels; i++) {
@@ -878,7 +880,6 @@ void read_DDF_file(struct DepthDamageFunctions *ddf,
         ntokens = G_number_of_tokens(tokens);
         if (ntokens == 0)
             continue;
-        // id + intercept + devpressure + predictores
         if (ntokens != num_levels + 1)
             G_fatal_error(_("DDF: wrong number of columns: %s"), buf);
 
@@ -890,10 +891,15 @@ void read_DDF_file(struct DepthDamageFunctions *ddf,
                 val = atof(tokens[j + 1]);
                 ddf->damage[idx][j] = val;
             }
+            ddf->loaded[idx] = true;
         }
         // else ignoring the line with region which is not used
 
         G_free_tokens(tokens);
+    }
+    for (i = 0; i < ddf->max_subregions; i++) {
+        if (!ddf->loaded[i])
+            G_fatal_error(_("DDF: not all subregions have associated DDF"));
     }
 
     fclose(fp);

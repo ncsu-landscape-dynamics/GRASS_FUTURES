@@ -11,6 +11,10 @@ enum development_type {DEV_TYPE_INITIAL = 0,
                        DEV_TYPE_ABANDONED = -2,
                        DEV_TYPE_TRAPPED = -3};
 
+enum DDF_subregions_source {DDF_DEFAULT = 0,
+                            DDF_POTENTIAL = -1,
+                            DDF_CUSTOM = -2,
+                            DDF_NONE = -3};
 
 struct Demand
 {
@@ -61,9 +65,8 @@ struct DepthDamageFunctions
     int max_levels;
     int max_subregions;
     const char *separator;
-    bool use_DDF_subregions;
-    bool use_subregions;
-    bool use_potential_subregions;
+    bool *loaded;
+    enum DDF_subregions_source subregions_source;
 };
 
 struct SegmentMemory

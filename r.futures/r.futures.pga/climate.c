@@ -102,7 +102,7 @@ static float depth_to_damage(float depth, int region_idx,
 
 /*!
  * \brief Returns region index for which to look up
- * DDF. If DDF is the same for entire area, returns 1.
+ * DDF. If DDF is the same for entire area, returns 0.
  * Doesn't check for nulls.
  *
  * \param segments Segments
@@ -116,14 +116,14 @@ static int get_DDF_region_index(struct Segments *segments,
                                 int row, int col) {
     CELL DDF_region_idx;
 
-    if (ddf->use_DDF_subregions)
+    if (ddf->subregions_source == DDF_CUSTOM)
         Segment_get(&segments->DDF_subregions, (void *)&DDF_region_idx, row, col);
-    else if (ddf->use_subregions)
+    else if (ddf->subregions_source == DDF_DEFAULT)
         Segment_get(&segments->subregions, (void *)&DDF_region_idx, row, col);
-    else if (ddf->use_potential_subregions)
+    else if (ddf->subregions_source == DDF_POTENTIAL)
         Segment_get(&segments->potential_subregions, (void *)&DDF_region_idx, row, col);
     else
-        DDF_region_idx = 1;
+        DDF_region_idx = 0;
 
     return DDF_region_idx;
 }

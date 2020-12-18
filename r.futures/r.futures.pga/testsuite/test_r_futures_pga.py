@@ -96,7 +96,7 @@ class TestPGA(TestCase):
                           demand='data/demand.csv',
                           hand='HAND_filled', redistribution_matrix='data/matrix.csv',
                           flood_probability='flood_probability', adaptive_capacity='acapacity',
-                          huc='basin', depth_damage_functions='data/damage_curves_single.csv', ddf_subregions='zipcodes',
+                          huc='basin', depth_damage_functions='data/damage_curves_single.csv',
                           population_demand='data/population_demand.csv',
                           output=self.output)
 
