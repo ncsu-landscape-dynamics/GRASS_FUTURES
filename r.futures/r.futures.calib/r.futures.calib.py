@@ -17,7 +17,7 @@
 ##############################################################################
 
 #%module
-#% description: Module for calibrating patch characteristics used as input to r.futures.pga
+#% description: Module for calibrating patch characteristics used as input to r.futures.simulation
 #% keyword: raster
 #% keyword: patch
 #%end
@@ -334,7 +334,7 @@ def run_one_combination(comb_count, comb_all, repeat, seed, development_start, c
         except CalledModuleError as e:
             queue.put(None)
             cleanup(tmp=TMP_PROCESS)
-            gcore.error(_("Running r.futures.pga failed. Details: {e}").format(e=e))
+            gcore.error(_("Running r.futures.simulation failed. Details: {e}").format(e=e))
             return
         new_development(simulation_dev_end, simulation_dev_diff)
 
@@ -378,7 +378,7 @@ def run_simulation(development_start, development_end, compactness_mean,
         if fut_options[not_required]:
             parameters.update({not_required: fut_options[not_required]})
 
-    gcore.run_command('r.futures.pga', overwrite=True, **parameters)
+    gcore.run_command('r.futures.simulation', overwrite=True, **parameters)
 
 
 def diff_development(development_start, development_end, subregions, development_diff):
