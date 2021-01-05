@@ -25,7 +25,7 @@ jobs:
         sudo apt-get install -y -qq grass grass-dev grass-doc
     - name: Change shebang to just Python (7.6 needs python2)
       run: |
-        sed -i s/python3/python/g ./r.futures/r.futures.pga/testsuite/test_r_futures_pga.py
+        sed -i s/python3/python/g ./r.futures/r.futures.simulation/testsuite/test_r_futures_simulation.py
     - name: Install the module
       run: |
         grass --tmp-location XY --exec g.extension extension=r.futures url=./r.futures/ --verbose
@@ -44,8 +44,8 @@ jobs:
         grass --tmp-location XY --exec g.download.location url=https://grass.osgeo.org/sampledata/north_carolina/nc_spm_08_grass7.tar.gz dbase=~ --verbose
     - name: Run test (manually specified files)
       run: |
-        cd ./r.futures/r.futures.pga/testsuite
-        grass -c ~/nc_spm_08_grass7/test --exec ./test_r_futures_pga.py
+        cd ./r.futures/r.futures.simulation/testsuite
+        grass -c ~/nc_spm_08_grass7/test --exec ./test_r_futures_simulation.py
         cd ../../r.futures.devpressure/testsuite
         grass ~/nc_spm_08_grass7/test --exec ./test_r_futures_devpressure.py
         cd ../../r.futures.parallelpga/testsuite
