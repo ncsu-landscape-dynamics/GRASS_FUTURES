@@ -1,6 +1,6 @@
 <h2>DESCRIPTION</h2>
 
-Module <em>r.futures.pga</em> is part of <a href="r.futures.html">FUTURES</a>
+Module <em>r.futures.simulation</em> is part of <a href="r.futures.html">FUTURES</a>
 land change model.
 This module uses stochastic Patch-Growing Algorithm (PGA)
 and a combination of field-based and object-based representations
@@ -38,7 +38,7 @@ The initial development pressure is computed using module
 The same input parameters of this module
 (<b>gamma</b>, <b>scaling factor</b> and <b>n_dev_neighbourhood</b>)
 are then used as input for
-<em><a href="r.futures.pga.html">r.futures.pga</a></em>.
+<em><a href="r.futures.simulation.html">r.futures.simulation</a></em>.
 
 <h3>Scenarios</h3>
 Scenarios involving policies that encourage infill versus sprawl
@@ -93,7 +93,7 @@ Figure: Detail of output map
 <h2>EXAMPLE</h2>
 
 <div class="code"><pre>
-r.futures.pga -s developed=lc96 predictors=d2urbkm,d2intkm,d2rdskm,slope \
+r.futures.simulation -s developed=lc96 predictors=d2urbkm,d2intkm,d2rdskm,slope \
   demand=demand.txt devpot_params=devpotParams.csv discount_factor=0.6 \
   compactness_mean=0.4 compactness_range=0.08 num_neighbors=4 seed_search=probability \
   patch_sizes=patch_sizes.txt development_pressure=gdp n_dev_neighbourhood=10 \

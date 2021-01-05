@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- * MODULE:       r.futures.pga
+ * MODULE:       r.futures.simulation
  * AUTHOR(S):    Ross K. Meentemeyer
  *               Wenwu Tang
  *               Monica A. Dorning
@@ -14,7 +14,7 @@
  *
  * PURPOSE:      Simulation of urban-rural landscape structure (FUTURES model)
  *
- * COPYRIGHT:    (C) 2013-2016 by Anna Petrasova and Meentemeyer et al.
+ * COPYRIGHT:    (C) 2013-2021 by Anna Petrasova and Meentemeyer et al.
  *
  *               This program is free software: you can redistribute it and/or
  *               modify it under the terms of the GNU General Public License

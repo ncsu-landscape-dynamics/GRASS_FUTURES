@@ -59,7 +59,7 @@ class TestPGA(TestCase):
 
     def test_pga_run(self):
         """Test if results is in expected limits"""
-        self.assertModule('r.futures.pga', developed='urban_2002', development_pressure='devpressure',
+        self.assertModule('r.futures.simulation', developed='urban_2002', development_pressure='devpressure',
                           compactness_mean=0.4, compactness_range=0.05, discount_factor=0.1,
                           patch_sizes='data/patches.txt',
                           predictors=['slope', 'lakes_dist_km', 'streets_dist_km'],
@@ -72,7 +72,7 @@ class TestPGA(TestCase):
 
     def test_pga_run_patch_library_multiple_columns(self):
         """Test if results is in expected limits"""
-        self.assertModule('r.futures.pga', developed='urban_2002', development_pressure='devpressure',
+        self.assertModule('r.futures.simulation', developed='urban_2002', development_pressure='devpressure',
                           compactness_mean=0.4, compactness_range=0.05, discount_factor=0.1,
                           patch_sizes='data/patches.csv',
                           predictors=['slope', 'lakes_dist_km', 'streets_dist_km'],
@@ -85,7 +85,7 @@ class TestPGA(TestCase):
 
     def test_pga_flooding(self):
         """Test if results is in expected limits"""
-        self.assertModule('r.futures.pga', developed='urban_2002', development_pressure='devpressure',
+        self.assertModule('r.futures.simulation', developed='urban_2002', development_pressure='devpressure',
                           compactness_mean=0.4, compactness_range=0.05, discount_factor=0.1,
                           patch_sizes='data/patches.txt',
                           predictors=['slope', 'lakes_dist_km', 'streets_dist_km'],
@@ -102,7 +102,7 @@ class TestPGA(TestCase):
 
     def test_pga_flooding_DDF(self):
         """Test if results is in expected limits"""
-        self.assertModule('r.futures.pga', developed='urban_2002', development_pressure='devpressure',
+        self.assertModule('r.futures.simulation', developed='urban_2002', development_pressure='devpressure',
                           compactness_mean=0.4, compactness_range=0.05, discount_factor=0.1,
                           patch_sizes='data/patches.txt',
                           predictors=['slope', 'lakes_dist_km', 'streets_dist_km'],
