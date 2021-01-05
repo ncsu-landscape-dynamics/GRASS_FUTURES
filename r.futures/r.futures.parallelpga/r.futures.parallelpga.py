@@ -3,7 +3,7 @@
 #
 # MODULE:       r.futures.parallelpga
 # AUTHOR(S):    Anna Petrasova
-# PURPOSE:      Run r.futures.pga in parallel
+# PURPOSE:      Run r.futures.simulation in parallel
 # COPYRIGHT:    (C) 2016 by Anna Petrasova, and the GRASS Development Team
 #
 #  This program is free software; you can redistribute it and/or modify
@@ -19,7 +19,7 @@
 ############################################################################
 
 #%module
-#% label: Simulates landuse change using FUTURES (r.futures.pga) on multiple CPUs in parallel.
+#% label: Simulates landuse change using FUTURES (r.futures.simulation) on multiple CPUs in parallel.
 #% description: Module uses Patch-Growing Algorithm (PGA) to simulate urban-rural landscape structure development.
 #% keyword: raster
 #% keyword: patch growing
@@ -30,7 +30,7 @@
 #%flag
 #% key: d
 #% label: Runs each subregion separately
-#% description: r.futures.pga runs for each subregion and after all subregions are completed, the results are patched together
+#% description: r.futures.simulation runs for each subregion and after all subregions are completed, the results are patched together
 #% guisection: Parallel
 #%end
 #%option
@@ -294,10 +294,10 @@ def futures_process(params):
             gscript.message(_("Running simulation {s}/{r} for subregion {sub}".format(s=seed, r=repeat, sub=cat)))
             env = os.environ.copy()
             env['GRASS_REGION'] = gscript.region_env(raster=PREFIX + cat, zoom=PREFIX + cat)
-            gscript.run_command('r.futures.pga', env=env, **options)
+            gscript.run_command('r.futures.simulation', env=env, **options)
         else:
             gscript.message(_("Running simulation {s}/{r}".format(s=seed, r=repeat)))
-            gscript.run_command('r.futures.pga', **options)
+            gscript.run_command('r.futures.simulation', **options)
     except (KeyboardInterrupt, CalledModuleError):
         return
 
