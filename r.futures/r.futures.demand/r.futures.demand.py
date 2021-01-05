@@ -167,6 +167,8 @@ def main():
                                                                 xp=np.append(observed_times, projected_times),
                                                                 fp=np.append(observed_popul[subregionId],
                                                                              projected_popul[subregionId]))
+    print(table_developed)
+    print(population_for_simulated_times)
     # regression
     demand = {}
     population_demand = {}
@@ -209,11 +211,13 @@ def main():
                         if method == 'logarithmic2' and np.any(simulated[method] / magn <= popt[-1]):
                             raise RuntimeError
                     except (FloatingPointError, RuntimeError):
-                        rmse[method] = sys.maxsize  # so that other method is selected
                         gcore.warning(_("Method '{m}' cannot converge for subregion {reg}".format(m=method, reg=subregionId)))
+                        rmse[method] = sys.maxsize  # so that other method is selected
+                        coeff[method] = (np.nan, np.nan, np.nan)
+                        predicted[method] = np.zeros(len(simulated[method]))
                         if len(methods) == 1:
-                            gcore.fatal(_("Method '{m}' failed for subregion {reg},"
-                                        " please select at least one other method").format(m=method, reg=subregionId))
+                            gcore.warning(_("Method '{m}' failed for subregion {reg},"
+                                            " please consider selecting at least one other method").format(m=method, reg=subregionId))
                     else:
                         predicted[method] = globals()[method](simulated[method] / magn, *popt) * magn
                         r = globals()[method](x, *popt) * magn - table_developed[subregionId]
@@ -265,7 +269,7 @@ def main():
             gcore.warning(_("Subregion {sub} has negative numbers"
                             " of newly developed cells, changing to zero".format(sub=subregionId)))
             demand[subregionId][demand[subregionId] < 0] = 0
-        if coeff[method][0] < 0:
+        if coeff[method][0] < 0 or np.isnan(coeff[method][0]):
             # couldn't establish reliable population-area
             # project by number of developed pixels in analyzed period
             range_developed = table_developed[subregionId][-1] - table_developed[subregionId][0]
@@ -291,23 +295,24 @@ def main():
             x_pred = np.linspace(np.min(x),
                                  np.max(np.array(population_for_simulated_times[subregionId])), 30)
             cf = coeff[method]
-            if method == 'linear':
-                line = x_pred * cf[0] + cf[1]
-                label = "$y = {c:.3f} + {m:.3f} x$".format(m=cf[0], c=cf[1])
-            elif method == 'logarithmic':
-                line = np.log(x_pred) * cf[0] + cf[1]
-                label = "$y = {c:.3f} + {m:.3f} \ln(x)$".format(m=cf[0], c=cf[1])
-            elif method == 'exponential':
-                line = np.exp(x_pred * cf[0] + cf[1])
-                label = "$y = {c:.3f} e^{{{m:.3f}x}}$".format(m=cf[0], c=np.exp(cf[1]))
-            elif method == 'exp_approach':
-                line = exp_approach(x_pred / magn, *cf) * magn
-                label = "$y = (1 -  e^{{-{A:.3f}(x-{B:.3f})}}) + {C:.3f}$".format(A=cf[0], B=cf[1], C=cf[2])
-            elif method == 'logarithmic2':
-                line = logarithmic2(x_pred / magn, *cf) * magn
-                label = "$y = {A:.3f} + {B:.3f} \ln(x-{C:.3f})$".format(A=cf[0], B=cf[1], C=cf[2])
+            if not np.isnan(cf[0]):
+                if method == 'linear':
+                    line = x_pred * cf[0] + cf[1]
+                    label = "$y = {c:.3f} + {m:.3f} x$".format(m=cf[0], c=cf[1])
+                elif method == 'logarithmic':
+                    line = np.log(x_pred) * cf[0] + cf[1]
+                    label = "$y = {c:.3f} + {m:.3f} \ln(x)$".format(m=cf[0], c=cf[1])
+                elif method == 'exponential':
+                    line = np.exp(x_pred * cf[0] + cf[1])
+                    label = "$y = {c:.3f} e^{{{m:.3f}x}}$".format(m=cf[0], c=np.exp(cf[1]))
+                elif method == 'exp_approach':
+                    line = exp_approach(x_pred / magn, *cf) * magn
+                    label = "$y = (1 -  e^{{-{A:.3f}(x-{B:.3f})}}) + {C:.3f}$".format(A=cf[0], B=cf[1], C=cf[2])
+                elif method == 'logarithmic2':
+                    line = logarithmic2(x_pred / magn, *cf) * magn
+                    label = "$y = {A:.3f} + {B:.3f} \ln(x-{C:.3f})$".format(A=cf[0], B=cf[1], C=cf[2])
+                ax.plot(x_pred, line, label=label)
 
-            ax.plot(x_pred, line, label=label)
             ax.plot(simulated[method], predicted[method], linestyle='', marker='o', markerfacecolor='None')
             plt.legend(loc=0)
             labels = ax.get_xticklabels()
