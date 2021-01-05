@@ -177,7 +177,7 @@ def main():
         import matplotlib
         matplotlib.use('Agg')
         import matplotlib.pyplot as plt
-        n_plots = np.ceil(np.sqrt(len(subregionIds)))
+        n_plots = int(np.ceil(np.sqrt(len(subregionIds))))
         fig = plt.figure(figsize=(5 * n_plots, 5 * n_plots))
 
     for subregionId in subregionIds:
