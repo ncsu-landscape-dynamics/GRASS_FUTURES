@@ -114,7 +114,7 @@ void redistribute(struct RedistributionMatrix *matrix, struct Demand *demand,
 void read_redistribution_matrix(struct RedistributionMatrix *matrix)
 {
     FILE *fin;
-    size_t buflen = 20000;
+    size_t buflen = 30000;
     char *buf;
     const char *fs = ",";
     const char *td = "\"";
