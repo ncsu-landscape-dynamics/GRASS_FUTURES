@@ -289,7 +289,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                     isnull = true;
                 if (!Rast_is_null_value(&((CELL *) HUC_row)[col], CELL_TYPE)) {
                     c = ((CELL *) HUC_row)[col];
-                    /* mapping: index -> HUC id */
+                    /* mapping: HUC id -> index */
                     if (!KeyValueIntInt_find(HUC_map, c, &HUC_index)) {
                         KeyValueIntInt_set(HUC_map, c, HUC_count);
                         HUC_index = HUC_count;

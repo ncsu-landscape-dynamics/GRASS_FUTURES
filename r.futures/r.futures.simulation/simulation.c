@@ -22,6 +22,7 @@
 #include <grass/segment.h>
 
 #include "inputs.h"
+#include "keyvalue.h"
 #include "devpressure.h"
 #include "utils.h"
 #include "simulation.h"
@@ -450,11 +451,14 @@ void climate_step(struct Segments *segments, struct Demand *demand,
     CELL region_from_ID;
     FCELL ac;
     int region_from_idx;
+    int bbox_idx;
     float damage;
     enum FloodResponse response;
 
     if (generate_flood(flood_probability_map, HUC_idx, &flood_probability)) {
-        bbox = bboxes->bbox[HUC_idx];
+        if (!KeyValueIntInt_find(bboxes->map, HUC_idx, &bbox_idx))
+            return;
+        bbox = bboxes->bbox[bbox_idx];
         max_HAND = get_max_HAND(segments, &bbox, flood_probability);
         /* no flood */
         if (max_HAND == 0)
