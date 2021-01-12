@@ -435,10 +435,10 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
 
 
 void climate_step(struct Segments *segments, struct Demand *demand,
-                  const struct BBoxes *bboxes, struct RedistributionMatrix *matrix,
+                  struct BBoxes *bboxes, struct RedistributionMatrix *matrix,
                   const struct KeyValueIntInt *region_map, const struct KeyValueIntInt *reverse_region_map,
                   int step, float *leaving_population,
-                  const struct KeyValueIntFloat *flood_probability_map,
+                  map_float_t *flood_probability_map,
                   const struct DepthDamageFunctions *ddf,
                   const struct ACDamageRelation *response_relation, int HUC_idx)
 {
@@ -451,14 +451,15 @@ void climate_step(struct Segments *segments, struct Demand *demand,
     CELL region_from_ID;
     FCELL ac;
     int region_from_idx;
-    int bbox_idx;
+    int *bbox_idx;
     float damage;
     enum FloodResponse response;
 
     if (generate_flood(flood_probability_map, HUC_idx, &flood_probability)) {
-        if (!KeyValueIntInt_find(bboxes->map, HUC_idx, &bbox_idx))
+        bbox_idx = map_get_int(&bboxes->map, HUC_idx);
+        if (!bbox_idx)
             return;
-        bbox = bboxes->bbox[bbox_idx];
+        bbox = bboxes->bbox[*bbox_idx];
         max_HAND = get_max_HAND(segments, &bbox, flood_probability);
         /* no flood */
         if (max_HAND == 0)

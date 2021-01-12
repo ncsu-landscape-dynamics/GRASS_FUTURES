@@ -18,7 +18,7 @@
 #include <grass/glocale.h>
 
 #include "inputs.h"
-#include "keyvalue.h"
+#include "map.h"
 #include "climate.h"
 #include "random.h"
 
@@ -137,16 +137,16 @@ static int get_DDF_region_index(struct Segments *segments,
  * \param flood_probability resulting flood frequency (as probability)
  * \return true if flood event occures, otherwise false
  */
-bool generate_flood(const struct KeyValueIntFloat *flood_probability_map,
+bool generate_flood(map_float_t *flood_probability_map,
                     int region_idx, float *flood_probability)
 {
-    float max_flood_probability;
+    float *max_flood_probability;
     double p;
 
-    KeyValueIntFloat_find(flood_probability_map, region_idx, &max_flood_probability);
-    if (max_flood_probability > 0) {
+    max_flood_probability = map_get_int(flood_probability_map, region_idx);
+    if (max_flood_probability && *max_flood_probability > 0) {
         p = G_drand48();
-        if (p <= max_flood_probability) {
+        if (p <= *max_flood_probability) {
             *flood_probability = p;
             return true;
         }

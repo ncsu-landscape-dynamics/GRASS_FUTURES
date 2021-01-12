@@ -23,6 +23,7 @@
 
 #include "keyvalue.h"
 #include "inputs.h"
+#include "map.h"
 
 /*!
  * \brief Initialize arrays for transformation of probability values
@@ -55,9 +56,9 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                         struct SegmentMemory segment_info, struct KeyValueIntInt *region_map,
                         struct KeyValueIntInt *reverse_region_map,
                         struct KeyValueIntInt *potential_region_map,
-                        struct KeyValueIntInt *HUC_map,
-                        struct KeyValueIntFloat *max_flood_probability_map,
-                        struct KeyValueIntInt *DDF_region_map)
+                        map_int_t *HUC_map,
+                        map_float_t *max_flood_probability_map,
+                        map_int_t *DDF_region_map)
 {
     int row, col;
     int rows, cols;
@@ -90,6 +91,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
     cols = Rast_window_cols();
     count_regions = region_index = HUC_count = DDF_count = 0;
     pot_count_regions = pot_region_index = HUC_index = DDF_index = 0;
+    int *pindex;
+    float *pvalue;
 
     /* open existing raster maps for reading */
     fd_developed = Rast_open_old(inputs.developed, "");
@@ -290,32 +293,40 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                 if (!Rast_is_null_value(&((CELL *) HUC_row)[col], CELL_TYPE)) {
                     c = ((CELL *) HUC_row)[col];
                     /* mapping: HUC id -> index */
-                    if (!KeyValueIntInt_find(HUC_map, c, &HUC_index)) {
-                        KeyValueIntInt_set(HUC_map, c, HUC_count);
+                    pindex = map_get_int(HUC_map, c);
+                    if (!pindex) {
+                        map_set_int(HUC_map, c, HUC_count);
                         HUC_index = HUC_count;
                         HUC_count++;
                     }
+                    else
+                        HUC_index = *pindex;
                     ((CELL *) HUC_row)[col] = HUC_index;
                     /* save the max flood value for each HUC */
                     if (!Rast_is_null_value(&((FCELL *) flood_probability_row)[col], FCELL_TYPE)) {
                         fc = ((FCELL *) flood_probability_row)[col];
-                        if (KeyValueIntFloat_find(max_flood_probability_map, HUC_index, &max_flood_probability)) {
+                        pvalue = map_get_int(max_flood_probability_map, HUC_index);
+                        if (pvalue) {
+                            max_flood_probability = *pvalue;
                             if (fc > max_flood_probability)
-                                KeyValueIntFloat_set(max_flood_probability_map, HUC_index, fc);
+                                map_set_int(max_flood_probability_map, HUC_index, fc);
                         }
                         else
-                            KeyValueIntFloat_set(max_flood_probability_map, HUC_index, fc);
+                            map_set_int(max_flood_probability_map, HUC_index, fc);
                     }
                 }
                 /* DDF subregions */
                 if (inputs.DDF_regions) {
                     if (!Rast_is_null_value(&((CELL *) DDF_row)[col], CELL_TYPE)) {
                         c = ((CELL *) DDF_row)[col];
-                        if (!KeyValueIntInt_find(DDF_region_map, c, &DDF_index)) {
-                            KeyValueIntInt_set(DDF_region_map, c, DDF_count);
+                        pindex = map_get_int(DDF_region_map, c);
+                        if(!pindex) {
+                            map_set_int(DDF_region_map, c, DDF_count);
                             DDF_index = DDF_count;
                             DDF_count++;
                         }
+                        else
+                            DDF_index = *pindex;
                         ((CELL *) DDF_row)[col] = DDF_index;
                     }
                     else
@@ -624,7 +635,7 @@ void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_m
 }
 
 void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt *region_map,
-                         struct KeyValueCharInt *predictor_map)
+                         map_int_t *predictor_map)
 {
     FILE *fp;
     if ((fp = fopen(potentialInfo->filename, "r")) == NULL)
@@ -637,7 +648,7 @@ void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt 
     int header_ntokens;
     int ntokens;
     int i;
-    int pred_idx;
+    int *pred_idx;
 
     size_t buflen = 4000;
     char buf[buflen];
@@ -661,8 +672,9 @@ void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt 
     }
     /* index of used predictors in columns within list of predictors */
     for (i = 0; i < num_predictors; i++) {
-        if (KeyValueCharInt_find(predictor_map, header_tokens[3 + i], &pred_idx))
-            potentialInfo->predictor_indices[i] = pred_idx;
+        pred_idx = map_get(predictor_map, header_tokens[3 + i]);
+        if (pred_idx)
+          potentialInfo->predictor_indices[i] = *pred_idx;
         else
             G_fatal_error(_("Specified predictor <%s> in development potential file <%s>"
                             " was not provided."), header_tokens[3 + i], potentialInfo->filename);
@@ -836,7 +848,7 @@ void read_patch_sizes(struct PatchSizes *patch_sizes,
  * @param DDF_region_map
  */
 void read_DDF_file(struct DepthDamageFunctions *ddf,
-                   struct KeyValueIntInt *DDF_region_map)
+                   map_int_t *DDF_region_map, struct KeyValueIntInt *secondary_DDF_region_map)
 {
     FILE *fp;
     if ((fp = fopen(ddf->filename, "r")) == NULL)
@@ -850,11 +862,12 @@ void read_DDF_file(struct DepthDamageFunctions *ddf,
     int ntokens;
     int i;
     int num_levels;
+    int *pidx;
     int idx;
-    int id;
+    char *id;
     double val;
     int j;
-
+    int nitems;
     size_t buflen = 4000;
     char buf[buflen];
     if (G_getl2(buf, buflen, fp) == 0)
@@ -866,12 +879,19 @@ void read_DDF_file(struct DepthDamageFunctions *ddf,
     if (num_levels < 0)
         G_fatal_error(_("Incorrect header in depth-damage functions file <%s>"),
                       ddf->filename);
+    if (DDF_region_map)
+        nitems = map_nitems(DDF_region_map);
+    else if (secondary_DDF_region_map)
+        nitems = secondary_DDF_region_map->nitems;
+    else
+        G_fatal_error(_("read_DDF_file: programmer's error"));
+
     ddf->max_levels = num_levels;
-    ddf->max_subregions = DDF_region_map->nitems;
+    ddf->max_subregions = nitems;
     ddf->levels = (double *) G_malloc(num_levels * sizeof(double));
-    ddf->damage = (double **) G_calloc(DDF_region_map->nitems, sizeof(double *));
-    ddf->loaded = (bool *) G_malloc(DDF_region_map->nitems * sizeof(bool));
-    for (i = 0; i < DDF_region_map->nitems; i++) {
+    ddf->damage = (double **) G_calloc(nitems, sizeof(double *));
+    ddf->loaded = (bool *) G_malloc(nitems * sizeof(bool));
+    for (i = 0; i < nitems; i++) {
         ddf->damage[i] = (double *) G_malloc(num_levels * sizeof(double));
         ddf->loaded[i] = false;
     }
@@ -891,14 +911,22 @@ void read_DDF_file(struct DepthDamageFunctions *ddf,
             G_fatal_error(_("DDF: wrong number of columns: %s"), buf);
 
         G_chop(tokens[0]);
-        id = atoi(tokens[0]);
-        if (KeyValueIntInt_find(DDF_region_map, id, &idx)) {
+        id = tokens[0];
+        if (DDF_region_map){
+            pidx = map_get(DDF_region_map, id);
+        }
+        else {
+            pidx = NULL;
+            if (KeyValueIntInt_find(secondary_DDF_region_map, atoi(id), &idx))
+                pidx = &idx;
+        }
+        if (pidx) {
             for (j = 0; j < num_levels; j++) {
                 G_chop(tokens[j + 1]);
                 val = atof(tokens[j + 1]);
-                ddf->damage[idx][j] = val;
+                ddf->damage[*pidx][j] = val;
             }
-            ddf->loaded[idx] = true;
+            ddf->loaded[*pidx] = true;
         }
         // else ignoring the line with region which is not used
 
@@ -923,11 +951,11 @@ void create_bboxes(SEGMENT *raster, SEGMENT *masking, struct BBoxes *bboxes)
     int rows, cols;
     int row, col;
     CELL cat;
-    int index;
+    int *index;
 
     rows = Rast_window_rows();
     cols = Rast_window_cols();
-    bboxes->map = KeyValueIntInt_create();
+    map_init(&bboxes->map);
     bboxes->max_bbox = 100;
     bboxes->n_bbox = 0;
     bboxes->bbox = (struct BBox *) G_malloc(bboxes->max_bbox * sizeof(struct BBox));
@@ -937,15 +965,16 @@ void create_bboxes(SEGMENT *raster, SEGMENT *masking, struct BBoxes *bboxes)
             if (Rast_is_null_value(&cat, CELL_TYPE))
                 continue;
             Segment_get(raster, (void *)&cat, row, col);
-            if (KeyValueIntInt_find(bboxes->map, cat, &index)) {
-                if (bboxes->bbox[index].e < col)
-                    bboxes->bbox[index].e = col;
-                if (bboxes->bbox[index].w > col)
-                    bboxes->bbox[index].w = col;
-                if (bboxes->bbox[index].n > row)
-                    bboxes->bbox[index].n = row;
-                if (bboxes->bbox[index].s < row)
-                    bboxes->bbox[index].s = row;
+            index = map_get_int(&bboxes->map, cat);
+            if (index) {
+                if (bboxes->bbox[*index].e < col)
+                    bboxes->bbox[*index].e = col;
+                if (bboxes->bbox[*index].w > col)
+                    bboxes->bbox[*index].w = col;
+                if (bboxes->bbox[*index].n > row)
+                    bboxes->bbox[*index].n = row;
+                if (bboxes->bbox[*index].s < row)
+                    bboxes->bbox[*index].s = row;
             }
             else {
                 if (bboxes->n_bbox == bboxes->max_bbox) {
@@ -954,7 +983,8 @@ void create_bboxes(SEGMENT *raster, SEGMENT *masking, struct BBoxes *bboxes)
                             (struct BBox *) G_realloc(bboxes->bbox,
                                                       bboxes->max_bbox * sizeof(struct BBox));
                 }
-                KeyValueIntInt_set(bboxes->map, cat, bboxes->n_bbox);
+                /* HUC idx -> bbox idx */
+                map_set_int(&bboxes->map, cat, bboxes->n_bbox);
                 bboxes->bbox[bboxes->n_bbox].e = col;
                 bboxes->bbox[bboxes->n_bbox].w = col;
                 bboxes->bbox[bboxes->n_bbox].s = row;

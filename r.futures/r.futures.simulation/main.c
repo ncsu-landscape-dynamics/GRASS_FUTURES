@@ -57,6 +57,7 @@
 #include <grass/segment.h>
 
 #include "keyvalue.h"
+#include "map.h"
 #include "inputs.h"
 #include "output.h"
 #include "patch.h"
@@ -184,10 +185,10 @@ int main(int argc, char **argv)
     struct KeyValueIntInt *region_map;
     struct KeyValueIntInt *reverse_region_map;
     struct KeyValueIntInt *potential_region_map;
-    struct KeyValueCharInt *predictor_map;
-    struct KeyValueIntFloat *max_flood_probability_map;
-    struct KeyValueIntInt *HUC_map;
-    struct KeyValueIntInt * DDF_region_map;
+    map_int_t predictor_map;
+    map_float_t max_flood_probability_map;
+    map_int_t HUC_map;
+    map_int_t DDF_region_map;
     struct Developables *undev_cells;
     struct Developables *dev_cells;
     struct Demand demand_info;
@@ -679,8 +680,8 @@ int main(int argc, char **argv)
 
         DDF.filename = opt.depthDamageFunc->answer;
         DDF.separator = G_option_to_separator(opt.separator);
-        max_flood_probability_map = KeyValueIntFloat_create();
-        HUC_map = KeyValueIntInt_create();
+        map_init(&max_flood_probability_map);
+        map_init(&HUC_map);
         initilize_adaptation(&segments.adaptation, &segment_info);
     }
     initialize_flood_response(&response_relation);
@@ -689,13 +690,13 @@ int main(int argc, char **argv)
     region_map = KeyValueIntInt_create();
     reverse_region_map = KeyValueIntInt_create();
     potential_region_map = KeyValueIntInt_create();
-    predictor_map = KeyValueCharInt_create();
-    DDF_region_map = KeyValueIntInt_create();
+    map_init(&predictor_map);
+    map_init(&DDF_region_map);
     G_verbose_message("Reading input rasters...");
     read_input_rasters(raster_inputs, &segments, segment_info, region_map,
                        reverse_region_map, potential_region_map,
-                       HUC_map, max_flood_probability_map,
-                       DDF_region_map);
+                       &HUC_map, &max_flood_probability_map,
+                       &DDF_region_map);
     if (opt.HAND->answer) {
         create_bboxes(&segments.HUC, &segments.developed, &bboxes);
     }
@@ -707,7 +708,7 @@ int main(int argc, char **argv)
 
     /* fill predictor map for potential reading */
     for (i = 0; i < num_predictors; i++)
-        KeyValueCharInt_set(predictor_map, raster_inputs.predictors[i], i);
+        map_set(&predictor_map, raster_inputs.predictors[i], i);
 
     /* read Potential file */
     G_verbose_message("Reading potential file...");
@@ -715,13 +716,13 @@ int main(int argc, char **argv)
     potential_info.separator = G_option_to_separator(opt.separator);
     read_potential_file(&potential_info,
                         opt.potentialSubregions->answer ? potential_region_map : region_map,
-                        predictor_map);
+                        &predictor_map);
     if (opt.redevelopmentPotentialFile->answer) {
         redev_potential_info.filename = opt.redevelopmentPotentialFile->answer;
         redev_potential_info.separator = G_option_to_separator(opt.separator);
         read_potential_file(&redev_potential_info,
                             opt.potentialSubregions->answer ? potential_region_map : region_map,
-                            predictor_map);
+                            &predictor_map);
     }
     /* read in predictors and aggregate to save memory */
     G_verbose_message("Reading predictors...");
@@ -752,19 +753,19 @@ int main(int argc, char **argv)
     if (opt.depthDamageFunc->answer) {
         /* if no DDF subregions, assume one DDF for entire area */
         if (DDF.subregions_source == DDF_NONE) {
-            KeyValueIntInt_set(DDF_region_map, 1, 0);
-            read_DDF_file(&DDF, DDF_region_map);
+            map_set(&DDF_region_map, "1", 0);
+            read_DDF_file(&DDF, &DDF_region_map, NULL);
         }
         /* use subregions */
         else if (DDF.subregions_source == DDF_DEFAULT) {
-            read_DDF_file(&DDF, region_map);
+            read_DDF_file(&DDF, NULL, region_map);
         }
         /* use potential subregions */
         else if (DDF.subregions_source == DDF_POTENTIAL) {
-            read_DDF_file(&DDF, potential_region_map);
+            read_DDF_file(&DDF, NULL, potential_region_map);
         }
         else {
-            read_DDF_file(&DDF, DDF_region_map);
+            read_DDF_file(&DDF, &DDF_region_map, NULL);
         }
     }
 
@@ -798,11 +799,11 @@ int main(int argc, char **argv)
         }
         /* simulate abandonment due to climate (flooding) */
         if (segments.use_climate) {
-            for (HUC = 0; HUC < HUC_map->nitems; HUC++)
+            for (HUC = 0; HUC < map_nitems(&HUC_map); HUC++)
                 climate_step(&segments, &demand_info, &bboxes,
                              &redistr_matrix, region_map, reverse_region_map,
                              step, &leaving_population,
-                             max_flood_probability_map, &DDF,
+                             &max_flood_probability_map, &DDF,
                              &response_relation, HUC);
             if (opt.redistributionMatrixOutput->answer)
                 write_redistribution_matrix(&redistr_matrix, step, num_steps);
@@ -851,14 +852,15 @@ int main(int argc, char **argv)
         Segment_close(&segments.adaptive_capacity);
         Segment_close(&segments.HUC);
         Segment_close(&segments.adaptation);
-        KeyValueIntFloat_free(max_flood_probability_map);
-        KeyValueIntInt_free(HUC_map);
+        map_deinit(&max_flood_probability_map);
+        map_deinit(&HUC_map);
+        map_deinit(&bboxes.map);
     }
     KeyValueIntInt_free(region_map);
     KeyValueIntInt_free(reverse_region_map);
-    KeyValueCharInt_free(predictor_map);
+    map_deinit(&predictor_map);
     KeyValueIntInt_free(potential_region_map);
-    KeyValueIntInt_free(DDF_region_map);
+    map_deinit(&DDF_region_map);
     if (demand_info.cells_table) {
         for (int i = 0; i < demand_info.max_subregions; i++)
             G_free(demand_info.cells_table[i]);

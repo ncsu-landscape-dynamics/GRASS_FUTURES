@@ -43,10 +43,10 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
                   int step, int region, struct KeyValueIntInt *reverse_region_map,
                   bool overgrow);
 void climate_step(struct Segments *segments, struct Demand *demand,
-                  const struct BBoxes *bboxes, struct RedistributionMatrix *matrix,
+                  struct BBoxes *bboxes, struct RedistributionMatrix *matrix,
                   const struct KeyValueIntInt *region_map, const struct KeyValueIntInt *reverse_region_map,
                   int step, float *leaving_population,
-                  const struct KeyValueIntFloat *flood_probability_map,
+                  map_float_t *flood_probability_map,
                   const struct DepthDamageFunctions *ddf,
                   const struct ACDamageRelation *response_relation, int HUC_idx);
 

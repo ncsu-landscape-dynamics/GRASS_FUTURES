@@ -4,7 +4,7 @@
 #include <grass/segment.h>
 
 #include "inputs.h"
-#include "keyvalue.h"
+#include "map.h"
 
 enum FloodResponse { Retreat, Adapt, Stay };
 
@@ -20,7 +20,7 @@ struct ACDamageRelation
 void initilize_adaptation(SEGMENT *adaptation,
                           const struct SegmentMemory *segment_info);
 float get_max_HAND(struct Segments *segments, const struct BBox *bbox, float flood_probability);
-bool generate_flood(const struct KeyValueIntFloat *flood_probability_map, int region_idx, float *flood_probability);
+bool generate_flood(map_float_t *flood_probability_map, int region_idx, float *flood_probability);
 float get_damage(struct Segments *segments, const struct DepthDamageFunctions *ddf,
                  float flood_depth, int row, int col);
 enum FloodResponse flood_response(float damage, float adaptive_capacity,

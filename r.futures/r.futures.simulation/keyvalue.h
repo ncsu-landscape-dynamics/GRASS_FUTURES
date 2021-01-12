@@ -30,12 +30,6 @@ void KeyValueIntInt_set(struct KeyValueIntInt *kv, int key, int value);
 int KeyValueIntInt_find(const struct KeyValueIntInt *kv, int key, int *value);
 void KeyValueIntInt_free(struct KeyValueIntInt *kv);
 
-
-struct KeyValueCharInt *KeyValueCharInt_create();
-void KeyValueCharInt_set(struct KeyValueCharInt *kv, const char *key, int value);
-int KeyValueCharInt_find(const struct KeyValueCharInt *kv, const char *key, int *value);
-void KeyValueCharInt_free(struct KeyValueCharInt *kv);
-
 struct KeyValueIntFloat *KeyValueIntFloat_create();
 void KeyValueIntFloat_set(struct KeyValueIntFloat *kv, int key, float value);
 int KeyValueIntFloat_find(const struct KeyValueIntFloat *kv, int key, float *value);
