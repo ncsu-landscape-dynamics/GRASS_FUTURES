@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <math.h>
 
 #include <grass/gis.h>
 #include <grass/glocale.h>
@@ -83,6 +84,8 @@ void redistribute(struct RedistributionMatrix *matrix, struct Demand *demand,
         density_to = demand->population_table[demand_to_idx][step] / demand->cells_table[demand_to_idx][step];
         /* number of pixels in 'to' region */
         to_px = num_px * density_from / density_to;
+        if (!isfinite(to_px) || to_px < 0)
+            to_px = num_px;
         /* increase number of px to grow next step */
         if (step + 1 < demand->max_steps) {
             demand->cells_table[demand_to_idx][step + 1] += to_px;
@@ -260,7 +263,10 @@ void write_redistribution_matrix(const struct RedistributionMatrix *matrix,
         KeyValueIntInt_find(matrix->reverse_from_map, row, &ID);
         fprintf(fp, "%d", ID);
         for (col = 0; col < matrix->dim_to; col++) {
-            fprintf(fp, ",%f", matrix->moved_px[row][col]);
+            if (matrix->moved_px[row][col] > 0)
+                fprintf(fp, ",%f", matrix->moved_px[row][col]);
+            else
+                fprintf(fp, ",%d", (int)matrix->moved_px[row][col]);
         }
         fprintf(fp, "\n");
     }
