@@ -56,7 +56,6 @@
 #include <grass/glocale.h>
 #include <grass/segment.h>
 
-#include "keyvalue.h"
 #include "map.h"
 #include "inputs.h"
 #include "output.h"
@@ -182,9 +181,9 @@ int main(int argc, char **argv)
     float exponent;
     enum seed_search search_alg;
     struct RasterInputs raster_inputs;
-    struct KeyValueIntInt *region_map;
-    struct KeyValueIntInt *reverse_region_map;
-    struct KeyValueIntInt *potential_region_map;
+    map_int_t region_map;
+    map_int_t reverse_region_map;
+    map_int_t potential_region_map;
     map_int_t predictor_map;
     map_float_t max_flood_probability_map;
     map_int_t HUC_map;
@@ -687,14 +686,14 @@ int main(int argc, char **argv)
     initialize_flood_response(&response_relation);
 
     //    read Subregions layer
-    region_map = KeyValueIntInt_create();
-    reverse_region_map = KeyValueIntInt_create();
-    potential_region_map = KeyValueIntInt_create();
+    map_init(&region_map);
+    map_init(&reverse_region_map);
+    map_init(&potential_region_map);
     map_init(&predictor_map);
     map_init(&DDF_region_map);
     G_verbose_message("Reading input rasters...");
-    read_input_rasters(raster_inputs, &segments, segment_info, region_map,
-                       reverse_region_map, potential_region_map,
+    read_input_rasters(raster_inputs, &segments, segment_info, &region_map,
+                       &reverse_region_map, &potential_region_map,
                        &HUC_map, &max_flood_probability_map,
                        &DDF_region_map);
     if (opt.HAND->answer) {
@@ -715,13 +714,13 @@ int main(int argc, char **argv)
     potential_info.filename = opt.potentialFile->answer;
     potential_info.separator = G_option_to_separator(opt.separator);
     read_potential_file(&potential_info,
-                        opt.potentialSubregions->answer ? potential_region_map : region_map,
+                        opt.potentialSubregions->answer ? &potential_region_map : &region_map,
                         &predictor_map);
     if (opt.redevelopmentPotentialFile->answer) {
         redev_potential_info.filename = opt.redevelopmentPotentialFile->answer;
         redev_potential_info.separator = G_option_to_separator(opt.separator);
         read_potential_file(&redev_potential_info,
-                            opt.potentialSubregions->answer ? potential_region_map : region_map,
+                            opt.potentialSubregions->answer ? &potential_region_map : &region_map,
                             &predictor_map);
     }
     /* read in predictors and aggregate to save memory */
@@ -738,7 +737,7 @@ int main(int argc, char **argv)
         demand_info.population_filename = opt.populationDemandFile->answer;
     }
     demand_info.separator = G_option_to_separator(opt.separator);
-    read_demand_file(&demand_info, region_map);
+    read_demand_file(&demand_info, &region_map);
     if (num_steps == 0)
         num_steps = demand_info.max_steps;
 
@@ -754,33 +753,33 @@ int main(int argc, char **argv)
         /* if no DDF subregions, assume one DDF for entire area */
         if (DDF.subregions_source == DDF_NONE) {
             map_set(&DDF_region_map, "1", 0);
-            read_DDF_file(&DDF, &DDF_region_map, NULL);
+            read_DDF_file(&DDF, &DDF_region_map);
         }
         /* use subregions */
         else if (DDF.subregions_source == DDF_DEFAULT) {
-            read_DDF_file(&DDF, NULL, region_map);
+            read_DDF_file(&DDF, &region_map);
         }
         /* use potential subregions */
         else if (DDF.subregions_source == DDF_POTENTIAL) {
-            read_DDF_file(&DDF, NULL, potential_region_map);
+            read_DDF_file(&DDF, &potential_region_map);
         }
         else {
-            read_DDF_file(&DDF, &DDF_region_map, NULL);
+            read_DDF_file(&DDF, &DDF_region_map);
         }
     }
 
     /* read Patch sizes file */
     G_verbose_message("Reading patch size file...");
     patch_sizes.filename = opt.patchFile->answer;
-    read_patch_sizes(&patch_sizes, region_map, discount_factor);
+    read_patch_sizes(&patch_sizes, &region_map, discount_factor);
 
-    undev_cells = initialize_developables(region_map->nitems);
-    patch_overflow = G_calloc(region_map->nitems, sizeof(int));
+    undev_cells = initialize_developables(map_nitems(&region_map));
+    patch_overflow = G_calloc(map_nitems(&region_map), sizeof(int));
 
     /* redevelopment */
     if (segments.use_density) {
-        dev_cells = initialize_developables(region_map->nitems);
-        population_overflow = G_calloc(region_map->nitems, sizeof(float));
+        dev_cells = initialize_developables(map_nitems(&region_map));
+        population_overflow = G_calloc(map_nitems(&region_map), sizeof(float));
     }
     /* here do the modeling */
     overgrow = true;
@@ -792,16 +791,16 @@ int main(int argc, char **argv)
             recompute_probabilities(dev_cells, &segments, &redev_potential_info, true);
         if (step == num_steps - 1)
             overgrow = false;
-        for (region = 0; region < region_map->nitems; region++) {
+        for (region = 0; region < map_nitems(&region_map); region++) {
             compute_step(undev_cells, dev_cells, &demand_info, search_alg, &segments,
                          &patch_sizes, &patch_info, &devpressure_info, patch_overflow,
-                         population_overflow, &redistr_matrix, step, region, reverse_region_map, overgrow);
+                         population_overflow, &redistr_matrix, step, region, &reverse_region_map, overgrow);
         }
         /* simulate abandonment due to climate (flooding) */
         if (segments.use_climate) {
             for (HUC = 0; HUC < map_nitems(&HUC_map); HUC++)
                 climate_step(&segments, &demand_info, &bboxes,
-                             &redistr_matrix, region_map, reverse_region_map,
+                             &redistr_matrix, &region_map, &reverse_region_map,
                              step, &leaving_population,
                              &max_flood_probability_map, &DDF,
                              &response_relation, HUC);
@@ -856,10 +855,10 @@ int main(int argc, char **argv)
         map_deinit(&HUC_map);
         map_deinit(&bboxes.map);
     }
-    KeyValueIntInt_free(region_map);
-    KeyValueIntInt_free(reverse_region_map);
+    map_deinit(&region_map);
+    map_deinit(&reverse_region_map);
     map_deinit(&predictor_map);
-    KeyValueIntInt_free(potential_region_map);
+    map_deinit(&potential_region_map);
     map_deinit(&DDF_region_map);
     if (demand_info.cells_table) {
         for (int i = 0; i < demand_info.max_subregions; i++)

@@ -4,7 +4,6 @@
 #include <stdbool.h>
 #include <grass/segment.h>
 
-#include "keyvalue.h"
 #include "map.h"
 
 enum development_type {DEV_TYPE_INITIAL = 0,
@@ -154,22 +153,22 @@ struct BBoxes
 
 void initialize_incentive(struct Potential *potential_info, float exponent);
 void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
-                        struct SegmentMemory segment_info, struct KeyValueIntInt *region_map,
-                        struct KeyValueIntInt *reverse_region_map,
-                        struct KeyValueIntInt *potential_region_map,
+                        struct SegmentMemory segment_info, map_int_t *region_map,
+                        map_int_t *reverse_region_map,
+                        map_int_t *potential_region_map,
                         map_int_t *HUC_map,
                         map_float_t *max_flood_probability_map,
                         map_int_t *DDF_region_map);
 void read_predictors(struct RasterInputs inputs, struct Segments *segments,
                      const struct Potential *potential,
                      const struct SegmentMemory segment_info);
-void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_map);
-void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt *region_map,
+void read_demand_file(struct Demand *demandInfo, map_int_t *region_map);
+void read_potential_file(struct Potential *potentialInfo, map_int_t *region_map,
                          map_int_t *predictor_map);
-void read_patch_sizes(struct PatchSizes *patch_sizes, struct KeyValueIntInt *region_map,
+void read_patch_sizes(struct PatchSizes *patch_sizes, map_int_t *region_map,
                       double discount_factor);
 void read_DDF_file(struct DepthDamageFunctions *ddf,
-                   map_int_t *DDF_region_map, struct KeyValueIntInt *secondary_DDF_region_map);
+                   map_int_t *DDF_region_map);
 void create_bboxes(SEGMENT *raster, SEGMENT *masking, struct BBoxes *bboxes);
 
 #endif // FUTURES_INPUTS_H

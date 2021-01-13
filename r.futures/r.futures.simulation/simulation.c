@@ -22,7 +22,7 @@
 #include <grass/segment.h>
 
 #include "inputs.h"
-#include "keyvalue.h"
+#include "map.h"
 #include "devpressure.h"
 #include "utils.h"
 #include "simulation.h"
@@ -343,10 +343,10 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
                   struct DevPressure *devpressure_info, int *patch_overflow,
                   float *population_overflow,
                   struct RedistributionMatrix *redistr_matrix,
-                  int step, int region, struct KeyValueIntInt *reverse_region_map,
+                  int step, int region, map_int_t *reverse_region_map,
                   bool overgrow)
 {
-    int region_id;
+    int *region_id;
     int n_to_convert;
     int n_done;
     int n_done_redevelop;
@@ -379,10 +379,10 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
         }
     }
     if (n_to_convert > undev_cells->num[region]) {
-        KeyValueIntInt_find(reverse_region_map, region, &region_id);
+        region_id = map_get_int(reverse_region_map, region);
         G_warning("Not enough undeveloped cells in region %d (requested: %d,"
                   " available: %ld). Converting all available.",
-                  region_id, n_to_convert, undev_cells->num[region]);
+                  *region_id, n_to_convert, undev_cells->num[region]);
 
         n_to_convert = undev_cells->num[region];
         force_convert_all = true;
@@ -436,7 +436,7 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
 
 void climate_step(struct Segments *segments, struct Demand *demand,
                   struct BBoxes *bboxes, struct RedistributionMatrix *matrix,
-                  const struct KeyValueIntInt *region_map, const struct KeyValueIntInt *reverse_region_map,
+                  map_int_t *region_map, map_int_t *reverse_region_map,
                   int step, float *leaving_population,
                   map_float_t *flood_probability_map,
                   const struct DepthDamageFunctions *ddf,
@@ -448,7 +448,7 @@ void climate_step(struct Segments *segments, struct Demand *demand,
     struct BBox bbox;
     CELL HUC_value;
     CELL developed_value;
-    CELL region_from_ID;
+    CELL *region_from_ID;
     FCELL ac;
     int region_from_idx;
     int *bbox_idx;
@@ -485,8 +485,8 @@ void climate_step(struct Segments *segments, struct Demand *demand,
                             Segment_put(&segments->developed, (void *)&developed_value, row, col);
                             /* redistribute */
                             Segment_get(&segments->subregions, (void *)&region_from_idx, row, col);
-                            KeyValueIntInt_find(reverse_region_map, region_from_idx, &region_from_ID);
-                            redistribute(matrix, demand, region_from_ID, 1,
+                            region_from_ID = map_get_int(reverse_region_map, region_from_idx);
+                            redistribute(matrix, demand, *region_from_ID, 1,
                                          region_map, step, leaving_population);
                         }
                         else if (response == Adapt) {

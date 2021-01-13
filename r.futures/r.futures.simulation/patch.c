@@ -22,7 +22,7 @@
 #include <grass/glocale.h>
 #include <grass/segment.h>
 
-#include "keyvalue.h"
+#include "map.h"
 #include "inputs.h"
 #include "patch.h"
 #include "utils.h"

@@ -20,7 +20,7 @@
 #include <grass/gis.h>
 #include <grass/glocale.h>
 
-#include "keyvalue.h"
+#include "map.h"
 #include "redistribute.h"
 #include "inputs.h"
 #include "output.h"
@@ -63,42 +63,51 @@ int pick_region(const float *probabilities, int size)
  * \param leaving_population population leaving outside of study area
  */
 void redistribute(struct RedistributionMatrix *matrix, struct Demand *demand,
-                  int regionID, int num_px, const struct KeyValueIntInt *region_map,
+                  int regionID, int num_px, map_int_t *region_map,
                   int step, float *leaving_population)
 {
-    int from_idx, to_idx, to_ID;
-    int demand_to_idx, demand_from_idx;
+    int to_idx;
+    int *from_idx;
+    int *to_ID;
+    int *demand_to_idx;
+    int *demand_from_idx;
     float density_from, density_to;
     float to_px;
 
-    if (!KeyValueIntInt_find(matrix->from_map, regionID, &from_idx)) {
+    from_idx = map_get_int(&matrix->from_map, regionID);
+    if (!from_idx) {
         G_warning("Region %d is not in redistribution matrix rows", regionID);
         return;
     }
-    to_idx = pick_region(matrix->probabilities[from_idx], matrix->dim_to);
-    KeyValueIntInt_find(matrix->to_map, to_idx, &to_ID);
+    to_idx = pick_region(matrix->probabilities[*from_idx], matrix->dim_to);
+    to_ID = map_get_int(&matrix->to_map, to_idx);
+
     /* should always be there */
-    KeyValueIntInt_find(region_map, regionID, &demand_from_idx);
-    density_from = demand->population_table[demand_from_idx][step] / demand->cells_table[demand_from_idx][step];
-    if (KeyValueIntInt_find(region_map, to_ID, &demand_to_idx)) {
-        density_to = demand->population_table[demand_to_idx][step] / demand->cells_table[demand_to_idx][step];
+    demand_from_idx = map_get_int(region_map, regionID);
+    density_from = demand->population_table[*demand_from_idx][step] / demand->cells_table[*demand_from_idx][step];
+    demand_to_idx = map_get_int(region_map, *to_ID);
+    if (demand_to_idx) {
+        density_to = demand->population_table[*demand_to_idx][step] / demand->cells_table[*demand_to_idx][step];
         /* number of pixels in 'to' region */
         to_px = num_px * density_from / density_to;
+        /* density_from/to can be negative or zero */
         if (!isfinite(to_px) || to_px < 0)
             to_px = num_px;
         /* increase number of px to grow next step */
         if (step + 1 < demand->max_steps) {
-            demand->cells_table[demand_to_idx][step + 1] += to_px;
-            G_debug(2, "%f cells moved from %d to %d in step %d", to_px, regionID, to_ID, step);
-            matrix->moved_px[from_idx][to_idx] += to_px;
+            demand->cells_table[*demand_to_idx][step + 1] += to_px;
+            G_debug(2, "%f cells moved from %d to %d in step %d", to_px, regionID, *to_ID, step);
+            matrix->moved_px[*from_idx][to_idx] += to_px;
         }
         else {
             /* ignore last year */
         }
     }
-    /* outside of simulation extent */
-    else
-        *leaving_population =+ num_px * density_from;
+    else {
+        /* outside of simulation extent, assume the same density */
+        matrix->moved_px[*from_idx][to_idx] += num_px;
+        G_debug(2, "%d cells moved from %d to %d (outside) in step %d", num_px, regionID, *to_ID, step);
+    }
 }
 
 
@@ -131,9 +140,9 @@ void read_redistribution_matrix(struct RedistributionMatrix *matrix)
     if ((fin = fopen(matrix->filename, "r")) == NULL)
         G_fatal_error(_("Cannot open redistribution matrix file <%s>"),
                       matrix->filename);
-    matrix->from_map = KeyValueIntInt_create();
-    matrix->to_map = KeyValueIntInt_create();
-    matrix->reverse_from_map = KeyValueIntInt_create();
+    map_init(&matrix->from_map);
+    map_init(&matrix->to_map);
+    map_init(&matrix->reverse_from_map);
 
     /* read first line */
     if (G_getl2(buf, buflen, fin) == 0)
@@ -143,7 +152,7 @@ void read_redistribution_matrix(struct RedistributionMatrix *matrix)
         tokens = G_tokenize2(buf, fs, td);
         ntokens = G_number_of_tokens(tokens);
         for (col = 1; col < ntokens; col++) {
-            KeyValueIntInt_set(matrix->to_map, col - 1, atoi(tokens[col]));
+            map_set_int(&matrix->to_map, col - 1, atoi(tokens[col]));
         }
     }
 
@@ -166,8 +175,8 @@ void read_redistribution_matrix(struct RedistributionMatrix *matrix)
         matrix->moved_px[row] = (float *) G_malloc(matrix->dim_to * sizeof(float));
         for (col = 0; col < ntokens2; col++) {
             if (col == 0) {
-                KeyValueIntInt_set(matrix->from_map, atoi(tokens2[col]), row);
-                KeyValueIntInt_set(matrix->reverse_from_map, row, atoi(tokens2[col]));
+                map_set(&matrix->from_map, tokens2[col], row);
+                map_set_int(&matrix->reverse_from_map, row, atoi(tokens2[col]));
             }
             else {
                 /* convert from % */
@@ -239,7 +248,7 @@ bool check_matrix_filenames_exist(const struct RedistributionMatrix *matrix, int
  * \param step step number
  * \param nsteps total number of steps (for file name padding)
  */
-void write_redistribution_matrix(const struct RedistributionMatrix *matrix,
+void write_redistribution_matrix(struct RedistributionMatrix *matrix,
                                  int step, int nsteps)
 {
     FILE *fp;
@@ -247,7 +256,7 @@ void write_redistribution_matrix(const struct RedistributionMatrix *matrix,
     const char *ext;
     char *filename;
     int row, col;
-    int ID;
+    int *ID;
 
     ext = ".csv";
     name = name_for_step(matrix->output_basename, step, nsteps);
@@ -255,13 +264,13 @@ void write_redistribution_matrix(const struct RedistributionMatrix *matrix,
     sprintf(filename, "%s%s", name, ext);
     fp = fopen(filename, "w+");
     for (col = 0; col < matrix->dim_to; col++) {
-        KeyValueIntInt_find(matrix->to_map, col, &ID);
-        fprintf(fp, ",%d", ID);
+        ID = map_get_int(&matrix->to_map, col);
+        fprintf(fp, ",%d", *ID);
     }
     fprintf(fp, "\n");
     for (row = 0; row < matrix->dim_from; row++) {
-        KeyValueIntInt_find(matrix->reverse_from_map, row, &ID);
-        fprintf(fp, "%d", ID);
+        ID = map_get_int(&matrix->reverse_from_map, row);
+        fprintf(fp, "%d", *ID);
         for (col = 0; col < matrix->dim_to; col++) {
             if (matrix->moved_px[row][col] > 0)
                 fprintf(fp, ",%f", matrix->moved_px[row][col]);
@@ -283,7 +292,7 @@ void free_redistribution_matrix(struct RedistributionMatrix *matrix)
     }
     G_free(matrix->probabilities);
     G_free(matrix->moved_px);
-    KeyValueIntInt_free(matrix->from_map);
-    KeyValueIntInt_free(matrix->to_map);
-    KeyValueIntInt_free(matrix->reverse_from_map);
+    map_deinit(&matrix->from_map);
+    map_deinit(&matrix->to_map);
+    map_deinit(&matrix->reverse_from_map);
 }

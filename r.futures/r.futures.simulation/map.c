@@ -1,8 +1,19 @@
-/** 
- * Copyright (c) 2014 rxi
- *
- * This library is free software; you can redistribute it and/or modify it
- * under the terms of the MIT license. See LICENSE for details.
+/*!
+   \file map.c
+
+   \brief Hash map implementation
+
+   (C) 2021 by Anna Petrasova and the GRASS Development Team
+
+   This program is free software under the GNU General Public License
+   (>=v2).  Read the file COPYING that comes with GRASS for details.
+   
+   Derived from the https://github.com/rxi/map, original copyright and license below:
+   
+   Copyright (c) 2014 rxi
+
+   This library is free software; you can redistribute it and/or modify it
+   under the terms of the MIT license.
  */
 
 #include <stdlib.h>

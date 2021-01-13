@@ -3,6 +3,7 @@
 
 #include <grass/gis.h>
 
+#include "map.h"
 #include "inputs.h"
 #include "patch.h"
 #include "redistribute.h"
@@ -40,11 +41,11 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
                   struct DevPressure *devpressure_info, int *patch_overflow,
                   float *population_overflow,
                   struct RedistributionMatrix *redistr_matrix,
-                  int step, int region, struct KeyValueIntInt *reverse_region_map,
+                  int step, int region, map_int_t *reverse_region_map,
                   bool overgrow);
 void climate_step(struct Segments *segments, struct Demand *demand,
                   struct BBoxes *bboxes, struct RedistributionMatrix *matrix,
-                  const struct KeyValueIntInt *region_map, const struct KeyValueIntInt *reverse_region_map,
+                  map_int_t *region_map, map_int_t *reverse_region_map,
                   int step, float *leaving_population,
                   map_float_t *flood_probability_map,
                   const struct DepthDamageFunctions *ddf,

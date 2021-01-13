@@ -21,7 +21,6 @@
 #include <grass/glocale.h>
 #include <grass/segment.h>
 
-#include "keyvalue.h"
 #include "inputs.h"
 #include "map.h"
 
@@ -53,9 +52,9 @@ void initialize_incentive(struct Potential *potential_info, float exponent)
  * \param region_map
  */
 void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
-                        struct SegmentMemory segment_info, struct KeyValueIntInt *region_map,
-                        struct KeyValueIntInt *reverse_region_map,
-                        struct KeyValueIntInt *potential_region_map,
+                        struct SegmentMemory segment_info, map_int_t *region_map,
+                        map_int_t *reverse_region_map,
+                        map_int_t *potential_region_map,
                         map_int_t *HUC_map,
                         map_float_t *max_flood_probability_map,
                         map_int_t *DDF_region_map)
@@ -68,6 +67,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
             fd_HUC, fd_DDF;
     int count_regions, pot_count_regions, HUC_count, DDF_count;
     int region_index, pot_region_index, HUC_index, DDF_index;
+    int *region_pindex;
+    int *pot_region_pindex;
     float max_flood_probability;
     CELL c;
     FCELL fc;
@@ -232,12 +233,15 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
             /* subregions */
             if (!Rast_is_null_value(&((CELL *) subregions_row)[col], CELL_TYPE)) {
                 c = ((CELL *) subregions_row)[col];
-                if (!KeyValueIntInt_find(region_map, c, &region_index)) {
-                    KeyValueIntInt_set(region_map, c, count_regions);
-                    KeyValueIntInt_set(reverse_region_map, count_regions, c);
+                region_pindex = map_get_int(region_map, c);
+                if (!region_pindex) {
+                    map_set_int(region_map, c, count_regions);
+                    map_set_int(reverse_region_map, count_regions, c);
                     region_index = count_regions;
                     count_regions++;
                 }
+                else
+                    region_index = *region_pindex;
                 ((CELL *) subregions_row)[col] = region_index;
             }
             else
@@ -245,11 +249,14 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
             if (segments->use_potential_subregions) {
                 if (!Rast_is_null_value(&((CELL *) pot_subregions_row)[col], CELL_TYPE)) {
                     c = ((CELL *) pot_subregions_row)[col];
-                    if (!KeyValueIntInt_find(potential_region_map, c, &pot_region_index)) {
-                        KeyValueIntInt_set(potential_region_map, c, pot_count_regions);
+                    pot_region_pindex = map_get_int(potential_region_map, c);
+                    if (!pot_region_pindex) {
+                        map_set_int(potential_region_map, c, pot_count_regions);
                         pot_region_index = pot_count_regions;
                         pot_count_regions++;
                     }
+                    else
+                        pot_region_index = *pot_region_pindex;
                     ((CELL *) pot_subregions_row)[col] = pot_region_index;
                 }
                 else
@@ -507,7 +514,7 @@ void read_predictors(struct RasterInputs inputs, struct Segments *segments,
 
 static int _read_demand_file(FILE *fp, const char *separator,
                              float **table, int *demand_years,
-                             struct KeyValueIntInt *region_map)
+                             map_int_t *region_map)
 {
 
     size_t buflen = 4000;
@@ -545,17 +552,17 @@ static int _read_demand_file(FILE *fp, const char *separator,
         int ntokens2 = G_number_of_tokens(tokens);
         if (ntokens2 != ntokens)
             G_fatal_error(_("Demand: wrong number of columns in line: %s"), buf);
-        if (ntokens - 1 < region_map->nitems)
+        if (ntokens - 1 < map_nitems(region_map))
             G_fatal_error(_("Demand: some subregions are missing"));
         count = 0;
         int i;
         demand_years[years] = atoi(tokens[0]);
         for (i = 1; i < ntokens; i++) {
             // skip first column which is the year which we ignore
-            int idx;
-            if (KeyValueIntInt_find(region_map, ids->value[count], &idx)) {
+            int *idx = map_get_int(region_map, ids->value[count]);
+            if (idx) {
                 G_chop(tokens[i]);
-                table[idx][years] = atof(tokens[i]);
+                table[*idx][years] = atof(tokens[i]);
             }
             count++;
         }
@@ -567,7 +574,7 @@ static int _read_demand_file(FILE *fp, const char *separator,
     return years;
 }
 
-void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_map)
+void read_demand_file(struct Demand *demandInfo, map_int_t *region_map)
 {
     FILE *fp_cell, *fp_population;
     if ((fp_cell = fopen(demandInfo->cells_filename, "r")) == NULL)
@@ -597,22 +604,22 @@ void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_m
     }
 
     demandInfo->years = (int *) G_malloc(countlines * sizeof(int));
-    demandInfo->cells_table = (float **) G_malloc(region_map->nitems * sizeof(float *));
-    for (int i = 0; i < region_map->nitems; i++) {
+    demandInfo->cells_table = (float **) G_malloc(map_nitems(region_map) * sizeof(float *));
+    for (int i = 0; i < map_nitems(region_map); i++) {
         demandInfo->cells_table[i] = (float *) G_malloc(countlines * sizeof(float));
     }
     int num_years = _read_demand_file(fp_cell, demandInfo->separator,
                                       demandInfo->cells_table,
                                       demandInfo->years, region_map);
-    demandInfo->max_subregions = region_map->nitems;
+    demandInfo->max_subregions = map_nitems(region_map);
     demandInfo->max_steps = num_years;
     G_verbose_message("Number of steps in area demand file: %d", num_years);
     fclose(fp_cell);
 
     if (demandInfo->has_population) {
         int *years2 = (int *) G_malloc(countlines * sizeof(int));
-        demandInfo->population_table = (float **) G_malloc(region_map->nitems * sizeof(float *));
-        for (int i = 0; i < region_map->nitems; i++) {
+        demandInfo->population_table = (float **) G_malloc(map_nitems(region_map) * sizeof(float *));
+        for (int i = 0; i < map_nitems(region_map); i++) {
             demandInfo->population_table[i] = (float *) G_malloc(countlines * sizeof(float));
         }
         int num_years2 = _read_demand_file(fp_population, demandInfo->separator,
@@ -634,7 +641,7 @@ void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_m
     }
 }
 
-void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt *region_map,
+void read_potential_file(struct Potential *potentialInfo, map_int_t *region_map,
                          map_int_t *predictor_map)
 {
     FILE *fp;
@@ -663,12 +670,12 @@ void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt 
         G_fatal_error(_("Incorrect header in development potential file <%s>"),
                       potentialInfo->filename);
     potentialInfo->max_predictors = num_predictors;
-    potentialInfo->intercept = (double *) G_malloc(region_map->nitems * sizeof(double));
-    potentialInfo->devpressure = (double *) G_malloc(region_map->nitems * sizeof(double));
+    potentialInfo->intercept = (double *) G_malloc(map_nitems(region_map) * sizeof(double));
+    potentialInfo->devpressure = (double *) G_malloc(map_nitems(region_map) * sizeof(double));
     potentialInfo->predictors = (double **) G_malloc(num_predictors * sizeof(double *));
     potentialInfo->predictor_indices = (int *) G_malloc(num_predictors * sizeof(int));
     for (i = 0; i < num_predictors; i++) {
-        potentialInfo->predictors[i] = (double *) G_malloc(region_map->nitems * sizeof(double));
+        potentialInfo->predictors[i] = (double *) G_malloc(map_nitems(region_map) * sizeof(double));
     }
     /* index of used predictors in columns within list of predictors */
     for (i = 0; i < num_predictors; i++) {
@@ -691,7 +698,7 @@ void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt 
         if (ntokens != num_predictors + 3)
             G_fatal_error(_("Potential: wrong number of columns: %s"), buf);
 
-        int idx;
+        int *idx;
         int id;
         double coef_intercept, coef_devpressure;
         double val;
@@ -699,17 +706,18 @@ void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt 
 
         G_chop(tokens[0]);
         id = atoi(tokens[0]);
-        if (KeyValueIntInt_find(region_map, id, &idx)) {
+        idx = map_get_int(region_map, id);
+        if (idx) {
             G_chop(tokens[1]);
             coef_intercept = atof(tokens[1]);
             G_chop(tokens[2]);
             coef_devpressure = atof(tokens[2]);
-            potentialInfo->intercept[idx] = coef_intercept;
-            potentialInfo->devpressure[idx] = coef_devpressure;
+            potentialInfo->intercept[*idx] = coef_intercept;
+            potentialInfo->devpressure[*idx] = coef_devpressure;
             for (j = 0; j < num_predictors; j++) {
                 G_chop(tokens[j + 3]);
                 val = atof(tokens[j + 3]);
-                potentialInfo->predictors[j][idx] = val;
+                potentialInfo->predictors[j][*idx] = val;
             }
         }
         // else ignoring the line with region which is not used
@@ -721,7 +729,7 @@ void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt 
 }
 
 void read_patch_sizes(struct PatchSizes *patch_sizes,
-                      struct KeyValueIntInt *region_map,
+                      map_int_t *region_map,
                       double discount_factor)
 {
     FILE *fp;
@@ -733,11 +741,14 @@ void read_patch_sizes(struct PatchSizes *patch_sizes,
     int ntokens;
     int i, j;
     int region_id;
+    int *region_pid;
     const char *td = "\"";
     int num_regions;
     bool found;
     bool use_header;
     int n_max_patches;
+    const char *key;
+    map_iter_t iter;
 
     n_max_patches = 0;
     patch_sizes->max_patch_size = 0;
@@ -760,20 +771,21 @@ void read_patch_sizes(struct PatchSizes *patch_sizes,
                                 " It will be used for all subregions."), patch_sizes->filename);
         }
         /* Check there are enough columns for subregions in map */
-        if (num_regions != 1 && num_regions < region_map->nitems)
+        if (num_regions != 1 && num_regions < map_nitems(region_map))
             G_fatal_error(_("Patch library file <%s>"
                             " has only %d columns but there are %d subregions"), patch_sizes->filename,
-                          num_regions, region_map->nitems);
+                          num_regions, map_nitems(region_map));
         /* Check all subregions in map have column in the file. */
         if (use_header) {
-            for (i = 0; i < region_map->nitems; i++) {
+            iter = map_iter(region_map);
+            while ((key = map_next(region_map, &iter))) {
                 found = false;
                 for (j = 0; j < num_regions; j++)
-                    if (region_map->key[i] == atoi(header_tokens[j]))
+                    if (strcmp(key, header_tokens[j]) == 0)
                         found = true;
                 if (!found)
-                    G_fatal_error(_("Subregion id <%d> not found in header of patch file <%s>"),
-                                  region_map->key[i], patch_sizes->filename);
+                    G_fatal_error(_("Subregion id <%s> not found in header of patch file <%s>"),
+                                  key, patch_sizes->filename);
             }
         }
         // initialize patch_info->patch_count to all zero
@@ -813,7 +825,10 @@ void read_patch_sizes(struct PatchSizes *patch_sizes,
                         if (patch_sizes->max_patch_size < patch)
                             patch_sizes->max_patch_size = patch;
                         if (use_header) {
-                            if (!KeyValueIntInt_find(region_map, atoi(header_tokens[i]), &region_id))
+                            region_pid = map_get(region_map, header_tokens[i]);
+                            if (region_pid)
+                                region_id = *region_pid;
+                            else
                                 continue;
                         }
                         else
@@ -850,7 +865,7 @@ void read_patch_sizes(struct PatchSizes *patch_sizes,
  * @param DDF_region_map
  */
 void read_DDF_file(struct DepthDamageFunctions *ddf,
-                   map_int_t *DDF_region_map, struct KeyValueIntInt *secondary_DDF_region_map)
+                   map_int_t *DDF_region_map)
 {
     FILE *fp;
     if ((fp = fopen(ddf->filename, "r")) == NULL)
@@ -865,7 +880,6 @@ void read_DDF_file(struct DepthDamageFunctions *ddf,
     int i;
     int num_levels;
     int *pidx;
-    int idx;
     char *id;
     double val;
     int j;
@@ -881,12 +895,7 @@ void read_DDF_file(struct DepthDamageFunctions *ddf,
     if (num_levels < 0)
         G_fatal_error(_("Incorrect header in depth-damage functions file <%s>"),
                       ddf->filename);
-    if (DDF_region_map)
-        nitems = map_nitems(DDF_region_map);
-    else if (secondary_DDF_region_map)
-        nitems = secondary_DDF_region_map->nitems;
-    else
-        G_fatal_error(_("read_DDF_file: programmer's error"));
+    nitems = map_nitems(DDF_region_map);
 
     ddf->max_levels = num_levels;
     ddf->max_subregions = nitems;
@@ -914,14 +923,7 @@ void read_DDF_file(struct DepthDamageFunctions *ddf,
 
         G_chop(tokens[0]);
         id = tokens[0];
-        if (DDF_region_map){
-            pidx = map_get(DDF_region_map, id);
-        }
-        else {
-            pidx = NULL;
-            if (KeyValueIntInt_find(secondary_DDF_region_map, atoi(id), &idx))
-                pidx = &idx;
-        }
+        pidx = map_get(DDF_region_map, id);
         if (pidx) {
             for (j = 0; j < num_levels; j++) {
                 G_chop(tokens[j + 1]);
