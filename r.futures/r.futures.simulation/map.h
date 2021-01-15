@@ -51,6 +51,7 @@ typedef struct {
 
 #define map_get(m, key)\
   ( (m)->ref = map_get_(&(m)->base, key) )
+/* (typeof((m)->tmp) *)  */
 
 #define map_get_int(m, key)\
   ( (m)->ref = map_get_int_(&(m)->base, key) )

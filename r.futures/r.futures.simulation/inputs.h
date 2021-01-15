@@ -170,5 +170,7 @@ void read_patch_sizes(struct PatchSizes *patch_sizes, map_int_t *region_map,
 void read_DDF_file(struct DepthDamageFunctions *ddf,
                    map_int_t *DDF_region_map);
 void create_bboxes(SEGMENT *raster, SEGMENT *masking, struct BBoxes *bboxes);
+void update_flood_probability(const char *flood_map, struct Segments *segments,
+                              map_int_t *HUC_map, map_float_t *max_flood_probability_map);
 
 #endif // FUTURES_INPUTS_H

@@ -997,3 +997,45 @@ void create_bboxes(SEGMENT *raster, SEGMENT *masking, struct BBoxes *bboxes)
             }
         }
 }
+
+void update_flood_probability(const char *flood_map, struct Segments *segments,
+                              map_int_t *HUC_map, map_float_t *max_flood_probability_map)
+{
+    int row, col;
+    int fd_flood_probability;
+    FCELL *flood_probability_row;
+    FCELL fc;
+    float *pvalue;
+    float max_flood_probability;
+    int HUC_index;
+    map_iter_t iter;
+    const char *key;
+
+    // zero all values in HUC->max_flood map
+    iter = map_iter(max_flood_probability_map);
+    while ((key = map_next(max_flood_probability_map, &iter)))
+        map_set(max_flood_probability_map, key, 0);
+
+    fd_flood_probability = Rast_open_old(flood_map, "");
+    flood_probability_row = Rast_allocate_buf(FCELL_TYPE);
+    for (row = 0; row < Rast_window_rows(); row++) {
+        Rast_get_row(fd_flood_probability, flood_probability_row, row, FCELL_TYPE);
+        for (col = 0; col < Rast_window_cols(); col++) {
+            if (!Rast_is_null_value(&((FCELL *) flood_probability_row)[col], FCELL_TYPE)) {
+                Segment_get(&segments->HUC, (void *)&HUC_index, row, col);
+                fc = ((FCELL *) flood_probability_row)[col];
+                pvalue = map_get_int(max_flood_probability_map, HUC_index);
+                if (pvalue) {
+                    max_flood_probability = *pvalue;
+                    if (fc > max_flood_probability)
+                        map_set_int(max_flood_probability_map, HUC_index, fc);
+                }
+                else
+                    map_set_int(max_flood_probability_map, HUC_index, fc);
+            }
+        }
+        Segment_put_row(&segments->flood_probability, flood_probability_row, row);
+    }
+    Segment_flush(&segments->flood_probability);
+    G_free(flood_probability_row);
+}
