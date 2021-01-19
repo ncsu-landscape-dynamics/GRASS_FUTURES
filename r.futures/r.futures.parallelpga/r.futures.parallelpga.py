@@ -104,6 +104,17 @@
 #% guisection: Output
 #%end
 #%option
+#% key: output_density
+#% type: string
+#% required: no
+#% multiple: no
+#% key_desc: basename
+#% label: Basename for raster maps of density generated after each step
+#% description: Name for output basename raster map(s)
+#% gisprompt: new,cell,raster
+#% guisection: Output
+#%end
+#%option
 #% key: num_steps
 #% type: integer
 #% required: no
@@ -188,6 +199,16 @@
 #% guisection: Demand
 #%end
 #%option
+#% key: population_demand
+#% type: string
+#% required: no
+#% multiple: no
+#% key_desc: name
+#% description: CSV file with population size to accommodate
+#% gisprompt: old,file,file
+#% guisection: Demand
+#%end
+#%option
 #% key: discount_factor
 #% type: double
 #% required: yes
@@ -242,6 +263,46 @@
 #% guisection: PGA
 #%end
 #%option
+#% key: density
+#% type: string
+#% required: no
+#% multiple: no
+#% key_desc: name
+#% description: Raster map of population density
+#% gisprompt: old,cell,raster
+#% guisection: Density
+#%end
+#%option
+#% key: density_capacity
+#% type: string
+#% required: no
+#% multiple: no
+#% key_desc: name
+#% description: Raster map of maximum capacity
+#% gisprompt: old,cell,raster
+#% guisection: Density
+#%end
+#%option
+#% key: redevpot_params
+#% type: string
+#% required: no
+#% multiple: no
+#% key_desc: name
+#% label: CSV file with redevelopment potential parameters for each region
+#% description: Each line should contain region ID followed by parameters (intercepts, development pressure, other predictors).
+#% gisprompt: old,file,file
+#% guisection: Density
+#%end
+#%option
+#% key: redevelopment_lag
+#% type: integer
+#% required: no
+#% multiple: no
+#% options: 1-
+#% description: Number of steps before redevelopment can happen again in a cell developed during simulation
+#% guisection: Density
+#%end
+#%option
 #% key: incentive_power
 #% type: double
 #% required: no
@@ -258,6 +319,107 @@
 #% label: Raster map of weights altering development potential
 #% description: Values need to be between -1 and 1, where negative locally reduces probability and positive increases probability.
 #% guisection: Scenarios
+#%end
+#%option
+#% key: redistribution_matrix
+#% type: string
+#% required: no
+#% multiple: no
+#% key_desc: name
+#% description: Matrix containing probabilities of moving from one subregion to another
+#% gisprompt: old,file,file
+#% guisection: Climate scenarios
+#%end
+#%option
+#% key: redistribution_output
+#% type: string
+#% required: no
+#% multiple: no
+#% key_desc: name
+#% description: Base name for output file containing matrix of pixels moved from one subregion to another
+#% gisprompt: new,file,file
+#% guisection: Climate scenarios
+#%end
+#%option
+#% key: hand
+#% type: string
+#% required: no
+#% multiple: no
+#% key_desc: name
+#% description: Height Above Nearest Drainage raster
+#% gisprompt: old,cell,raster
+#% guisection: Climate scenarios
+#%end
+#%option
+#% key: flood_probability
+#% type: string
+#% required: no
+#% multiple: yes
+#% key_desc: name
+#% description: Flood probability raster(s)
+#% gisprompt: old,cell,raster
+#% guisection: Climate scenarios
+#%end
+#%option
+#% key: flood_probability_steps
+#% type: integer
+#% required: no
+#% multiple: no
+#% options: 1-
+#% description: Steps when flood probability raster(s) are to be used
+#% answer: 1
+#% guisection: Climate scenarios
+#%end
+#%option
+#% key: huc
+#% type: string
+#% required: no
+#% multiple: no
+#% key_desc: name
+#% description: Raster of HUCs
+#% gisprompt: old,cell,raster
+#% guisection: Climate scenarios
+#%end
+#%option
+#% key: adaptive_capacity
+#% type: string
+#% required: no
+#% multiple: no
+#% key_desc: name
+#% description: Adaptive capacity raster
+#% gisprompt: old,cell,raster
+#% guisection: Climate scenarios
+#%end
+#%option
+#% key: output_adaptation
+#% type: string
+#% required: no
+#% multiple: no
+#% key_desc: basename
+#% label: Basename for raster maps of adaptation generated after each step
+#% description: Name for output basename raster map(s)
+#% gisprompt: new,cell,raster
+#% guisection: Output
+#%end
+#%option
+#% key: depth_damage_functions
+#% type: string
+#% required: no
+#% multiple: no
+#% key_desc: name
+#% description: CSV file with depth-damage function
+#% gisprompt: old,file,file
+#% guisection: Climate scenarios
+#%end
+#%option
+#% key: ddf_subregions
+#% type: string
+#% required: no
+#% multiple: no
+#% key_desc: name
+#% description: Subregions raster for depth-damage functions
+#% gisprompt: old,cell,raster
+#% guisection: Climate scenarios
 #%end
 #%option
 #% key: random_seed
