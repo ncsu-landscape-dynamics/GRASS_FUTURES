@@ -531,6 +531,8 @@ def main():
             op['random_seed'] = i + 1
             if 'output_series' in op:
                 op['output_series'] += '_run' + str(i + 1)
+            if 'redistribution_output' in op:
+                op['redistribution_output'] += '_run' + str(i + 1)
             op['output'] += '_run' + str(i + 1)
             options_list.append((repeat, i + 1, None, op))
 
