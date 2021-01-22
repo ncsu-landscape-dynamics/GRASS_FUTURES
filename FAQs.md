@@ -6,10 +6,11 @@ FUTure Urban-Regional Environment Simulation
 ## Running FUTURES
 
 ## Windows-specific
-### Running r.futures.potential gives ``WindowsError: The system cannot find the file specified`
+### Running r.futures.potential gives ``FileNotFoundError: [Errno 2] No such file or directory: 'Rscript'`` or ``WindowsError: The system cannot find the file specified``
 Module r.futures.potential is calling Rscript binary and it can't find it.
-Try to reinstall GRASS, during installation it looks for it.
-Alternatively look where R is installed and add the path to the binary to your PATH variable.
+First, check R is installed, if not, install it.
+Then try to reinstall GRASS, during installation it automatically looks for the binary.
+If it still doesn't run afterwards, look where your R is installed and add the path to the binary to your PATH variable.
 
 ### Running r.futures.potential gives ``IOError: Permission denied: "potential.csv"``
 You are attempting to write output potential.csv file where you don't have permission, such as in C:\,
