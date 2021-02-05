@@ -55,12 +55,13 @@ def main():
         lines = f.read().splitlines()
     header = lines[0].strip().split(sep)
     maps = header[2:]
+    print(maps)
     for line in lines[1:]:
         if not line:
             continue
         items = line.strip().split(sep)
         data[items[0]] = items[1:]
-
+    print(data)
     expr = 'eval(tmp = '
     for i in data.keys():
         expr += "if ({sub} == {ind}, {interc}".format(
@@ -72,6 +73,7 @@ def main():
     expr += ')' * len(data.keys())
     expr += ')'  # for eval
     expr += '\n {new} = 1.0 / (1.0 + exp(-tmp))'.format(new=output)
+    print (expr)
     gscript.debug(expr, 1)
     gscript.mapcalc(expr)
 

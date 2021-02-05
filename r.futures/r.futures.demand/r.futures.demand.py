@@ -78,6 +78,13 @@
 #% description: Output CSV file with projected population demand (times as rows, regions as columns)
 #% guisection: Output
 #%end
+#%option G_OPT_F_OUTPUT
+#% key: observed_development
+#% required: no
+#% label: Output CSV file with observed development (times as rows, regions as columns)
+#% description: Useful for further processing and debugging
+#% guisection: Output
+#%end
 #%option G_OPT_F_SEP
 #% label: Separator used in CSV files
 #% guisection: Optional
@@ -109,10 +116,30 @@ def magnitude(x):
     return int(math.log10(x))
 
 
+def export_observed_development(table_developed, header,
+                                observed_times, out_file, sep):
+    with open(out_file, 'w') as f:
+        new_header = [header[0]]
+        new_header += [sub for sub in header[1:] if sub in table_developed.keys()]
+        f.write(sep.join(new_header))
+        f.write('\n')
+        i = 0
+        for time in observed_times:
+            f.write(str(int(time)))
+            f.write(sep)
+            for sub in new_header[1:]:  # to keep order of subregions
+                f.write(str(int(table_developed[sub][i])))
+                if sub != new_header[-1]:
+                    f.write(sep)
+            f.write('\n')
+            i += 1
+
+
 def main():
     developments = options['development'].split(',')
     observed_popul_file = options['observed_population']
     projected_popul_file = options['projected_population']
+    observed_development = options['observed_development']
     sep = gutils.separator(options['separator'])
     subregions = options['subregions']
     methods = options['method'].split(',')
@@ -160,6 +187,9 @@ def main():
             table_developed[subregionId].append(developed_cells)
         gcore.percent(1, 1, 1)
     subregionIds = sorted(list(subregionIds))
+    if observed_development:
+        export_observed_development(table_developed, observed_popul.dtype.names,
+                                    observed_times, observed_development, sep)
     # linear interpolation between population points
     population_for_simulated_times = {}
     for subregionId in table_developed.keys():
@@ -167,8 +197,7 @@ def main():
                                                                 xp=np.append(observed_times, projected_times),
                                                                 fp=np.append(observed_popul[subregionId],
                                                                              projected_popul[subregionId]))
-    print(table_developed)
-    print(population_for_simulated_times)
+
     # regression
     demand = {}
     population_demand = {}
