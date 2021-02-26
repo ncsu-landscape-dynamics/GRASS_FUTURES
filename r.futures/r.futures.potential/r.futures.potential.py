@@ -209,65 +209,105 @@ def cleanup():
 
 
 def main():
-    vinput = options['input']
-    columns = options['columns'].split(',')
-    binary = options['developed_column']
-    level = options['subregions_column']
-    sep = gutils.separator(options['separator'])
-    minim = int(options['min_variables'])
-    dredge = flags['d']
-    nprocs = int(options['nprocs'])
-    fixed_columns = options['fixed_columns'].split(',') if options['fixed_columns'] else []
+    vinput = options["input"]
+    columns = options["columns"].split(",")
+    binary = options["developed_column"]
+    level = options["subregions_column"]
+    sep = gutils.separator(options["separator"])
+    minim = int(options["min_variables"])
+    dredge = flags["d"]
+    nprocs = int(options["nprocs"])
+    fixed_columns = (
+        options["fixed_columns"].split(",") if options["fixed_columns"] else []
+    )
 
     for each in fixed_columns:
         if each not in columns:
-            gscript.fatal(_("Fixed predictor {} not among predictors specified in option 'columns'").format(each))
-    if options['max_variables']:
-        maxv = int(options['max_variables'])
+            gscript.fatal(
+                _(
+                    "Fixed predictor {} not among predictors specified in option 'columns'"
+                ).format(each)
+            )
+    if options["max_variables"]:
+        maxv = int(options["max_variables"])
     else:
         maxv = len(columns)
     if dredge and minim > maxv:
-        gscript.fatal(_("Minimum number of predictor variables is larger than maximum number"))
+        gscript.fatal(
+            _("Minimum number of predictor variables is larger than maximum number")
+        )
 
-    if not gscript.find_program('Rscript', '--version'):
-        gscript.fatal(_("Rscript required for running r.futures.potential, but not found. "
-                        "Make sure you have R installed and added to the PATH."))
+    if not gscript.find_program("Rscript", "--version"):
+        gscript.fatal(
+            _(
+                "Rscript required for running r.futures.potential, but not found. "
+                "Make sure you have R installed and added to the PATH."
+            )
+        )
 
     global TMP_CSV, TMP_RSCRIPT, TMP_POT, TMP_DREDGE
-    TMP_CSV = gscript.tempfile(create=False) + '.csv'
+    TMP_CSV = gscript.tempfile(create=False) + ".csv"
     TMP_RSCRIPT = gscript.tempfile()
     include_level = True
-    distinct = gscript.read_command('v.db.select', flags='c', map=vinput,
-                                    columns="distinct {level}".format(level=level)).strip()
+    distinct = gscript.read_command(
+        "v.db.select",
+        flags="c",
+        map=vinput,
+        columns="distinct {level}".format(level=level),
+    ).strip()
     if len(distinct.splitlines()) <= 1:
         include_level = False
         single_level = distinct.splitlines()[0]
-    with open(TMP_RSCRIPT, 'w') as f:
+    with open(TMP_RSCRIPT, "w") as f:
         f.write(rscript)
-    TMP_POT = gscript.tempfile(create=False) + '_potential.csv'
-    TMP_DREDGE = gscript.tempfile(create=False) + '_dredge.csv'
+    TMP_POT = gscript.tempfile(create=False) + "_potential.csv"
+    TMP_DREDGE = gscript.tempfile(create=False) + "_dredge.csv"
     columns += [binary]
     if include_level:
         columns += [level]
     where = "{c} IS NOT NULL".format(c=columns[0])
     for c in columns[1:]:
         where += " AND {c} IS NOT NULL".format(c=c)
-    gscript.run_command('v.db.select', map=vinput, columns=columns, separator='comma', where=where, file=TMP_CSV)
+    gscript.run_command(
+        "v.db.select",
+        map=vinput,
+        columns=columns,
+        separator="comma",
+        where=where,
+        file=TMP_CSV,
+    )
 
     if dredge:
         gscript.info(_("Running automatic model selection ..."))
     else:
         gscript.info(_("Computing model..."))
 
-    cmd = ['Rscript', TMP_RSCRIPT, '-i', TMP_CSV, '-r', binary, '-o', TMP_POT,
-           '-p', ','.join(columns),
-           '-m', str(minim), '-x', str(maxv),  '-d', 'TRUE' if dredge else 'FALSE', '-n', str(nprocs)]
+    cmd = [
+        "Rscript",
+        TMP_RSCRIPT,
+        "-i",
+        TMP_CSV,
+        "-r",
+        binary,
+        "-o",
+        TMP_POT,
+        "-p",
+        ",".join(columns),
+        "-m",
+        str(minim),
+        "-x",
+        str(maxv),
+        "-d",
+        "TRUE" if dredge else "FALSE",
+        "-n",
+        str(nprocs),
+    ]
     if include_level:
-        cmd += ['-l', level]
+        cmd += ["-l", level]
     if dredge and fixed_columns:
-        cmd += ['-f', ','.join(fixed_columns)]
-    if dredge and options['dredge_output']:
-        cmd += ['-e', TMP_DREDGE]
+        cmd += ["-f", ",".join(fixed_columns)]
+    if dredge and options["dredge_output"]:
+        cmd += ["-e", TMP_DREDGE]
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = p.communicate()
     if stderr:
@@ -279,10 +319,10 @@ def main():
     gscript.info("-------------------------")
     gscript.message(gscript.decode(stdout))
 
-    with open(TMP_POT, 'r') as fin, open(options['output'], 'w') as fout:
+    with open(TMP_POT, "r") as fin, open(options["output"], "w") as fout:
         i = 0
         for line in fin.readlines():
-            row = line.strip().split('\t')
+            row = line.strip().split("\t")
             row = [each.strip('"') for each in row]
             if i == 0:
                 row[0] = "ID"
@@ -290,19 +330,19 @@ def main():
             if i == 1 and not include_level:
                 row[0] = single_level
             fout.write(sep.join(row))
-            fout.write('\n')
+            fout.write("\n")
             i += 1
-    if options['dredge_output']:
-        with open(TMP_DREDGE, 'r') as fin, open(options['dredge_output'], 'w') as fout:
+    if options["dredge_output"]:
+        with open(TMP_DREDGE, "r") as fin, open(options["dredge_output"], "w") as fout:
             i = 0
             for line in fin.readlines():
-                row = line.strip().split(',')
+                row = line.strip().split(",")
                 row = [each.strip('"') for each in row]
                 if i == 0:
                     row[0] = "ID"
                     row[1] = "Intercept"
                 fout.write(sep.join(row))
-                fout.write('\n')
+                fout.write("\n")
                 i += 1
 
 
