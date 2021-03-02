@@ -256,6 +256,17 @@ def main():
                     rmse[method] = np.sqrt((np.sum(r * r) / (len(reg_pop) - 2)))
                 else:
                     rmse[method] = 0
+            # if inverse, create a fallback method that keeps
+            # the latest population density
+            # TODO: revise the other fallback method below
+            if (method in ('linear', 'logarithmic', 'exp_approach') and coeff[method][0] < 0) or (method == 'logarithmic2' and coeff[method][1] < 0):
+                method = 'fallback'
+                c = 0
+                m = table_developed[subregionId][-1] / observed_popul[subregionId][-1]
+                coeff[method] = m, c
+                rmse[method] = -1
+                simulated[method] = np.array(population_for_simulated_times[subregionId])
+                predicted[method] = simulated[method] * m + c
 
         method = min(rmse, key=rmse.get)
         gcore.verbose(_("Method '{meth}' was selected for subregion {reg}").format(meth=method, reg=subregionId))
@@ -292,7 +303,7 @@ def main():
                                  np.max(np.array(population_for_simulated_times[subregionId])), 30)
             cf = coeff[method]
             if not np.isnan(cf[0]):
-                if method == 'linear':
+                if method in ('linear', 'fallback'):
                     line = x_pred * cf[0] + cf[1]
                     label = "$y = {c:.3f} + {m:.3f} x$".format(m=cf[0], c=cf[1])
                 elif method == 'logarithmic':
