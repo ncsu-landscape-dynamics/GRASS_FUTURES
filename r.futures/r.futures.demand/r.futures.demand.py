@@ -268,6 +268,10 @@ def main():
                     rcond = None
                 else:
                     rcond = -1
+                # if 0 in pop data, filter them out
+                y = np.array(y)
+                y = y[~np.isinf(A).any(axis=1)]
+                A = A[~np.isinf(A).any(axis=1)]
                 m, c = np.linalg.lstsq(A, y, rcond=rcond)[0]  # y = mx + c
                 coeff[method] = m, c
 
