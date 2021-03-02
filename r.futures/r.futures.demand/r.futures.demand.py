@@ -255,7 +255,7 @@ def main():
             # if inverse, create a fallback method that keeps
             # the latest population density
             # TODO: revise the other fallback method below
-            if (method in ('linear', 'logarithmic', 'exp_approach') and coeff[method][0] < 0) or (method == 'logarithmic2' and coeff[method][1] < 0)):
+            if (method in ('linear', 'logarithmic', 'exp_approach') and coeff[method][0] < 0) or (method == 'logarithmic2' and coeff[method][1] < 0):
                 method = 'fallback'
                 c = 0
                 m = table_developed[subregionId][-1] / observed_popul[subregionId][-1]
