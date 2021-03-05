@@ -30,10 +30,10 @@ You will also need these additional addons:
     g.extension r.sample.category
     g.extension r.object.geometry
 
-To run r.futures.potential, you also need R (>= 3.5.0) and R packages MuMIn, lme4, optparse.
-Once you install R, run in R:
+To run r.futures.potential, you also need R (>= 3.5.0) and R packages
+MuMIn, lme4, optparse, snow. Once you install R, run in R:
 
-    install.packages(c("MuMIn", "lme4", "optparse"))
+    install.packages(c("MuMIn", "lme4", "optparse", "snow"))
 
 Optionally, install SciPy to be used for certain parameters in r.futures.demand:
 
