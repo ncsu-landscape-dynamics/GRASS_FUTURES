@@ -69,7 +69,7 @@ jobs:
         grass --tmp-location XY --exec \
             python3 -m grass.gunittest.main \
             --grassdata $HOME --location nc_spm_08_grass7 --location-type nc \
-            --min-success 60
+            --min-success 100
     - name: Make HTML test report available
       uses: actions/upload-artifact@v2
       with:
