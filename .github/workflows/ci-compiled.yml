@@ -74,5 +74,5 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: testreport
-        path: testreport
+        path: ./r.futures/testreport
         retention-days: 3
