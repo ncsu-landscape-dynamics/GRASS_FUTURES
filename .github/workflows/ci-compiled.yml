@@ -73,6 +73,6 @@ jobs:
     - name: Make HTML test report available
       uses: actions/upload-artifact@v2
       with:
-        name: testreport
+        name: futures-testreport-compiled
         path: ./r.futures/testreport
         retention-days: 3
