@@ -10,16 +10,13 @@ on:
 jobs:
   test-with-compiled:
 
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
 
     steps:
-    - uses: actions/checkout@v1
-      with:
-        submodules: true
-    
+    - uses: actions/checkout@v2
     - name: Get dependencies
       run: |
-        sudo apt-get update -y
+        sudo apt-get update -qq -y
         sudo apt-get install -y wget git gawk findutils
         xargs -a <(awk '! /^ *(#|$)/' ".github/workflows/apt.txt") -r -- \
             sudo apt-get install -y --no-install-recommends --no-install-suggests
@@ -30,6 +27,11 @@ jobs:
     - name: Get R dependencies
       run: |
         ./.github/workflows/install_r_packages.R
+    - name: Get versions installed
+      run: |
+        python3 --version
+        python --version
+        Rscript --version
     - name: Create installation directory
       run: |
         mkdir $HOME/install
@@ -47,6 +49,13 @@ jobs:
     - name: Make simple grass command available
       run: |
         ln -s $HOME/install/bin/grass* $HOME/install/bin/grass
+    - name: Get GRASS GIS version
+      run: |
+        grass --version
+    - name: Install dependencies from GRASS Addons
+      run: |
+        xargs -a <(awk '! /^ *(#|$)/' ".github/workflows/grass_extensions.txt") -r -- \
+            grass --tmp-location XY --exec g.extension --verbose
     - name: Install the module
       run: |
         grass --tmp-location XY --exec g.extension extension=r.futures url=./r.futures/ --verbose
@@ -59,9 +68,6 @@ jobs:
     - name: Get sample data for testing (NC SPM sample location)
       if: steps.cache-nc_spm_08_grass7.outputs.cache-hit != 'true'
       run: |
-        grass --tmp-location XY --exec g.extension g.download.location --verbose
-        grass --tmp-location XY --exec g.extension r.sample.category --verbose
-        grass --tmp-location XY --exec g.extension r.object.geometry --verbose
         grass --tmp-location XY --exec g.download.location url=https://grass.osgeo.org/sampledata/north_carolina/nc_spm_08_grass7.tar.gz dbase=~ --verbose
     - name: Run tests
       run: |
