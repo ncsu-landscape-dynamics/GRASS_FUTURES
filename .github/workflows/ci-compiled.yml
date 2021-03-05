@@ -23,6 +23,13 @@ jobs:
         sudo apt-get install -y wget git gawk findutils
         xargs -a <(awk '! /^ *(#|$)/' ".github/workflows/apt.txt") -r -- \
             sudo apt-get install -y --no-install-recommends --no-install-suggests
+    - name: Set up R
+      uses: r-lib/actions/setup-r@v1
+      with:
+        r-version: "4.0.4"
+    - name: Get R dependencies
+      run: |
+        ./.github/workflows/install_r_packages.R
     - name: Create installation directory
       run: |
         mkdir $HOME/install
@@ -53,20 +60,19 @@ jobs:
       if: steps.cache-nc_spm_08_grass7.outputs.cache-hit != 'true'
       run: |
         grass --tmp-location XY --exec g.extension g.download.location --verbose
+        grass --tmp-location XY --exec g.extension r.sample.category --verbose
         grass --tmp-location XY --exec g.extension r.object.geometry --verbose
         grass --tmp-location XY --exec g.download.location url=https://grass.osgeo.org/sampledata/north_carolina/nc_spm_08_grass7.tar.gz dbase=~ --verbose
-    - name: Run test (manually specified files)
+    - name: Run tests
       run: |
-        cd ./r.futures/r.futures.pga/testsuite
-        grass -c ~/nc_spm_08_grass7/test --exec ./test_r_futures_pga.py
-        cd ../../r.futures.devpressure/testsuite
-        grass ~/nc_spm_08_grass7/test --exec ./test_r_futures_devpressure.py
-        cd ../../r.futures.parallelpga/testsuite
-        grass ~/nc_spm_08_grass7/test --exec ./test_r_futures_parallelpga.py
-        cd ../../r.futures.calib/testsuite
-        grass ~/nc_spm_08_grass7/test --exec ./test_r_futures_calib.py
-        cd ../../r.futures.potsurface/testsuite
-        grass ~/nc_spm_08_grass7/test --exec ./test_r_futures_potsurface.py
-        cd ../../r.futures.demand/testsuite
-        grass ~/nc_spm_08_grass7/test --exec ./test_r_futures_demand.py
-        rm -rf ~/nc_spm_08_grass7/test
+        cd ./r.futures/
+        grass --tmp-location XY --exec \
+            python3 -m grass.gunittest.main \
+            --grassdata $HOME --location nc_spm_08_grass7 --location-type nc \
+            --min-success 100
+    - name: Make HTML test report available
+      uses: actions/upload-artifact@v2
+      with:
+        name: futures-testreport-compiled
+        path: ./r.futures/testreport
+        retention-days: 3
