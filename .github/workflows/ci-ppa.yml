@@ -10,19 +10,19 @@ on:
 jobs:
   test-with-ubuntugis-ppa:
 
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
 
     steps:
-    - uses: actions/checkout@v1
-      with:
-        submodules: true
+    - uses: actions/checkout@v2
     - name: Add PPA
       run: |
         sudo add-apt-repository -y ppa:ubuntugis/ubuntugis-unstable
     - name: Install GRASS GIS and other dependencies
       run: |
-        sudo apt-get update -qq
-        sudo apt-get install -y -qq grass grass-dev grass-doc
+        sudo apt-get update -qq -y
+        sudo apt-get install -y -qq \
+            grass grass-dev grass-doc \
+            gawk findutils
     - name: Set up R
       uses: r-lib/actions/setup-r@v1
       with:
@@ -30,9 +30,17 @@ jobs:
     - name: Get R dependencies
       run: |
         ./.github/workflows/install_r_packages.R
-    - name: Change shebang to just Python (7.6 needs python2)
+    - name: Get versions installed
       run: |
-        sed -i s/python3/python/g ./r.futures/r.futures.pga/testsuite/test_r_futures_pga.py
+        python3 --version
+        python --version
+        Rscript --version
+        grass --version
+    - name: Install dependencies from GRASS Addons
+      run: |
+        for NAME in $(awk '! /^ *(#|$)/' ".github/workflows/grass_extensions.txt"); do
+            grass --tmp-location XY --exec g.extension --verbose extension=$NAME
+        done
     - name: Install the module
       run: |
         grass --tmp-location XY --exec g.extension extension=r.futures url=./r.futures/ --verbose
@@ -45,9 +53,6 @@ jobs:
     - name: Get sample data for testing (NC SPM sample location)
       if: steps.cache-nc_spm_08_grass7.outputs.cache-hit != 'true'
       run: |
-        grass --tmp-location XY --exec g.extension g.download.location --verbose
-        grass --tmp-location XY --exec g.extension r.sample.category --verbose
-        grass --tmp-location XY --exec g.extension r.object.geometry --verbose
         grass --tmp-location XY --exec g.download.location url=https://grass.osgeo.org/sampledata/north_carolina/nc_spm_08_grass7.tar.gz dbase=~ --verbose
     - name: Run tests
       run: |
