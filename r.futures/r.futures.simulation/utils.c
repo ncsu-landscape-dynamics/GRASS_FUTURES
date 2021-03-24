@@ -50,3 +50,65 @@ void get_xy_from_idx(size_t idx, int cols, int *row, int *col)
     *col = idx % cols;
     *row = (idx - *col) / cols;
 }
+
+/*!
+ * \brief Internal function for percentile computation.
+ * Taken from r.univar.
+ * \param array to sort
+ * \param n array size
+ * \param k
+ */
+static void downheap_float(float *array, size_t n, size_t k)
+{
+    size_t j;
+    float v;
+
+    v = array[k];
+    while (k <= n / 2) {
+        j = k + k;
+        if (j < n && array[j] < array[j + 1])
+            j++;
+        if (v >= array[j])
+            break;
+        array[k] = array[j];
+        k = j;
+    }
+    array[k] = v;
+}
+
+/*!
+ * \brief Internal function for percentile computation.
+ * Taken from r.univar.
+ * \param array
+ * \param n
+ */
+static void heapsort_float(float *array, size_t n)
+{
+    ssize_t k;
+    float t;
+
+    --n;
+    for (k = n / 2; k >= 0; k--)
+        downheap_float(array, n, k);
+
+    while (n > 0) {
+        t = array[0];
+        array[0] = array[n];
+        array[n] = t;
+        downheap_float(array, --n, 0);
+    }
+}
+/*!
+ * \brief Get percentile p of array of size n
+ * \param array array to be sorted
+ * \param n size of array
+ * \param p percentile (0-100)
+ * \return
+ */
+float get_percentile(float *array, size_t n, int p)
+{
+    int perc;
+    perc = (int)(n * 1e-2 * p - 0.5);
+    heapsort_float(array, n);
+    return array[perc];
+}

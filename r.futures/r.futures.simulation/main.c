@@ -159,7 +159,7 @@ int main(int argc, char **argv)
                 *cellDemandFile, *populationDemandFile, *separator,
                 *density, *densityCapacity, *outputDensity, *redevelopmentLag,
                 *redevelopmentPotentialFile, *redistributionMatrix, *redistributionMatrixOutput,
-                *HAND, *floodProbability, *floodProbabilitySteps, *depthDamageFunc, *ddf_subregions,
+                *HAND, *HAND_percentile, *floodProbability, *floodProbabilitySteps, *depthDamageFunc, *ddf_subregions,
                 *adaptiveCapacity, *HUCs, *outputAdaptation,
                 *patchFile, *numSteps, *output, *outputSeries, *seed, *memory;
     } opt;
@@ -203,6 +203,8 @@ int main(int argc, char **argv)
     struct BBoxes bboxes;
     struct DepthDamageFunctions DDF;
     struct ACDamageRelation response_relation;
+    struct HAND_bbox_values HAND_bbox_vals;
+    float HAND_percentile;
     int *patch_overflow;
     float *population_overflow;
     char *name_step;
@@ -402,6 +404,16 @@ int main(int argc, char **argv)
     opt.HAND->description = _("Height Above Nearest Drainage raster");
     opt.HAND->guisection = _("Climate scenarios");
 
+    opt.HAND_percentile = G_define_option();
+    opt.HAND_percentile->key = "hand_percentile";
+    opt.HAND_percentile->type = TYPE_INTEGER;
+    opt.HAND_percentile->required = NO;
+    opt.HAND_percentile->options = "0-100";
+    opt.HAND_percentile->answer = "90";
+    opt.HAND_percentile->description =
+            _("Percentile of HAND values within inundated area for depth estimation");
+    opt.HAND_percentile->guisection = _("Climate scenarios");
+
     opt.floodProbability = G_define_standard_option(G_OPT_R_INPUTS);
     opt.floodProbability->key = "flood_probability";
     opt.floodProbability->required = NO;
@@ -560,6 +572,7 @@ int main(int argc, char **argv)
                         opt.floodProbability, opt.adaptiveCapacity, opt.HUCs,
                         opt.depthDamageFunc, NULL);
     G_option_requires(opt.outputAdaptation, opt.adaptiveCapacity, NULL);
+    G_option_requires(opt.HAND, opt.HAND_percentile, NULL);
     if (G_parser(argc, argv))
         exit(EXIT_FAILURE);
 
@@ -679,6 +692,7 @@ int main(int argc, char **argv)
     }
     if (opt.HAND->answer) {
         raster_inputs.HAND = opt.HAND->answer;
+        HAND_percentile = atof(opt.HAND_percentile->answer);
         raster_inputs.flood_probability = opt.floodProbability->answers[0];
         raster_inputs.adaptive_capacity = opt.adaptiveCapacity->answer;
         raster_inputs.HUC = opt.HUCs->answer;
@@ -703,6 +717,8 @@ int main(int argc, char **argv)
         map_init(&max_flood_probability_map);
         map_init(&HUC_map);
         initilize_adaptation(&segments.adaptation, &segment_info);
+        HAND_bbox_vals.size = 0;
+        HAND_bbox_vals.array = NULL;
     }
     initialize_flood_response(&response_relation);
 
@@ -826,6 +842,7 @@ int main(int argc, char **argv)
                 climate_step(&segments, &demand_info, &bboxes,
                              &redistr_matrix, &region_map, &reverse_region_map,
                              step, &leaving_population,
+                             &HAND_bbox_vals, HAND_percentile,
                              &max_flood_probability_map, &DDF,
                              &response_relation, HUC);
             if (opt.redistributionMatrixOutput->answer)
@@ -878,6 +895,8 @@ int main(int argc, char **argv)
         map_deinit(&max_flood_probability_map);
         map_deinit(&HUC_map);
         map_deinit(&bboxes.map);
+        if (HAND_bbox_vals.size > 0)
+            G_free(HAND_bbox_vals.array);
     }
     map_deinit(&region_map);
     map_deinit(&reverse_region_map);

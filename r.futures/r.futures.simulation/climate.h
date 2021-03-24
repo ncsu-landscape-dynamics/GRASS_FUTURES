@@ -17,9 +17,16 @@ struct ACDamageRelation
     float vulnerability_b;
 };
 
+struct HAND_bbox_values
+{
+    float *array;
+    uint size;
+};
+
 void initilize_adaptation(SEGMENT *adaptation,
                           const struct SegmentMemory *segment_info);
-float get_max_HAND(struct Segments *segments, const struct BBox *bbox, float flood_probability);
+float get_max_HAND(struct Segments *segments, const struct BBox *bbox, float flood_probability,
+                   struct HAND_bbox_values *HAND_bbox_vals, float percentile);
 bool generate_flood(map_float_t *flood_probability_map, int region_idx, float *flood_probability);
 float get_damage(struct Segments *segments, const struct DepthDamageFunctions *ddf,
                  float flood_depth, int row, int col);

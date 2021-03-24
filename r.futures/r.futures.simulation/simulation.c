@@ -438,6 +438,8 @@ void climate_step(struct Segments *segments, struct Demand *demand,
                   struct BBoxes *bboxes, struct RedistributionMatrix *matrix,
                   map_int_t *region_map, map_int_t *reverse_region_map,
                   int step, float *leaving_population,
+                  struct HAND_bbox_values *HAND_bbox_vals,
+                  float percentile,
                   map_float_t *flood_probability_map,
                   const struct DepthDamageFunctions *ddf,
                   const struct ACDamageRelation *response_relation, int HUC_idx)
@@ -453,6 +455,7 @@ void climate_step(struct Segments *segments, struct Demand *demand,
     int region_from_idx;
     int *bbox_idx;
     float damage;
+    size_t bbox_size;
     enum FloodResponse response;
 
     if (generate_flood(flood_probability_map, HUC_idx, &flood_probability)) {
@@ -460,7 +463,12 @@ void climate_step(struct Segments *segments, struct Demand *demand,
         if (!bbox_idx)
             return;
         bbox = bboxes->bbox[*bbox_idx];
-        max_HAND = get_max_HAND(segments, &bbox, flood_probability);
+        bbox_size = (bbox.s - bbox.n + 1) * (bbox.e - bbox.w + 1);
+        if (HAND_bbox_vals->size < bbox_size) {
+            HAND_bbox_vals->array = (float *) G_realloc(HAND_bbox_vals->array, bbox_size * sizeof(float));
+        }
+        max_HAND = get_max_HAND(segments, &bbox, flood_probability,
+                                HAND_bbox_vals, percentile);
         /* no flood */
         if (max_HAND == 0)
             return;

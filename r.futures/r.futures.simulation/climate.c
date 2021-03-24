@@ -21,6 +21,7 @@
 #include "map.h"
 #include "climate.h"
 #include "random.h"
+#include "utils.h"
 
 /*!
  * \brief Initialize adaptation segment
@@ -166,24 +167,28 @@ bool generate_flood(map_float_t *flood_probability_map,
  * \return max HAND value
  */
 float get_max_HAND(struct Segments *segments, const struct BBox *bbox,
-                   float flood_probability)
+                   float flood_probability, struct HAND_bbox_values *HAND_bbox_vals,
+                   float percentile)
 {
     FCELL flood_probability_value;
     FCELL HAND_value;
-    FCELL max_HAND_value;
+    float max_HAND_value;
     int row, col;
+    int i;
 
+    i = 0;
     max_HAND_value = 0;
     for (row = bbox->n; row <= bbox->s; row++)
         for (col = bbox->w; col <= bbox->w; col++) {
             Segment_get(&segments->flood_probability, (void *)&flood_probability_value, row, col);
             if (flood_probability_value >= flood_probability) {
                 Segment_get(&segments->HAND, (void *)&HAND_value, row, col);
-                if (HAND_value > max_HAND_value) {
-                    max_HAND_value = HAND_value;
-                }
+                HAND_bbox_vals->array[i] = HAND_value;
+                i++;
             }
         }
+    if (i > 0)
+        max_HAND_value = get_percentile(HAND_bbox_vals->array, i, percentile);
     return max_HAND_value;
 }
 
