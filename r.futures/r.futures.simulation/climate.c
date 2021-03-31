@@ -192,6 +192,40 @@ float get_max_HAND(struct Segments *segments, const struct BBox *bbox,
     return max_HAND_value;
 }
 
+float get_depth(SEGMENT *flood_depths, float flood_probability,
+                int row, int col, FCELL *values,
+                const struct FloodInputs *flood_inputs)
+{
+    int i = flood_inputs->num_return_periods;
+    Segment_get(flood_depths, values, row, col);
+    if (Rast_is_null_value(&values[0], FCELL_TYPE))
+        return 0;
+    /* assumes sorted (0.01 0.2 0.5), if in between takes the more extreme */
+    /* TODO: maybe interpolate inbetween */
+    while (i--) {
+        if (flood_probability > flood_inputs->return_periods[i]) {
+            if (Rast_is_null_value(&values[i], FCELL_TYPE))
+                return 0;
+            return values[i];
+        }
+    }
+    /* if flood prob is lower than minimum, return depth for min prob flood */
+    if (Rast_is_null_value(&values[0], FCELL_TYPE))
+        return 0;
+    return values[0];
+}
+
+float get_depth_flood_level(SEGMENT *hand, float flood_level,
+                            int row, int col)
+{
+    FCELL HAND_value;
+    float depth;
+    Segment_get(hand, (void *)&HAND_value, row, col);
+    depth = flood_level - HAND_value;
+    return depth > 0 ? depth : 0;
+}
+
+
 /*!
  * \brief Get damage caused by flooding.
  *
@@ -207,16 +241,12 @@ float get_max_HAND(struct Segments *segments, const struct BBox *bbox,
  * \return structural damage (0: no damage, 1: total destruction)
  */
 float get_damage(struct Segments *segments, const struct DepthDamageFunctions *ddf,
-                 float flood_level, int row, int col)
+                 float depth, int row, int col)
 {
-    FCELL HAND_value;
     int DDF_region_idx;
-    float depth;
     float damage;
 
     damage = 0;
-    Segment_get(&segments->HAND, (void *)&HAND_value, row, col);
-    depth = flood_level - HAND_value;
     if (depth > 0) {
         if (!is_adapted(&segments->adaptation, row, col)) {
             DDF_region_idx = get_DDF_region_index(segments, ddf, row, col);

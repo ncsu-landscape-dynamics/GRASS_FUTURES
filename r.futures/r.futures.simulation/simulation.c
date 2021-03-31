@@ -441,20 +441,23 @@ void climate_step(struct Segments *segments, struct Demand *demand,
                   struct HAND_bbox_values *HAND_bbox_vals,
                   float percentile,
                   map_float_t *flood_probability_map,
+                  const struct FloodInputs *flood_inputs,
                   const struct DepthDamageFunctions *ddf,
                   const struct ACDamageRelation *response_relation, int HUC_idx)
 {
     float flood_probability;
-    float max_HAND;
+    float flood_level;
     int row, col;
     struct BBox bbox;
     CELL HUC_value;
     CELL developed_value;
     CELL *region_from_ID;
     FCELL ac;
+    FCELL *depth_values;
     int region_from_idx;
     int *bbox_idx;
     float damage;
+    float depth;
     size_t bbox_size;
     enum FloodResponse response;
 
@@ -467,12 +470,17 @@ void climate_step(struct Segments *segments, struct Demand *demand,
         if (HAND_bbox_vals->size < bbox_size) {
             HAND_bbox_vals->array = (float *) G_realloc(HAND_bbox_vals->array, bbox_size * sizeof(float));
         }
-        max_HAND = get_max_HAND(segments, &bbox, flood_probability,
-                                HAND_bbox_vals, percentile);
-        /* no flood */
-        if (max_HAND == 0)
-            return;
-        for (row = bbox.n; row <= bbox.s; row++)
+        /* depth can betaken directly from raster or computed with HAND */
+        if (flood_inputs->depth)
+            depth_values = G_malloc(sizeof(float) * flood_inputs->num_return_periods);
+        else {
+            flood_level = get_max_HAND(segments, &bbox, flood_probability,
+                                       HAND_bbox_vals, percentile);
+            /* no flood */
+            if (flood_level == 0)
+                return;
+        }
+        for (row = bbox.n; row <= bbox.s; row++) {
             for (col = bbox.w; col <= bbox.e; col++) {
                 // check nulls
                 Segment_get(&segments->developed, (void *)&developed_value, row, col);
@@ -482,8 +490,13 @@ void climate_step(struct Segments *segments, struct Demand *demand,
                 Segment_get(&segments->HUC, (void *)&HUC_value, row, col);
                 if (HUC_idx != HUC_value)
                     continue;
+                if (flood_inputs->depth)
+                    depth = get_depth(&segments->flood_depths, flood_probability,
+                                      row, col, depth_values, flood_inputs);
+                else
+                    depth = get_depth_flood_level(&segments->HAND, flood_level, row, col);
                 // TODO: get damage only for developed
-                damage = get_damage(segments, ddf, max_HAND, row, col);
+                damage = get_damage(segments, ddf, depth, row, col);
                 if (damage > 0) {
                     if (developed_value >= 0 || developed_value == DEV_TYPE_TRAPPED) {
                         Segment_get(&segments->adaptive_capacity, (void *)&ac, row, col);
@@ -504,5 +517,8 @@ void climate_step(struct Segments *segments, struct Demand *demand,
                     // decrease potential
                 }
             }
+        }
+        if (flood_inputs->depth)
+            G_free(depth_values);
     }
 }
