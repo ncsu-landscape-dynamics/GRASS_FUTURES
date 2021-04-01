@@ -163,7 +163,6 @@ struct FloodInputs
     const char *separator;
     struct FloodInput *array;
     int size;
-    int num_years;
     float *return_periods;
     int num_return_periods;
     int *steps;

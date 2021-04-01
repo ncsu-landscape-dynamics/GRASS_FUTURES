@@ -105,7 +105,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         fd_density_cap = Rast_open_old(inputs.density_capacity, "");
     }
     if (segments->use_climate) {
-        fd_HAND = Rast_open_old(inputs.HAND, "");
+        if (inputs.HAND)
+            fd_HAND = Rast_open_old(inputs.HAND, "");
         fd_adaptive_capacity = Rast_open_old(inputs.adaptive_capacity, "");
         fd_HUC = Rast_open_old(inputs.HUC, "");
         if (inputs.DDF_regions)
@@ -152,10 +153,11 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
     }
     /* Segment open HAND */
     if (segments->use_climate) {
-        if (Segment_open(&segments->HAND, G_tempfile(), rows,
-                         cols, segment_info.rows, segment_info.cols,
-                         Rast_cell_size(FCELL_TYPE), segment_info.in_memory) != 1)
-            G_fatal_error(_("Cannot create temporary file with segments of a raster map of HAND"));
+        if (inputs.HAND)
+            if (Segment_open(&segments->HAND, G_tempfile(), rows,
+                             cols, segment_info.rows, segment_info.cols,
+                             Rast_cell_size(FCELL_TYPE), segment_info.in_memory) != 1)
+                G_fatal_error(_("Cannot create temporary file with segments of a raster map of HAND"));
         if (Segment_open(&segments->adaptive_capacity, G_tempfile(), rows,
                          cols, segment_info.rows, segment_info.cols,
                          Rast_cell_size(FCELL_TYPE), segment_info.in_memory) != 1)
@@ -182,7 +184,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         density_capacity_row = Rast_allocate_buf(FCELL_TYPE);
     }
     if (segments->use_climate) {
-        HAND_row = Rast_allocate_buf(FCELL_TYPE);
+        if (inputs.HAND)
+            HAND_row = Rast_allocate_buf(FCELL_TYPE);
         adaptive_capacity_row = Rast_allocate_buf(FCELL_TYPE);
         HUC_row = Rast_allocate_buf(CELL_TYPE);
         if (inputs.DDF_regions)
@@ -204,7 +207,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
             Rast_get_row(fd_density_cap, density_capacity_row, row, FCELL_TYPE);
         }
         if (segments->use_climate) {
-            Rast_get_row(fd_HAND, HAND_row, row, FCELL_TYPE);
+            if (inputs.HAND)
+                Rast_get_row(fd_HAND, HAND_row, row, FCELL_TYPE);
             Rast_get_row(fd_adaptive_capacity, adaptive_capacity_row, row, FCELL_TYPE);
             Rast_get_row(fd_HUC, HUC_row, row, CELL_TYPE);
             if (inputs.DDF_regions)
@@ -283,8 +287,9 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
             }
             /* flooding */
             if (segments->use_climate) {
-                if (Rast_is_null_value(&((FCELL *) HAND_row)[col], FCELL_TYPE))
-                    isnull = true;
+                if (inputs.HAND)
+                    if (Rast_is_null_value(&((FCELL *) HAND_row)[col], FCELL_TYPE))
+                        isnull = true;
                 if (Rast_is_null_value(&((FCELL *) adaptive_capacity_row)[col], FCELL_TYPE))
                     isnull = true;
                 if (!Rast_is_null_value(&((CELL *) HUC_row)[col], CELL_TYPE)) {
@@ -339,7 +344,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
             Segment_put_row(&segments->density_capacity, density_capacity_row, row);
         }
         if (segments->use_climate) {
-            Segment_put_row(&segments->HAND, HAND_row, row);
+            if (inputs.HAND)
+                Segment_put_row(&segments->HAND, HAND_row, row);
             Segment_put_row(&segments->adaptive_capacity, adaptive_capacity_row, row);
             Segment_put_row(&segments->HUC, HUC_row, row);
             if (inputs.DDF_regions)
@@ -361,7 +367,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         Segment_flush(&segments->density_capacity);
     }
     if (segments->use_climate) {
-        Segment_flush(&segments->HAND);
+        if (inputs.HAND)
+            Segment_flush(&segments->HAND);
         Segment_flush(&segments->adaptive_capacity);
         Segment_flush(&segments->HUC);
         if (inputs.DDF_regions)
@@ -380,7 +387,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         Rast_close(fd_density_cap);
     }
     if (segments->use_climate) {
-        Rast_close(fd_HAND);
+        if (inputs.HAND)
+            Rast_close(fd_HAND);
         Rast_close(fd_adaptive_capacity);
         Rast_close(fd_HUC);
         if (inputs.DDF_regions)
@@ -399,7 +407,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         G_free(density_capacity_row);
     }
     if (segments->use_climate) {
-        G_free(HAND_row);
+        if (inputs.HAND)
+            G_free(HAND_row);
         G_free(adaptive_capacity_row);
         G_free(HUC_row);
         if (inputs.DDF_regions)
