@@ -350,6 +350,7 @@
 #% gisprompt: old,cell,raster
 #% guisection: Climate scenarios
 #%end
+# %option
 # % key: hand_percentile
 # % type: integer
 # % required: no
