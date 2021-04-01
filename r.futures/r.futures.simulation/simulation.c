@@ -469,6 +469,7 @@ void climate_step(struct Segments *segments, struct Demand *demand,
         bbox_size = (bbox.s - bbox.n + 1) * (bbox.e - bbox.w + 1);
         if (HAND_bbox_vals->size < bbox_size) {
             HAND_bbox_vals->array = (float *) G_realloc(HAND_bbox_vals->array, bbox_size * sizeof(float));
+            HAND_bbox_vals->size = bbox_size;
         }
         /* depth can betaken directly from raster or computed with HAND */
         if (flood_inputs->depth)

@@ -183,8 +183,10 @@ float get_max_HAND(struct Segments *segments, const struct BBox *bbox,
             Segment_get(&segments->flood_probability, (void *)&flood_probability_value, row, col);
             if (flood_probability_value >= flood_probability) {
                 Segment_get(&segments->HAND, (void *)&HAND_value, row, col);
-                HAND_bbox_vals->array[i] = HAND_value;
-                i++;
+                if (!Rast_is_null_value(&HAND_value, FCELL_TYPE)) {
+                    HAND_bbox_vals->array[i] = HAND_value;
+                    i++;
+                }
             }
         }
     if (i > 0)

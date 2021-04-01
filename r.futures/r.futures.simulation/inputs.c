@@ -989,7 +989,18 @@ void update_flood_probability(int step, const struct FloodInputs *flood_inputs, 
     int HUC_index;
     map_iter_t iter;
     const char *key;
+    bool found;
 
+    /* Is step in input file at all? */
+    found = false;
+    for (i = 0; i < flood_inputs->num_steps; i++) {
+        if (step == flood_inputs->steps[i]) {
+            found = true;
+            break;
+        }
+    }
+    if (!found)
+        return;
     // zero all values in HUC->max_flood map
     iter = map_iter(max_flood_probability_map);
     while ((key = map_next(max_flood_probability_map, &iter)))
@@ -998,6 +1009,7 @@ void update_flood_probability(int step, const struct FloodInputs *flood_inputs, 
     for (i = 0; i < flood_inputs->size; i++)
         if (flood_inputs->array[i].step == step) {
             fd_flood_probability = Rast_open_old(flood_inputs->array[i].map, "");
+            G_verbose_message("Loading flood probability raster %s", flood_inputs->array[i].map);
             break;
         }
 
