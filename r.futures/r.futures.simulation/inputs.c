@@ -64,7 +64,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
     int fd_developed, fd_reg, fd_devpressure, fd_weights,
             fd_pot_reg, fd_density, fd_density_cap,
             fd_HAND, fd_adaptive_capacity,
-            fd_HUC, fd_DDF;
+            fd_HUC, fd_DDF, fd_adaptations;
     int count_regions, pot_count_regions, HUC_count, DDF_count;
     int region_index, pot_region_index, HUC_index, DDF_index;
     int *region_pindex;
@@ -83,6 +83,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
     FCELL *adaptive_capacity_row;
     CELL *HUC_row;
     CELL *DDF_row;
+    CELL *adaptation_row;
     float *pvalue;
 
 
@@ -111,6 +112,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         fd_HUC = Rast_open_old(inputs.HUC, "");
         if (inputs.DDF_regions)
             fd_DDF = Rast_open_old(inputs.DDF_regions, "");
+        if (inputs.adaptation)
+            fd_adaptations = Rast_open_old(inputs.adaptation, "");
     }
 
     /* Segment open developed */
@@ -171,6 +174,10 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                              cols, segment_info.rows, segment_info.cols,
                              Rast_cell_size(CELL_TYPE), segment_info.in_memory) != 1)
                 G_fatal_error(_("Cannot create temporary file with segments of a raster map of DDF subregions"));
+        if (Segment_open(&segments->adaptation, G_tempfile(), rows,
+                         cols, segment_info.rows, segment_info.cols,
+                         Rast_cell_size(CELL_TYPE), segment_info.in_memory) != 1)
+            G_fatal_error(_("Cannot create temporary file with segments of an adaptations raster map"));
     }
     developed_row = Rast_allocate_buf(CELL_TYPE);
     subregions_row = Rast_allocate_buf(CELL_TYPE);
@@ -190,6 +197,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         HUC_row = Rast_allocate_buf(CELL_TYPE);
         if (inputs.DDF_regions)
             DDF_row = Rast_allocate_buf(CELL_TYPE);
+        adaptation_row = Rast_allocate_buf(CELL_TYPE);
     }
 
     for (row = 0; row < rows; row++) {
@@ -332,6 +340,10 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
             if (isnull)
                 Rast_set_c_null_value(&((CELL *) developed_row)[col], 1);
         }
+        if (segments->use_climate)
+            if (inputs.adaptation)
+                Rast_get_row(fd_adaptations, adaptation_row, row, CELL_TYPE);
+
         Segment_put_row(&segments->developed, developed_row, row);
         Segment_put_row(&segments->devpressure, devpressure_row, row);
         Segment_put_row(&segments->subregions, subregions_row, row);
@@ -350,6 +362,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
             Segment_put_row(&segments->HUC, HUC_row, row);
             if (inputs.DDF_regions)
                 Segment_put_row(&segments->DDF_subregions, DDF_row, row);
+            Segment_put_row(&segments->adaptation, adaptation_row, row);
         }
     }
     G_percent(row, rows, 5);
@@ -373,6 +386,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         Segment_flush(&segments->HUC);
         if (inputs.DDF_regions)
             Segment_flush(&segments->DDF_subregions);
+        Segment_flush(&segments->adaptation);
     }
     /* close raster maps */
     Rast_close(fd_developed);
@@ -393,6 +407,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         Rast_close(fd_HUC);
         if (inputs.DDF_regions)
             Rast_close(fd_DDF);
+        if (inputs.adaptation)
+            Rast_close(fd_adaptations);
     }
 
     G_free(developed_row);
@@ -413,6 +429,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         G_free(HUC_row);
         if (inputs.DDF_regions)
             G_free(DDF_row);
+        G_free(adaptation_row);
     }
 }
 

@@ -23,8 +23,6 @@ struct HAND_bbox_values
     uint size;
 };
 
-void initilize_adaptation(SEGMENT *adaptation,
-                          const struct SegmentMemory *segment_info);
 float get_max_HAND(struct Segments *segments, const struct BBox *bbox, float flood_probability,
                    struct HAND_bbox_values *HAND_bbox_vals, float percentile);
 float get_depth(SEGMENT *flood_depths, float flood_probability,
@@ -34,10 +32,10 @@ float get_depth_flood_level(SEGMENT *hand, float flood_level,
                             int row, int col);
 bool generate_flood(map_float_t *flood_probability_map, int region_idx, float *flood_probability);
 float get_damage(struct Segments *segments, const struct DepthDamageFunctions *ddf,
-                 float depth, int row, int col);
+                 float flood_probability, float depth, int row, int col);
 enum FloodResponse flood_response(float damage, float adaptive_capacity,
                                   const struct ACDamageRelation *response);
-bool is_adapted(SEGMENT *adaptation, int row, int col);
-void adapt(SEGMENT *adaptation, int row, int col);
+bool is_adapted(SEGMENT *adaptation, float flood_probability, int row, int col);
+void adapt(SEGMENT *adaptation, float flood_probability, int row, int col);
 
 #endif // FUTURES_CLIMATE_H

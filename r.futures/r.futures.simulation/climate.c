@@ -24,61 +24,45 @@
 #include "utils.h"
 
 /*!
- * \brief Initialize adaptation segment
- * \param adaptation segment
- * \param segment_info
- */
-void initilize_adaptation(SEGMENT *adaptation,
-                          const struct SegmentMemory *segment_info)
-{
-    CELL *adaptation_row;
-    int row;
-    int rows;
-
-    rows = Rast_window_rows();
-    adaptation_row = Rast_allocate_buf(CELL_TYPE); /* uses calloc */
-    if (Segment_open(adaptation, G_tempfile(), Rast_window_rows(),
-                     Rast_window_cols(), segment_info->rows, segment_info->cols,
-                     Rast_cell_size(CELL_TYPE), segment_info->in_memory) != 1)
-        G_fatal_error(_("Cannot create temporary file with segments of a raster map"));
-    /* make sure there are zeroes */
-    for (row = 0; row < rows; row++)
-        Segment_put_row(adaptation, adaptation_row, row);
-    Segment_flush(adaptation);
-    G_free(adaptation_row);
-}
-/*!
  * \brief Adapt pixel to flooding.
  *
- * Currently, only it's 0 or 1,
- * for future there should be level of adaptation.
+ * Selects adaptation one step higher than the current flood.
  *
  * \param adaptation Adaptation segment
+ * \param flood_probability flood probability (0 - 1)
  * \param row
  * \param col
  */
-void adapt(SEGMENT *adaptation, int row, int col)
+void adapt(SEGMENT *adaptation,  float flood_probability, int row, int col)
 {
-    int adapted;
+    int i;
+    int rp[] = {2, 5, 10, 20, 50, 100};
 
-    /*  this will be level of adaptation (flood probability or depth) */
-    adapted = 1;
-    Segment_put(adaptation, (void *)&adapted, row, col);
+    for (i = 0; i < sizeof(rp) / sizeof(int); i++) {
+        if (1 / flood_probability < rp[i]) {
+            i++;
+            break;
+        }
+    }
+    Segment_put(adaptation, (void *)&rp[i - 1], row, col);
 }
 /*!
- * \brief Check if pixel is adapted.
+ * \brief Check if pixel is adapted for certain flood frequency
  *
  * \param adaptation Adaptation segment
+ * \param flood_probability flood probability (0 - 1)
  * \param row
  * \param col
- * \return
+ * \return T/F
  */
-bool is_adapted(SEGMENT *adaptation, int row, int col)
+bool is_adapted(SEGMENT *adaptation, float flood_probability, int row, int col)
 {
     int adapted;
 
     Segment_get(adaptation, (void *)&adapted, row, col);
-    return (bool)adapted;
+    if (Rast_is_null_value(&adapted, CELL_TYPE) || adapted == 0)
+        return false;
+    return flood_probability >= (1. / adapted);
 }
 
 /*!
@@ -243,14 +227,14 @@ float get_depth_flood_level(SEGMENT *hand, float flood_level,
  * \return structural damage (0: no damage, 1: total destruction)
  */
 float get_damage(struct Segments *segments, const struct DepthDamageFunctions *ddf,
-                 float depth, int row, int col)
+                 float flood_probability, float depth, int row, int col)
 {
     int DDF_region_idx;
     float damage;
 
     damage = 0;
     if (depth > 0) {
-        if (!is_adapted(&segments->adaptation, row, col)) {
+        if (!is_adapted(&segments->adaptation, flood_probability, row, col)) {
             DDF_region_idx = get_DDF_region_index(segments, ddf, row, col);
             damage = depth_to_damage(depth, DDF_region_idx, ddf);
         }

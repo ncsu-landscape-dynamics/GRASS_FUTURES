@@ -497,7 +497,7 @@ void climate_step(struct Segments *segments, struct Demand *demand,
                 else
                     depth = get_depth_flood_level(&segments->HAND, flood_level, row, col);
                 // TODO: get damage only for developed
-                damage = get_damage(segments, ddf, depth, row, col);
+                damage = get_damage(segments, ddf, flood_probability, depth, row, col);
                 if (damage > 0) {
                     if (developed_value >= 0 || developed_value == DEV_TYPE_TRAPPED) {
                         Segment_get(&segments->adaptive_capacity, (void *)&ac, row, col);
@@ -512,7 +512,7 @@ void climate_step(struct Segments *segments, struct Demand *demand,
                                          region_map, step, leaving_population);
                         }
                         else if (response == Adapt) {
-                            adapt(&segments->adaptation, row, col);
+                            adapt(&segments->adaptation, flood_probability, row, col);
                         }
                     }
                     // decrease potential

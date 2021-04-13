@@ -165,7 +165,7 @@ int main(int argc, char **argv)
                 *redevelopmentPotentialFile, *redistributionMatrix, *redistributionMatrixOutput,
                 *HAND, *HAND_percentile, *floodInputFile,
                 *depthDamageFunc, *ddf_subregions,
-                *adaptiveCapacity, *HUCs, *outputAdaptation,
+                *adaptations, *adaptiveCapacity, *HUCs, *outputAdaptation,
                 *patchFile, *numSteps, *output, *outputSeries, *seed, *memory;
     } opt;
 
@@ -436,6 +436,13 @@ int main(int argc, char **argv)
     opt.adaptiveCapacity->required = NO;
     opt.adaptiveCapacity->description = _("Adaptive capacity raster");
     opt.adaptiveCapacity->guisection = _("Climate scenarios");
+
+    opt.adaptations = G_define_standard_option(G_OPT_R_INPUT);
+    opt.adaptations->key = "adaptation";
+    opt.adaptations->required = NO;
+    opt.adaptations->label =
+        _("Raster map of current adaptations for specific flood return periods (e.g. 5, 20)");
+    opt.adaptations->guisection = _("Climate scenarios");
 
     opt.outputAdaptation = G_define_standard_option(G_OPT_R_BASENAME_OUTPUT);
     opt.outputAdaptation->key = "output_adaptation";
@@ -708,7 +715,6 @@ int main(int argc, char **argv)
         DDF.separator = G_option_to_separator(opt.separator);
         map_init(&max_flood_probability_map);
         map_init(&HUC_map);
-        initilize_adaptation(&segments.adaptation, &segment_info);
         HUC_bbox_vals.size = 0;
         HUC_bbox_vals.array = NULL;
         raster_inputs.HAND = NULL;
@@ -724,6 +730,10 @@ int main(int argc, char **argv)
     initialize_flood_response(&response_relation);
     if (flood_inputs.array)
         init_flood_segment(&flood_inputs, &segments, segment_info);
+    if (opt.adaptations)
+        raster_inputs.adaptation = opt.adaptations->answer;
+    else
+        raster_inputs.adaptation = NULL;
 
     //    read Subregions layer
     map_init(&region_map);

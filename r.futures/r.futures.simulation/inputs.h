@@ -113,6 +113,7 @@ struct RasterInputs
     const char *HAND;
     const char *HUC;
     const char *adaptive_capacity;
+    const char *adaptation;
     const char *DDF_regions;
 };
 
