@@ -24,61 +24,45 @@
 #include "utils.h"
 
 /*!
- * \brief Initialize adaptation segment
- * \param adaptation segment
- * \param segment_info
- */
-void initilize_adaptation(SEGMENT *adaptation,
-                          const struct SegmentMemory *segment_info)
-{
-    CELL *adaptation_row;
-    int row;
-    int rows;
-
-    rows = Rast_window_rows();
-    adaptation_row = Rast_allocate_buf(CELL_TYPE); /* uses calloc */
-    if (Segment_open(adaptation, G_tempfile(), Rast_window_rows(),
-                     Rast_window_cols(), segment_info->rows, segment_info->cols,
-                     Rast_cell_size(CELL_TYPE), segment_info->in_memory) != 1)
-        G_fatal_error(_("Cannot create temporary file with segments of a raster map"));
-    /* make sure there are zeroes */
-    for (row = 0; row < rows; row++)
-        Segment_put_row(adaptation, adaptation_row, row);
-    Segment_flush(adaptation);
-    G_free(adaptation_row);
-}
-/*!
  * \brief Adapt pixel to flooding.
  *
- * Currently, only it's 0 or 1,
- * for future there should be level of adaptation.
+ * Selects adaptation one step higher than the current flood.
  *
  * \param adaptation Adaptation segment
+ * \param flood_probability flood probability (0 - 1)
  * \param row
  * \param col
  */
-void adapt(SEGMENT *adaptation, int row, int col)
+void adapt(SEGMENT *adaptation,  float flood_probability, int row, int col)
 {
-    int adapted;
+    int i;
+    int rp[] = {2, 5, 10, 20, 50, 100};
 
-    /*  this will be level of adaptation (flood probability or depth) */
-    adapted = 1;
-    Segment_put(adaptation, (void *)&adapted, row, col);
+    for (i = 0; i < sizeof(rp) / sizeof(int); i++) {
+        if (1 / flood_probability < rp[i]) {
+            i++;
+            break;
+        }
+    }
+    Segment_put(adaptation, (void *)&rp[i - 1], row, col);
 }
 /*!
- * \brief Check if pixel is adapted.
+ * \brief Check if pixel is adapted for certain flood frequency
  *
  * \param adaptation Adaptation segment
+ * \param flood_probability flood probability (0 - 1)
  * \param row
  * \param col
- * \return
+ * \return T/F
  */
-bool is_adapted(SEGMENT *adaptation, int row, int col)
+bool is_adapted(SEGMENT *adaptation, float flood_probability, int row, int col)
 {
     int adapted;
 
     Segment_get(adaptation, (void *)&adapted, row, col);
-    return (bool)adapted;
+    if (Rast_is_null_value(&adapted, CELL_TYPE) || adapted == 0)
+        return false;
+    return flood_probability >= (1. / adapted);
 }
 
 /*!
@@ -183,14 +167,50 @@ float get_max_HAND(struct Segments *segments, const struct BBox *bbox,
             Segment_get(&segments->flood_probability, (void *)&flood_probability_value, row, col);
             if (flood_probability_value >= flood_probability) {
                 Segment_get(&segments->HAND, (void *)&HAND_value, row, col);
-                HAND_bbox_vals->array[i] = HAND_value;
-                i++;
+                if (!Rast_is_null_value(&HAND_value, FCELL_TYPE)) {
+                    HAND_bbox_vals->array[i] = HAND_value;
+                    i++;
+                }
             }
         }
     if (i > 0)
         max_HAND_value = get_percentile(HAND_bbox_vals->array, i, percentile);
     return max_HAND_value;
 }
+
+float get_depth(SEGMENT *flood_depths, float flood_probability,
+                int row, int col, FCELL *values,
+                const struct FloodInputs *flood_inputs)
+{
+    int i = flood_inputs->num_return_periods;
+    Segment_get(flood_depths, values, row, col);
+    if (Rast_is_null_value(&values[0], FCELL_TYPE))
+        return 0;
+    /* assumes sorted (0.01 0.2 0.5), if in between takes the more extreme */
+    /* TODO: maybe interpolate inbetween */
+    while (i--) {
+        if (flood_probability > flood_inputs->return_periods[i]) {
+            if (Rast_is_null_value(&values[i], FCELL_TYPE))
+                return 0;
+            return values[i];
+        }
+    }
+    /* if flood prob is lower than minimum, return depth for min prob flood */
+    if (Rast_is_null_value(&values[0], FCELL_TYPE))
+        return 0;
+    return values[0];
+}
+
+float get_depth_flood_level(SEGMENT *hand, float flood_level,
+                            int row, int col)
+{
+    FCELL HAND_value;
+    float depth;
+    Segment_get(hand, (void *)&HAND_value, row, col);
+    depth = flood_level - HAND_value;
+    return depth > 0 ? depth : 0;
+}
+
 
 /*!
  * \brief Get damage caused by flooding.
@@ -207,18 +227,14 @@ float get_max_HAND(struct Segments *segments, const struct BBox *bbox,
  * \return structural damage (0: no damage, 1: total destruction)
  */
 float get_damage(struct Segments *segments, const struct DepthDamageFunctions *ddf,
-                 float flood_level, int row, int col)
+                 float flood_probability, float depth, int row, int col)
 {
-    FCELL HAND_value;
     int DDF_region_idx;
-    float depth;
     float damage;
 
     damage = 0;
-    Segment_get(&segments->HAND, (void *)&HAND_value, row, col);
-    depth = flood_level - HAND_value;
     if (depth > 0) {
-        if (!is_adapted(&segments->adaptation, row, col)) {
+        if (!is_adapted(&segments->adaptation, flood_probability, row, col)) {
             DDF_region_idx = get_DDF_region_index(segments, ddf, row, col);
             damage = depth_to_damage(depth, DDF_region_idx, ddf);
         }

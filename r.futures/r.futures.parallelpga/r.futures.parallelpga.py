@@ -350,26 +350,26 @@
 #% gisprompt: old,cell,raster
 #% guisection: Climate scenarios
 #%end
-#%option
-#% key: flood_probability
-#% type: string
-#% required: no
-#% multiple: yes
-#% key_desc: name
-#% description: Flood probability raster(s)
-#% gisprompt: old,cell,raster
-#% guisection: Climate scenarios
-#%end
-#%option
-#% key: flood_probability_steps
-#% type: integer
-#% required: no
-#% multiple: no
-#% options: 1-
-#% description: Steps when flood probability raster(s) are to be used
-#% answer: 1
-#% guisection: Climate scenarios
-#%end
+# %option
+# % key: hand_percentile
+# % type: integer
+# % required: no
+# % multiple: no
+# % options: 0-100
+# % description: Percentile of HAND values within inundated area for depth estimation
+# % answer: 90
+# % guisection: Climate scenarios
+# %end
+# %option
+# % key: flood_maps_file
+# % type: string
+# % required: no
+# % multiple: no
+# % key_desc: name
+# % description: CSV file with (step, return period, map of depth) or (step, map of return period)
+# % gisprompt: old,file,file
+# % guisection: Climate scenarios
+# %end
 #%option
 #% key: huc
 #% type: string

@@ -112,3 +112,22 @@ float get_percentile(float *array, size_t n, int p)
     heapsort_float(array, n);
     return array[perc];
 }
+
+/*!
+ * \brief float comparison for qsort
+ */
+int float_cmp(const void *a, const void *b)
+{
+    float fa = *(const float*) a;
+    float fb = *(const float*) b;
+    return (fa > fb) - (fa < fb);
+}
+/*!
+ * \brief int comparison for qsort
+ */
+int int_cmp(const void *a, const void *b)
+{
+    int fa = *(const int*) a;
+    int fb = *(const int*) b;
+    return (fa > fb) - (fa < fb);
+}

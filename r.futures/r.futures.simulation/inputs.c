@@ -23,6 +23,7 @@
 
 #include "inputs.h"
 #include "map.h"
+#include "utils.h"
 
 /*!
  * \brief Initialize arrays for transformation of probability values
@@ -55,25 +56,22 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                         struct SegmentMemory segment_info, map_int_t *region_map,
                         map_int_t *reverse_region_map,
                         map_int_t *potential_region_map,
-                        map_int_t *HUC_map,
-                        map_float_t *max_flood_probability_map,
+                        map_int_t *HUC_map, map_float_t *max_flood_probability_map,
                         map_int_t *DDF_region_map)
 {
     int row, col;
     int rows, cols;
     int fd_developed, fd_reg, fd_devpressure, fd_weights,
             fd_pot_reg, fd_density, fd_density_cap,
-            fd_HAND, fd_flood_probability, fd_adaptive_capacity,
-            fd_HUC, fd_DDF;
+            fd_HAND, fd_adaptive_capacity,
+            fd_HUC, fd_DDF, fd_adaptations;
     int count_regions, pot_count_regions, HUC_count, DDF_count;
     int region_index, pot_region_index, HUC_index, DDF_index;
     int *region_pindex;
     int *pot_region_pindex;
-    float max_flood_probability;
     CELL c;
     FCELL fc;
     bool isnull;
-
     CELL *developed_row;
     CELL *subregions_row;
     CELL *pot_subregions_row;
@@ -82,10 +80,11 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
     FCELL *density_row;
     FCELL *density_capacity_row;
     FCELL *HAND_row;
-    FCELL *flood_probability_row;
     FCELL *adaptive_capacity_row;
     CELL *HUC_row;
     CELL *DDF_row;
+    CELL *adaptation_row;
+    float *pvalue;
 
 
     rows = Rast_window_rows();
@@ -93,7 +92,6 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
     count_regions = region_index = HUC_count = DDF_count = 0;
     pot_count_regions = pot_region_index = HUC_index = DDF_index = 0;
     int *pindex;
-    float *pvalue;
 
     /* open existing raster maps for reading */
     fd_developed = Rast_open_old(inputs.developed, "");
@@ -108,12 +106,14 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         fd_density_cap = Rast_open_old(inputs.density_capacity, "");
     }
     if (segments->use_climate) {
-        fd_HAND = Rast_open_old(inputs.HAND, "");
-        fd_flood_probability = Rast_open_old(inputs.flood_probability, "");
+        if (inputs.HAND)
+            fd_HAND = Rast_open_old(inputs.HAND, "");
         fd_adaptive_capacity = Rast_open_old(inputs.adaptive_capacity, "");
         fd_HUC = Rast_open_old(inputs.HUC, "");
         if (inputs.DDF_regions)
             fd_DDF = Rast_open_old(inputs.DDF_regions, "");
+        if (inputs.adaptation)
+            fd_adaptations = Rast_open_old(inputs.adaptation, "");
     }
 
     /* Segment open developed */
@@ -156,14 +156,11 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
     }
     /* Segment open HAND */
     if (segments->use_climate) {
-        if (Segment_open(&segments->HAND, G_tempfile(), rows,
-                         cols, segment_info.rows, segment_info.cols,
-                         Rast_cell_size(FCELL_TYPE), segment_info.in_memory) != 1)
-            G_fatal_error(_("Cannot create temporary file with segments of a raster map of HAND"));
-        if (Segment_open(&segments->flood_probability, G_tempfile(), rows,
-                         cols, segment_info.rows, segment_info.cols,
-                         Rast_cell_size(FCELL_TYPE), segment_info.in_memory) != 1)
-            G_fatal_error(_("Cannot create temporary file with segments of a raster map of flood probability"));
+        if (inputs.HAND)
+            if (Segment_open(&segments->HAND, G_tempfile(), rows,
+                             cols, segment_info.rows, segment_info.cols,
+                             Rast_cell_size(FCELL_TYPE), segment_info.in_memory) != 1)
+                G_fatal_error(_("Cannot create temporary file with segments of a raster map of HAND"));
         if (Segment_open(&segments->adaptive_capacity, G_tempfile(), rows,
                          cols, segment_info.rows, segment_info.cols,
                          Rast_cell_size(FCELL_TYPE), segment_info.in_memory) != 1)
@@ -177,6 +174,10 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                              cols, segment_info.rows, segment_info.cols,
                              Rast_cell_size(CELL_TYPE), segment_info.in_memory) != 1)
                 G_fatal_error(_("Cannot create temporary file with segments of a raster map of DDF subregions"));
+        if (Segment_open(&segments->adaptation, G_tempfile(), rows,
+                         cols, segment_info.rows, segment_info.cols,
+                         Rast_cell_size(CELL_TYPE), segment_info.in_memory) != 1)
+            G_fatal_error(_("Cannot create temporary file with segments of an adaptations raster map"));
     }
     developed_row = Rast_allocate_buf(CELL_TYPE);
     subregions_row = Rast_allocate_buf(CELL_TYPE);
@@ -190,12 +191,13 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         density_capacity_row = Rast_allocate_buf(FCELL_TYPE);
     }
     if (segments->use_climate) {
-        HAND_row = Rast_allocate_buf(FCELL_TYPE);
-        flood_probability_row = Rast_allocate_buf(FCELL_TYPE);
+        if (inputs.HAND)
+            HAND_row = Rast_allocate_buf(FCELL_TYPE);
         adaptive_capacity_row = Rast_allocate_buf(FCELL_TYPE);
         HUC_row = Rast_allocate_buf(CELL_TYPE);
         if (inputs.DDF_regions)
             DDF_row = Rast_allocate_buf(CELL_TYPE);
+        adaptation_row = Rast_allocate_buf(CELL_TYPE);
     }
 
     for (row = 0; row < rows; row++) {
@@ -213,8 +215,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
             Rast_get_row(fd_density_cap, density_capacity_row, row, FCELL_TYPE);
         }
         if (segments->use_climate) {
-            Rast_get_row(fd_HAND, HAND_row, row, FCELL_TYPE);
-            Rast_get_row(fd_flood_probability, flood_probability_row, row, FCELL_TYPE);
+            if (inputs.HAND)
+                Rast_get_row(fd_HAND, HAND_row, row, FCELL_TYPE);
             Rast_get_row(fd_adaptive_capacity, adaptive_capacity_row, row, FCELL_TYPE);
             Rast_get_row(fd_HUC, HUC_row, row, CELL_TYPE);
             if (inputs.DDF_regions)
@@ -293,8 +295,9 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
             }
             /* flooding */
             if (segments->use_climate) {
-                if (Rast_is_null_value(&((FCELL *) HAND_row)[col], FCELL_TYPE))
-                    isnull = true;
+                if (inputs.HAND)
+                    if (Rast_is_null_value(&((FCELL *) HAND_row)[col], FCELL_TYPE))
+                        isnull = true;
                 if (Rast_is_null_value(&((FCELL *) adaptive_capacity_row)[col], FCELL_TYPE))
                     isnull = true;
                 if (!Rast_is_null_value(&((CELL *) HUC_row)[col], CELL_TYPE)) {
@@ -309,18 +312,10 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                     else
                         HUC_index = *pindex;
                     ((CELL *) HUC_row)[col] = HUC_index;
-                    /* save the max flood value for each HUC */
-                    if (!Rast_is_null_value(&((FCELL *) flood_probability_row)[col], FCELL_TYPE)) {
-                        fc = ((FCELL *) flood_probability_row)[col];
-                        pvalue = map_get_int(max_flood_probability_map, HUC_index);
-                        if (pvalue) {
-                            max_flood_probability = *pvalue;
-                            if (fc > max_flood_probability)
-                                map_set_int(max_flood_probability_map, HUC_index, fc);
-                        }
-                        else
-                            map_set_int(max_flood_probability_map, HUC_index, fc);
-                    }
+                    /* init max flood value for each HUC */
+                    pvalue = map_get_int(max_flood_probability_map, HUC_index);
+                    if (!pvalue)
+                        map_set_int(max_flood_probability_map, HUC_index, 0);
                 }
                 /* DDF subregions */
                 if (inputs.DDF_regions) {
@@ -345,6 +340,10 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
             if (isnull)
                 Rast_set_c_null_value(&((CELL *) developed_row)[col], 1);
         }
+        if (segments->use_climate)
+            if (inputs.adaptation)
+                Rast_get_row(fd_adaptations, adaptation_row, row, CELL_TYPE);
+
         Segment_put_row(&segments->developed, developed_row, row);
         Segment_put_row(&segments->devpressure, devpressure_row, row);
         Segment_put_row(&segments->subregions, subregions_row, row);
@@ -357,12 +356,13 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
             Segment_put_row(&segments->density_capacity, density_capacity_row, row);
         }
         if (segments->use_climate) {
-            Segment_put_row(&segments->HAND, HAND_row, row);
-            Segment_put_row(&segments->flood_probability, flood_probability_row, row);
+            if (inputs.HAND)
+                Segment_put_row(&segments->HAND, HAND_row, row);
             Segment_put_row(&segments->adaptive_capacity, adaptive_capacity_row, row);
             Segment_put_row(&segments->HUC, HUC_row, row);
             if (inputs.DDF_regions)
                 Segment_put_row(&segments->DDF_subregions, DDF_row, row);
+            Segment_put_row(&segments->adaptation, adaptation_row, row);
         }
     }
     G_percent(row, rows, 5);
@@ -380,12 +380,13 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         Segment_flush(&segments->density_capacity);
     }
     if (segments->use_climate) {
-        Segment_flush(&segments->HAND);
-        Segment_flush(&segments->flood_probability);
+        if (inputs.HAND)
+            Segment_flush(&segments->HAND);
         Segment_flush(&segments->adaptive_capacity);
         Segment_flush(&segments->HUC);
         if (inputs.DDF_regions)
             Segment_flush(&segments->DDF_subregions);
+        Segment_flush(&segments->adaptation);
     }
     /* close raster maps */
     Rast_close(fd_developed);
@@ -400,12 +401,14 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         Rast_close(fd_density_cap);
     }
     if (segments->use_climate) {
-        Rast_close(fd_HAND);
-        Rast_close(fd_flood_probability);
+        if (inputs.HAND)
+            Rast_close(fd_HAND);
         Rast_close(fd_adaptive_capacity);
         Rast_close(fd_HUC);
         if (inputs.DDF_regions)
             Rast_close(fd_DDF);
+        if (inputs.adaptation)
+            Rast_close(fd_adaptations);
     }
 
     G_free(developed_row);
@@ -420,12 +423,13 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         G_free(density_capacity_row);
     }
     if (segments->use_climate) {
-        G_free(HAND_row);
-        G_free(flood_probability_row);
+        if (inputs.HAND)
+            G_free(HAND_row);
         G_free(adaptive_capacity_row);
         G_free(HUC_row);
         if (inputs.DDF_regions)
             G_free(DDF_row);
+        G_free(adaptation_row);
     }
 }
 
@@ -998,9 +1002,10 @@ void create_bboxes(SEGMENT *raster, SEGMENT *masking, struct BBoxes *bboxes)
         }
 }
 
-void update_flood_probability(const char *flood_map, struct Segments *segments,
+void update_flood_probability(int step, const struct FloodInputs *flood_inputs, struct Segments *segments,
                               map_int_t *HUC_map, map_float_t *max_flood_probability_map)
 {
+    int i;
     int row, col;
     int fd_flood_probability;
     FCELL *flood_probability_row;
@@ -1010,13 +1015,30 @@ void update_flood_probability(const char *flood_map, struct Segments *segments,
     int HUC_index;
     map_iter_t iter;
     const char *key;
+    bool found;
 
+    /* Is step in input file at all? */
+    found = false;
+    for (i = 0; i < flood_inputs->num_steps; i++) {
+        if (step == flood_inputs->steps[i]) {
+            found = true;
+            break;
+        }
+    }
+    if (!found)
+        return;
     // zero all values in HUC->max_flood map
     iter = map_iter(max_flood_probability_map);
     while ((key = map_next(max_flood_probability_map, &iter)))
         map_set(max_flood_probability_map, key, 0);
 
-    fd_flood_probability = Rast_open_old(flood_map, "");
+    for (i = 0; i < flood_inputs->size; i++)
+        if (flood_inputs->array[i].step == step) {
+            fd_flood_probability = Rast_open_old(flood_inputs->array[i].map, "");
+            G_verbose_message("Loading flood probability raster %s", flood_inputs->array[i].map);
+            break;
+        }
+
     flood_probability_row = Rast_allocate_buf(FCELL_TYPE);
     for (row = 0; row < Rast_window_rows(); row++) {
         Rast_get_row(fd_flood_probability, flood_probability_row, row, FCELL_TYPE);
@@ -1038,4 +1060,198 @@ void update_flood_probability(const char *flood_map, struct Segments *segments,
     }
     Segment_flush(&segments->flood_probability);
     G_free(flood_probability_row);
+}
+
+
+void read_flood_file(struct FloodInputs *flood_inputs)
+{
+    FILE *fp;
+    if ((fp = fopen(flood_inputs->filename, "r")) == NULL)
+        G_fatal_error(_("Cannot open file <%s> with flood inputs"),
+                      flood_inputs->filename);
+
+    const char *td = "\"";
+    char **tokens;
+    char **header_tokens;
+    int header_ntokens;
+    int ntokens;
+    int i;
+    int j;
+    size_t buflen = 1000;
+    char buf[buflen];
+    bool found;
+
+    if (G_getl2(buf, buflen, fp) == 0)
+        G_fatal_error(_("Flood inputs file <%s>"
+                        " contains less than one line"), flood_inputs->filename);
+    header_tokens = G_tokenize2(buf, flood_inputs->separator, td);
+    header_ntokens = G_number_of_tokens(header_tokens);
+    if (header_ntokens == 3)
+        flood_inputs->depth = true;
+    else if (header_ntokens == 2)
+        flood_inputs->depth = false;
+    else
+        G_fatal_error(_("Incorrect number of columns (%d) detected in file <%s>"),
+                      header_ntokens, flood_inputs->filename);
+    /* read to get length and checks */
+    i = 0;
+    while (G_getl2(buf, buflen, fp)) {
+        // process each column in row
+        tokens = G_tokenize2(buf, flood_inputs->separator, td);
+        ntokens = G_number_of_tokens(tokens);
+        if (ntokens != header_ntokens)
+            G_fatal_error(_("Flood input file <%s>"
+                            " has inconsistent number of columns"), flood_inputs->filename);
+        i++;
+    }
+    flood_inputs->array = (struct FloodInput *) G_malloc(sizeof(struct FloodInput) * i);
+    flood_inputs->return_periods = G_calloc(i, sizeof(float));
+    flood_inputs->steps = G_calloc(i, sizeof(int));
+    i = 0;
+    rewind(fp);
+    /* skip header */
+    G_getl2(buf, buflen, fp);
+    while (G_getl2(buf, buflen, fp)) {
+        if (buf[0] == '\0')
+            continue;
+        tokens = G_tokenize2(buf, flood_inputs->separator, td);
+        ntokens = G_number_of_tokens(tokens);
+
+        flood_inputs->array[i].step = atoi(G_chop(tokens[0])) - 1;
+        if (flood_inputs->depth) {
+            flood_inputs->array[i].return_period = atof(G_chop(tokens[1]));
+            flood_inputs->array[i].map = G_store(G_chop(tokens[2]));
+        }
+        else
+            flood_inputs->array[i].map = G_store(G_chop(tokens[1]));
+        i++;
+        G_free_tokens(tokens);
+    }
+    flood_inputs->size = i;
+    flood_inputs->num_steps = 0;
+    for (i = 0; i < flood_inputs->size; i++) {
+        found = false;
+        for (j = 0; j < flood_inputs->num_steps; j++) {
+            if (flood_inputs->array[i].step == flood_inputs->steps[j]) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            flood_inputs->steps[flood_inputs->num_steps] = flood_inputs->array[i].step;
+            flood_inputs->num_steps++;
+        }
+    }
+    qsort(flood_inputs->steps, flood_inputs->num_steps, sizeof(int), int_cmp);
+
+    if (flood_inputs->depth) {
+        flood_inputs->return_periods[0] = flood_inputs->array[0].return_period;
+        flood_inputs->num_return_periods = 1;
+        for (i = 1; i < flood_inputs->size; i++) {
+            found = false;
+            for (j = 0; j < flood_inputs->num_return_periods; j++) {
+                if (flood_inputs->array[i].return_period == flood_inputs->return_periods[j]) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                flood_inputs->return_periods[flood_inputs->num_return_periods] = flood_inputs->array[i].return_period;
+                flood_inputs->num_return_periods++;
+            }
+        }
+        qsort(flood_inputs->return_periods, flood_inputs->num_return_periods, sizeof(float), float_cmp);
+    }
+    G_free_tokens(header_tokens);
+    fclose(fp);
+}
+
+void init_flood_segment(const struct FloodInputs *flood_inputs,
+                        struct Segments *segments,
+                        struct SegmentMemory segment_info)
+{
+    int rows, cols;
+    size_t flood_depths_segment_cell_size;
+    rows = Rast_window_rows();
+    cols = Rast_window_cols();
+    if (flood_inputs->depth) {
+        flood_depths_segment_cell_size = sizeof(FCELL) * flood_inputs->num_return_periods;
+        if (Segment_open(&segments->flood_depths, G_tempfile(), rows,
+                         cols, segment_info.rows, segment_info.cols,
+                         flood_depths_segment_cell_size, segment_info.in_memory) != 1)
+            G_fatal_error(_("Cannot create temporary file with segments of flood depth raster maps"));
+    }
+    else {
+        if (Segment_open(&segments->flood_probability, G_tempfile(), rows,
+                         cols, segment_info.rows, segment_info.cols,
+                         Rast_cell_size(FCELL_TYPE), segment_info.in_memory) != 1)
+            G_fatal_error(_("Cannot create temporary file with segments of flood probability raster maps"));
+    }
+}
+
+void update_flood_depth(int step, const struct FloodInputs *flood_inputs, struct Segments *segments,
+                        map_float_t *max_flood_probability_map)
+{
+    int i;
+    int rp;
+    int row, col;
+    int rows, cols;
+    FCELL *flood_depths_row;
+    FCELL *flood_depths_seg_row;
+    int *fds_flood_depths;
+    float max_rp;
+    map_iter_t iter;
+    const char *key;
+    rows = Rast_window_rows();
+    cols = Rast_window_cols();
+    fds_flood_depths = G_malloc(flood_inputs->num_return_periods * sizeof(int));
+    rp = 0;
+    i = 0;
+    bool found;
+
+    /* Is step in input file at all? */
+    found = false;
+    for (i = 0; i < flood_inputs->num_steps; i++) {
+        if (step == flood_inputs->steps[i]) {
+            found = true;
+            break;
+        }
+    }
+    if (!found)
+        return;
+
+    while (rp < flood_inputs->num_return_periods) {
+        if (flood_inputs->array[i].step == step &&
+                flood_inputs->array[i].return_period == flood_inputs->return_periods[rp]) {
+            fds_flood_depths[rp] = Rast_open_old(flood_inputs->array[i].map, "");
+            G_verbose_message("Loading flood depth raster %s", flood_inputs->array[i].map);
+            rp++;
+        }
+        if (++i >= flood_inputs->size)
+            i = 0;
+    }
+    flood_depths_row = Rast_allocate_buf(FCELL_TYPE);
+    flood_depths_seg_row = G_malloc(cols * flood_inputs->num_return_periods * sizeof(FCELL));
+    for (row = 0; row < rows; row++) {
+        for (rp = 0; rp < flood_inputs->num_return_periods; rp++) {
+            Rast_get_row(fds_flood_depths[rp], flood_depths_row, row, FCELL_TYPE);
+            for (col = 0; col < cols; col++)
+                flood_depths_seg_row[col * flood_inputs->num_return_periods + rp] = flood_depths_row[col];
+        }
+        Segment_put_row(&segments->flood_depths, flood_depths_seg_row, row);
+    }
+    Segment_flush(&segments->flood_depths);
+    for (rp = 0; rp < flood_inputs->num_return_periods; rp++)
+        Rast_close(fds_flood_depths[rp]);
+    G_free(fds_flood_depths);
+    G_free(flood_depths_row);
+    G_free(flood_depths_seg_row);
+    // set values in HUC->max_flood map to max return period
+    max_rp = 0;
+    for (rp = 0; rp < flood_inputs->num_return_periods; rp++)
+        if (rp > max_rp)
+            max_rp = rp;
+    iter = map_iter(max_flood_probability_map);
+    while ((key = map_next(max_flood_probability_map, &iter)))
+        map_set(max_flood_probability_map, key, max_rp);
 }

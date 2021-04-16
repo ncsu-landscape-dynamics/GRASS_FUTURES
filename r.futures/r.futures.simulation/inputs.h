@@ -93,6 +93,7 @@ struct Segments
     SEGMENT adaptive_capacity;
     SEGMENT adaptation;
     SEGMENT DDF_subregions;
+    SEGMENT flood_depths;
     bool use_weight;
     bool use_potential_subregions;
     bool use_density;
@@ -111,8 +112,8 @@ struct RasterInputs
     const char *density_capacity;
     const char *HAND;
     const char *HUC;
-    const char *flood_probability;
     const char *adaptive_capacity;
+    const char *adaptation;
     const char *DDF_regions;
 };
 
@@ -150,14 +151,33 @@ struct BBoxes
     struct BBox *bbox;
 };
 
+struct FloodInput
+{
+    int step;
+    float return_period;
+    const char *map;
+};
+
+struct FloodInputs
+{
+    const char *filename;
+    const char *separator;
+    struct FloodInput *array;
+    int size;
+    float *return_periods;
+    int num_return_periods;
+    int *steps;
+    int num_steps;
+    bool depth;
+};
+
 
 void initialize_incentive(struct Potential *potential_info, float exponent);
 void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                         struct SegmentMemory segment_info, map_int_t *region_map,
                         map_int_t *reverse_region_map,
                         map_int_t *potential_region_map,
-                        map_int_t *HUC_map,
-                        map_float_t *max_flood_probability_map,
+                        map_int_t *HUC_map, map_float_t *max_flood_probability_map,
                         map_int_t *DDF_region_map);
 void read_predictors(struct RasterInputs inputs, struct Segments *segments,
                      const struct Potential *potential,
@@ -170,7 +190,13 @@ void read_patch_sizes(struct PatchSizes *patch_sizes, map_int_t *region_map,
 void read_DDF_file(struct DepthDamageFunctions *ddf,
                    map_int_t *DDF_region_map);
 void create_bboxes(SEGMENT *raster, SEGMENT *masking, struct BBoxes *bboxes);
-void update_flood_probability(const char *flood_map, struct Segments *segments,
+void update_flood_probability(int step, const struct FloodInputs *flood_inputs, struct Segments *segments,
                               map_int_t *HUC_map, map_float_t *max_flood_probability_map);
+void read_flood_file(struct FloodInputs *flood_inputs);
+void init_flood_segment(const struct FloodInputs *flood_inputs,
+                        struct Segments *segments,
+                        struct SegmentMemory segment_info);
+void update_flood_depth(int step, const struct FloodInputs *flood_inputs,
+                        struct Segments *segments, map_float_t *max_flood_probability_map);
 
 #endif // FUTURES_INPUTS_H
