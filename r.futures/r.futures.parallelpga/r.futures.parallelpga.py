@@ -391,6 +391,17 @@
 #% guisection: Climate scenarios
 #%end
 #%option
+#% key: adaptation
+#% type: string
+#% required: no
+#% multiple: no
+#% key_desc: name
+#% label: Raster map of current adaptations for specific flood return periods (e.g. 5, 20)
+#% description: Name of input raster map
+#% gisprompt: old,cell,raster
+#% guisection: Climate scenarios
+#%end
+#%option
 #% key: output_adaptation
 #% type: string
 #% required: no
@@ -533,6 +544,8 @@ def main():
                 op['output_series'] += '_run' + str(i + 1)
             if 'redistribution_output' in op:
                 op['redistribution_output'] += '_run' + str(i + 1)
+            if 'output_adaptation' in op:
+                op['output_adaptation'] += '_run' + str(i + 1)
             op['output'] += '_run' + str(i + 1)
             options_list.append((repeat, i + 1, None, op))
 
