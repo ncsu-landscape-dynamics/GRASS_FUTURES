@@ -35,6 +35,7 @@ float get_damage(struct Segments *segments, const struct DepthDamageFunctions *d
                  float flood_probability, float depth, int row, int col);
 enum FloodResponse flood_response(float damage, float adaptive_capacity,
                                   const struct ACDamageRelation *response);
+void initialize_flood_response(struct ACDamageRelation *response_relation);
 bool is_adapted(SEGMENT *adaptation, float flood_probability, int row, int col);
 void adapt(SEGMENT *adaptation, float flood_probability, int row, int col);
 

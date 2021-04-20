@@ -24,6 +24,18 @@
 #include "utils.h"
 
 /*!
+ * \brief Initialize flood response
+ * \param response_relation
+ */
+void initialize_flood_response(struct ACDamageRelation *response_relation)
+{
+    response_relation->resilience_a = 0.5;
+    response_relation->resilience_b = 0;
+    response_relation->vulnerability_a = -1;
+    response_relation->vulnerability_b = 0;
+}
+
+/*!
  * \brief Adapt pixel to flooding.
  *
  * Selects adaptation one step higher than the current flood.

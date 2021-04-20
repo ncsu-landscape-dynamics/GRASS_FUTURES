@@ -80,14 +80,6 @@ struct Developables *initialize_developables(int num_subregions)
     return dev;
 }
 
-void initialize_flood_response(struct ACDamageRelation *response_relation)
-{
-    response_relation->resilience_a = 1;
-    response_relation->resilience_b = 0;
-    response_relation->vulnerability_a = -1;
-    response_relation->vulnerability_b = 0;
-}
-
 static int manage_memory(struct SegmentMemory *memory, struct Segments *segments,
                          const struct FloodInputs *flood_inputs, float input_memory)
 {
