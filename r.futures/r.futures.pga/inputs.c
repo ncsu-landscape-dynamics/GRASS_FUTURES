@@ -551,8 +551,10 @@ void read_patch_sizes(struct PatchSizes *patch_sizes,
                     if (patch > 0) {
                         if (patch_sizes->max_patch_size < patch)
                             patch_sizes->max_patch_size = patch;
-                        if (use_header)
-                            KeyValueIntInt_find(region_map, atoi(header_tokens[i]), &region_id);
+                        if (use_header) {
+                            if (!KeyValueIntInt_find(region_map, atoi(header_tokens[i]), &region_id))
+                                continue;
+                        }
                         else
                             region_id = 0;
                         patch_sizes->patch_sizes[region_id][patch_sizes->patch_count[region_id]] = patch;
