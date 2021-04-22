@@ -397,7 +397,10 @@ void read_demand_file(struct Demand *demandInfo, struct KeyValueIntInt *region_m
 void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt *region_map,
                          int num_predictors)
 {
+    int i;
     FILE *fp;
+    bool *check;
+    bool problem;
     if ((fp = fopen(potentialInfo->filename, "r")) == NULL)
         G_fatal_error(_("Cannot open development potential parameters file <%s>"),
                       potentialInfo->filename);
@@ -416,6 +419,7 @@ void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt 
     for (int i = 0; i < num_predictors; i++) {
         potentialInfo->predictors[i] = (double *) G_malloc(region_map->nitems * sizeof(double));
     }
+    check = G_calloc(region_map->nitems, sizeof(int));
 
     char **tokens;
 
@@ -439,6 +443,7 @@ void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt 
         G_chop(tokens[0]);
         id = atoi(tokens[0]);
         if (KeyValueIntInt_find(region_map, id, &idx)) {
+            check[idx] = 1;
             G_chop(tokens[1]);
             coef_intercept = atof(tokens[1]);
             G_chop(tokens[2]);
@@ -455,8 +460,17 @@ void read_potential_file(struct Potential *potentialInfo, struct KeyValueIntInt 
 
         G_free_tokens(tokens);
     }
-
+    problem = false;
+    for (i = 0; i < region_map->nitems; i++) {
+        if (!check[i]) {
+            G_warning("Region %d missing in potential file.", region_map->key[i]);
+            problem = true;
+        }
+    }
+    G_free(check);
     fclose(fp);
+    if (problem)
+        G_fatal_error("Missing counties in potential file");
 }
 
 void read_patch_sizes(struct PatchSizes *patch_sizes,
