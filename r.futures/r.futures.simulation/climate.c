@@ -34,7 +34,6 @@ void initialize_flood_response(struct ACDamageRelation *response_relation)
     response_relation->vulnerability_a = -1;
     response_relation->vulnerability_b = 0;
 }
-
 /*!
  * \brief Adapt pixel to flooding.
  *
@@ -77,6 +76,17 @@ bool is_adapted(SEGMENT *adaptation, float flood_probability, int row, int col)
     return flood_probability >= (1. / adapted);
 }
 
+/*!
+ * \brief Stay trapped - saves state into adaptation segment
+ * \param adaptation
+ * \param row
+ * \param col
+ */
+void stay(SEGMENT *adaptation, int row, int col)
+{
+    int stay = 0;
+    Segment_put(adaptation, (void *)&stay, row, col);
+}
 /*!
  * \brief Converts water depth to structural damage
  * using depth-damage-function.

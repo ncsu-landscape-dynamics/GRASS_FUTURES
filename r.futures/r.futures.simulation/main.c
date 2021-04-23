@@ -858,7 +858,8 @@ int main(int argc, char **argv)
         if (opt.outputSeries->answer) {
             name_step = name_for_step(opt.outputSeries->answer, step, num_steps);
             output_developed_step(&segments.developed, name_step,
-                                  demand_info.years[step], -1, num_steps, false, false);
+                                  demand_info.years[step], -1, num_steps,
+                                  segments.use_climate ? false : true);
         }
         /* export density for that step */
         if (opt.outputDensity->answer) {
@@ -875,7 +876,7 @@ int main(int argc, char **argv)
     /* write */
     output_developed_step(&segments.developed, opt.output->answer,
                           demand_info.years[0], demand_info.years[step-1],
-                          num_steps, false, false);
+                          num_steps, segments.use_climate ? false : true);
 
     /* close segments and free memory */
     Segment_close(&segments.developed);

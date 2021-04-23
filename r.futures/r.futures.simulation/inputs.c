@@ -26,6 +26,21 @@
 #include "utils.h"
 
 /*!
+ * \brief Get developed value depending on step and
+ * whether abandonment is being tracked
+ * \param step
+ * \param abandon
+ * \return 
+ */
+int get_developed_val_from_step(int step, bool abandon)
+{
+    if (abandon)
+        return -step - 2;
+    else
+        return step + 1;
+}
+
+/*!
  * \brief Initialize arrays for transformation of probability values
  * \param potential_info
  * \param exponent

@@ -38,5 +38,6 @@ enum FloodResponse flood_response(float damage, float adaptive_capacity,
 void initialize_flood_response(struct ACDamageRelation *response_relation);
 bool is_adapted(SEGMENT *adaptation, float flood_probability, int row, int col);
 void adapt(SEGMENT *adaptation, float flood_probability, int row, int col);
+void stay(SEGMENT *adaptation, int row, int col);
 
 #endif // FUTURES_CLIMATE_H
