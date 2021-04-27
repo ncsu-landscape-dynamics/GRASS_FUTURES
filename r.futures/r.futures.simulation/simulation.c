@@ -442,6 +442,7 @@ void climate_step(struct Segments *segments, struct Demand *demand,
                   float percentile,
                   map_float_t *flood_probability_map,
                   const struct FloodInputs *flood_inputs,
+                  struct FloodLog *log,
                   const struct DepthDamageFunctions *ddf,
                   const struct ACDamageRelation *response_relation, int HUC_idx)
 {
@@ -481,6 +482,7 @@ void climate_step(struct Segments *segments, struct Demand *demand,
             if (flood_level == 0)
                 return;
         }
+        log_flood(log, step, HUC_idx, flood_probability);
         for (row = bbox.n; row <= bbox.s; row++) {
             for (col = bbox.w; col <= bbox.e; col++) {
                 // check nulls

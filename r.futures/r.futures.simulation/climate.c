@@ -34,6 +34,51 @@ void initialize_flood_response(struct ACDamageRelation *response_relation)
     response_relation->vulnerability_a = -1;
     response_relation->vulnerability_b = 0;
 }
+
+void initialize_flood_log(struct FloodLog *log, int maxsize)
+{
+    log->steps = G_malloc(maxsize * sizeof(int));
+    log->HUC_indices = G_malloc(maxsize * sizeof(int));
+    log->flood_levels = G_malloc(maxsize * sizeof(float));
+    log->size = 0;
+}
+
+void log_flood(struct FloodLog *log, int step,
+               int HUC_idx, float flood_probability)
+{
+    log->steps[log->size] = step;
+    log->HUC_indices[log->size] = HUC_idx;
+    log->flood_levels[log->size] = flood_probability;
+    log->size++;
+}
+
+void write_flood_log(struct FloodLog *log, const char *filename,
+                     map_int_t *HUC_map)
+{
+    FILE *fp;
+    int i;
+    map_int_t rev_HUC_map;
+    map_iter_t iter;
+    int *huc_idx;
+    int *huc_id;
+    const char *key;
+    map_init(&rev_HUC_map);
+
+    iter = map_iter(HUC_map);
+    while ((key = map_next(HUC_map, &iter))) {
+        huc_idx = map_get(HUC_map, key);
+        map_set_int(&rev_HUC_map, *huc_idx, atoi(key));
+    }
+
+    fp = fopen(filename, "w");
+    for (i = 0; i < log->size; i++) {
+        huc_id = map_get_int(&rev_HUC_map, log->HUC_indices[i]);
+        fprintf(fp, "%d,%d,%.4f\n", log->steps[i],
+                *huc_id, log->flood_levels[i]);
+    }
+    fclose(fp);
+    map_deinit(&rev_HUC_map);
+}
 /*!
  * \brief Adapt pixel to flooding.
  *

@@ -49,7 +49,7 @@ void climate_step(struct Segments *segments, struct Demand *demand,
                   int step, float *leaving_population,
                   struct HAND_bbox_values *HAND_bbox_vals, float percentile,
                   map_float_t *flood_probability_map, const struct FloodInputs *flood_inputs,
-                  const struct DepthDamageFunctions *ddf,
+                  struct FloodLog *log, const struct DepthDamageFunctions *ddf,
                   const struct ACDamageRelation *response_relation, int HUC_idx);
 
 #endif // FUTURES_SIMULATION_H

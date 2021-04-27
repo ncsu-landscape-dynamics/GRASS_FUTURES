@@ -1264,8 +1264,8 @@ void update_flood_depth(int step, const struct FloodInputs *flood_inputs, struct
     // set values in HUC->max_flood map to max return period
     max_rp = 0;
     for (rp = 0; rp < flood_inputs->num_return_periods; rp++)
-        if (rp > max_rp)
-            max_rp = rp;
+        if (flood_inputs->return_periods[rp] > max_rp)
+            max_rp = flood_inputs->return_periods[rp];
     iter = map_iter(max_flood_probability_map);
     while ((key = map_next(max_flood_probability_map, &iter)))
         map_set(max_flood_probability_map, key, max_rp);

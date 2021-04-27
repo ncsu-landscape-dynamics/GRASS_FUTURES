@@ -12,7 +12,6 @@ enum DDF_subregions_source {DDF_DEFAULT = 0,
                             DDF_POTENTIAL = -1,
                             DDF_CUSTOM = -2,
                             DDF_NONE = -3};
-
 struct Demand
 {
     const char *cells_filename;
