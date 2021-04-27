@@ -5,17 +5,13 @@
 #include <grass/segment.h>
 
 #include "map.h"
-
 enum development_type {DEV_TYPE_INITIAL = 0,
-                       DEV_TYPE_UNDEVELOPED = -1,
-                       DEV_TYPE_ABANDONED = -2,
-                       DEV_TYPE_TRAPPED = -3};
+                       DEV_TYPE_UNDEVELOPED = -1};
 
 enum DDF_subregions_source {DDF_DEFAULT = 0,
                             DDF_POTENTIAL = -1,
                             DDF_CUSTOM = -2,
                             DDF_NONE = -3};
-
 struct Demand
 {
     const char *cells_filename;
@@ -171,7 +167,7 @@ struct FloodInputs
     bool depth;
 };
 
-
+int get_developed_val_from_step(int step, bool abandon);
 void initialize_incentive(struct Potential *potential_info, float exponent);
 void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                         struct SegmentMemory segment_info, map_int_t *region_map,

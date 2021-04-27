@@ -36,12 +36,11 @@ bool can_develop(CELL development, enum patch_type type, int step, int lag)
     }
     else if (type == PATCH_TYPE_REDEVELOP) {
         if (development == DEV_TYPE_INITIAL
-                || development == DEV_TYPE_TRAPPED
                 || (development < (step + 1) - lag))
             return true;
     }
     else if (type == PATCH_TYPE_ABANDON) {
-        if (development >= DEV_TYPE_INITIAL || development == DEV_TYPE_TRAPPED)
+        if (development >= DEV_TYPE_INITIAL)
             return true;
     }
     return false;
@@ -333,9 +332,9 @@ int grow_patch(int seed_row, int seed_col, int patch_size, int step, int region,
     found_in_this_region = 1;
     if (type == PATCH_TYPE_NEW || type == PATCH_TYPE_REDEVELOP)
         /* e.g. first step=0 will be saved as 1 */
-        patch_develop_value = step + 1;
+        patch_develop_value = get_developed_val_from_step(step, false);
     else
-        patch_develop_value = DEV_TYPE_ABANDONED;
+        patch_develop_value = get_developed_val_from_step(step, true);
 
     /* set seed as developed */
     Segment_put(&segments->developed, (void *)&patch_develop_value, seed_row, seed_col);

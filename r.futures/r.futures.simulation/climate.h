@@ -8,6 +8,14 @@
 
 enum FloodResponse { Retreat, Adapt, Stay };
 
+struct FloodLog
+{
+    int *steps;
+    int *HUC_indices;
+    float *flood_levels;
+    int size;
+};
+
 struct ACDamageRelation
 {
     /* y = ax + b */
@@ -35,8 +43,12 @@ float get_damage(struct Segments *segments, const struct DepthDamageFunctions *d
                  float flood_probability, float depth, int row, int col);
 enum FloodResponse flood_response(float damage, float adaptive_capacity,
                                   const struct ACDamageRelation *response);
+void initialize_flood_log(struct FloodLog *log, int maxsize);
+void log_flood(struct FloodLog *log, int step, int HUC_idx, float flood_probability);
+void write_flood_log(struct FloodLog *log, const char *filename, map_int_t *HUC_map);
 void initialize_flood_response(struct ACDamageRelation *response_relation);
 bool is_adapted(SEGMENT *adaptation, float flood_probability, int row, int col);
 void adapt(SEGMENT *adaptation, float flood_probability, int row, int col);
+void stay(SEGMENT *adaptation, int row, int col);
 
 #endif // FUTURES_CLIMATE_H

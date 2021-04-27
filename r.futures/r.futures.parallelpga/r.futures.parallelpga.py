@@ -350,26 +350,36 @@
 #% gisprompt: old,cell,raster
 #% guisection: Climate scenarios
 #%end
-# %option
-# % key: hand_percentile
-# % type: integer
-# % required: no
-# % multiple: no
-# % options: 0-100
-# % description: Percentile of HAND values within inundated area for depth estimation
-# % answer: 90
-# % guisection: Climate scenarios
-# %end
-# %option
-# % key: flood_maps_file
-# % type: string
-# % required: no
-# % multiple: no
-# % key_desc: name
-# % description: CSV file with (step, return period, map of depth) or (step, map of return period)
-# % gisprompt: old,file,file
-# % guisection: Climate scenarios
-# %end
+#%option
+#% key: hand_percentile
+#% type: integer
+#% required: no
+#% multiple: no
+#% options: 0-100
+#% description: Percentile of HAND values within inundated area for depth estimation
+#% answer: 90
+#% guisection: Climate scenarios
+#%end
+#%option
+#% key: flood_maps_file
+#% type: string
+#% required: no
+#% multiple: no
+#% key_desc: name
+#% description: CSV file with (step, return period, map of depth) or (step, map of return period)
+#% gisprompt: old,file,file
+#% guisection: Climate scenarios
+#%end
+#%option
+#% key: flood_logfile
+#% type: string
+#% required: no
+#% multiple: no
+#% key_desc: name
+#% description: CSV file with (step, HUC ID, flood probability)
+#% gisprompt: new,file,file
+#% guisection: Climate scenarios
+#%end
 #%option
 #% key: huc
 #% type: string
@@ -546,6 +556,9 @@ def main():
                 op['redistribution_output'] += '_run' + str(i + 1)
             if 'output_adaptation' in op:
                 op['output_adaptation'] += '_run' + str(i + 1)
+            if 'flood_logfile' in op:
+                path, ext = os.path.splitext(op['flood_logfile'])
+                op['flood_logfile'] = path + '_run' + str(i + 1) + ext
             op['output'] += '_run' + str(i + 1)
             options_list.append((repeat, i + 1, None, op))
 

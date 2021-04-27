@@ -442,6 +442,7 @@ void climate_step(struct Segments *segments, struct Demand *demand,
                   float percentile,
                   map_float_t *flood_probability_map,
                   const struct FloodInputs *flood_inputs,
+                  struct FloodLog *log,
                   const struct DepthDamageFunctions *ddf,
                   const struct ACDamageRelation *response_relation, int HUC_idx)
 {
@@ -481,6 +482,7 @@ void climate_step(struct Segments *segments, struct Demand *demand,
             if (flood_level == 0)
                 return;
         }
+        log_flood(log, step, HUC_idx, flood_probability);
         for (row = bbox.n; row <= bbox.s; row++) {
             for (col = bbox.w; col <= bbox.e; col++) {
                 // check nulls
@@ -499,11 +501,11 @@ void climate_step(struct Segments *segments, struct Demand *demand,
                 // TODO: get damage only for developed
                 damage = get_damage(segments, ddf, flood_probability, depth, row, col);
                 if (damage > 0) {
-                    if (developed_value >= 0 || developed_value == DEV_TYPE_TRAPPED) {
+                    if (developed_value >= DEV_TYPE_INITIAL) {
                         Segment_get(&segments->adaptive_capacity, (void *)&ac, row, col);
                         response = flood_response(damage, ac, response_relation);
                         if (response == Retreat) {
-                            developed_value = DEV_TYPE_ABANDONED;
+                            developed_value = get_developed_val_from_step(step, true);
                             Segment_put(&segments->developed, (void *)&developed_value, row, col);
                             /* redistribute */
                             Segment_get(&segments->subregions, (void *)&region_from_idx, row, col);
@@ -514,6 +516,8 @@ void climate_step(struct Segments *segments, struct Demand *demand,
                         else if (response == Adapt) {
                             adapt(&segments->adaptation, flood_probability, row, col);
                         }
+                        else
+                            stay(&segments->adaptation, row, col);
                     }
                     // decrease potential
                 }

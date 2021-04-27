@@ -155,7 +155,7 @@ int main(int argc, char **argv)
                 *cellDemandFile, *populationDemandFile, *separator,
                 *density, *densityCapacity, *outputDensity, *redevelopmentLag,
                 *redevelopmentPotentialFile, *redistributionMatrix, *redistributionMatrixOutput,
-                *HAND, *HAND_percentile, *floodInputFile,
+                *HAND, *HAND_percentile, *floodInputFile, *floodLog,
                 *depthDamageFunc, *ddf_subregions,
                 *adaptations, *adaptiveCapacity, *HUCs, *outputAdaptation,
                 *patchFile, *numSteps, *output, *outputSeries, *seed, *memory;
@@ -201,6 +201,7 @@ int main(int argc, char **argv)
     struct ACDamageRelation response_relation;
     struct HAND_bbox_values HUC_bbox_vals;
     struct FloodInputs flood_inputs;
+    struct FloodLog flood_log;
     float HAND_percentile;
     int *patch_overflow;
     float *population_overflow;
@@ -417,6 +418,13 @@ int main(int argc, char **argv)
             _("CSV file with (step, return period, map of depth) or (step, map of return period)");
     opt.floodInputFile->guisection = _("Climate scenarios");
 
+    opt.floodLog = G_define_standard_option(G_OPT_F_OUTPUT);
+    opt.floodLog->key = "flood_logfile";
+    opt.floodLog->required = NO;
+    opt.floodLog->description =
+            _("CSV file with (step, HUC ID, flood probability)");
+    opt.floodLog->guisection = _("Climate scenarios");
+
     opt.HUCs = G_define_standard_option(G_OPT_R_INPUT);
     opt.HUCs->key = "huc";
     opt.HUCs->required = NO;
@@ -568,6 +576,7 @@ int main(int argc, char **argv)
                         opt.depthDamageFunc, NULL);
     G_option_requires(opt.outputAdaptation, opt.adaptiveCapacity, NULL);
     G_option_requires(opt.HAND, opt.HAND_percentile, NULL);
+    G_option_requires(opt.floodLog, opt.floodInputFile, NULL);
     if (G_parser(argc, argv))
         exit(EXIT_FAILURE);
 
@@ -809,6 +818,7 @@ int main(int argc, char **argv)
             read_DDF_file(&DDF, &DDF_region_map);
         }
     }
+    initialize_flood_log(&flood_log, num_steps * map_nitems(&HUC_map));
 
     /* read Patch sizes file */
     G_verbose_message("Reading patch size file...");
@@ -849,7 +859,7 @@ int main(int argc, char **argv)
                              &redistr_matrix, &region_map, &reverse_region_map,
                              step, &leaving_population,
                              &HUC_bbox_vals, HAND_percentile,
-                             &max_flood_probability_map, &flood_inputs, &DDF,
+                             &max_flood_probability_map, &flood_inputs, &flood_log, &DDF,
                              &response_relation, HUC);
             if (opt.redistributionMatrixOutput->answer)
                 write_redistribution_matrix(&redistr_matrix, step, num_steps);
@@ -858,7 +868,8 @@ int main(int argc, char **argv)
         if (opt.outputSeries->answer) {
             name_step = name_for_step(opt.outputSeries->answer, step, num_steps);
             output_developed_step(&segments.developed, name_step,
-                                  demand_info.years[step], -1, num_steps, false, false);
+                                  demand_info.years[step], -1, num_steps,
+                                  segments.use_climate ? false : true);
         }
         /* export density for that step */
         if (opt.outputDensity->answer) {
@@ -875,7 +886,9 @@ int main(int argc, char **argv)
     /* write */
     output_developed_step(&segments.developed, opt.output->answer,
                           demand_info.years[0], demand_info.years[step-1],
-                          num_steps, false, false);
+                          num_steps, segments.use_climate ? false : true);
+    if (opt.floodLog->answer)
+        write_flood_log(&flood_log, opt.floodLog->answer, &HUC_map);
 
     /* close segments and free memory */
     Segment_close(&segments.developed);
