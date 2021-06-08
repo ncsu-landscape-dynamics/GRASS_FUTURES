@@ -268,7 +268,7 @@ def main():
                     else:
                         predicted[method] = globals()[method](simulated[method] / magn, *popt) * magn
                         r = globals()[method](x, *popt) * magn - table_developed[subregionId]
-                        coeff[method] = popt
+                        coeff[method] = [each * magn for each in popt]
                         if len(reg_pop) > 3:
                             rmse[method] = np.sqrt((np.sum(r * r) / (len(reg_pop) - 3)))
                         else:
