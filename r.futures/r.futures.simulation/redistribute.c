@@ -48,7 +48,7 @@ int pick_region(const float *probabilities, int size)
         if (p <= cumulative)
             return i;
     }
-    return i;
+    return i - 1;
 }
 
 /*!

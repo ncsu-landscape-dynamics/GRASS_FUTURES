@@ -26,6 +26,21 @@
 #include "utils.h"
 
 /*!
+ * \brief Get developed value depending on step and
+ * whether abandonment is being tracked
+ * \param step
+ * \param abandon
+ * \return 
+ */
+int get_developed_val_from_step(int step, bool abandon)
+{
+    if (abandon)
+        return -step - 2;
+    else
+        return step + 1;
+}
+
+/*!
  * \brief Initialize arrays for transformation of probability values
  * \param potential_info
  * \param exponent
@@ -1249,8 +1264,8 @@ void update_flood_depth(int step, const struct FloodInputs *flood_inputs, struct
     // set values in HUC->max_flood map to max return period
     max_rp = 0;
     for (rp = 0; rp < flood_inputs->num_return_periods; rp++)
-        if (rp > max_rp)
-            max_rp = rp;
+        if (flood_inputs->return_periods[rp] > max_rp)
+            max_rp = flood_inputs->return_periods[rp];
     iter = map_iter(max_flood_probability_map);
     while ((key = map_next(max_flood_probability_map, &iter)))
         map_set(max_flood_probability_map, key, max_rp);

@@ -78,7 +78,7 @@ char *name_for_step(const char *basename, const int step, const int nsteps)
         representing the step when it was developed
  */
 void output_developed_step(SEGMENT *developed_segment, const char *name,
-                           int year_from, int year_to, int nsteps, bool undeveloped_as_null, bool developed_as_one)
+                           int year_from, int year_to, int nsteps, bool output_undeveloped)
 {
     int out_fd;
     int row, col, rows, cols;
@@ -103,12 +103,14 @@ void output_developed_step(SEGMENT *developed_segment, const char *name,
             if (Rast_is_c_null_value(&developed)) {
                 continue;
             }
-            /* this handles undeveloped cells */
-            if (undeveloped_as_null && developed == DEV_TYPE_UNDEVELOPED)
-                continue;
-            /* this handles developed cells */
-            if (developed_as_one)
-                developed = 1;
+            if (!output_undeveloped) {
+                if (developed < DEV_TYPE_UNDEVELOPED) {
+                    developed += 1;
+                }
+                else if (developed == DEV_TYPE_UNDEVELOPED) {
+                    continue;
+                }
+            }
             out_row[col] = developed;
         }
         Rast_put_c_row(out_fd, out_row);
@@ -119,36 +121,26 @@ void output_developed_step(SEGMENT *developed_segment, const char *name,
     Rast_init_colors(&colors);
     // TODO: the map max is 36 for 36 steps, it is correct?
 
-    if (!undeveloped_as_null) {
-        val1 = DEV_TYPE_TRAPPED;
-        val2 = DEV_TYPE_TRAPPED;
-        Rast_add_c_color_rule(&val1, 220, 150, 250, &val2, 220, 150, 250,
+    if (!output_undeveloped) {
+        val1 = -nsteps;
+        val2 = -1;
+        Rast_add_c_color_rule(&val1, 230, 163, 255, &val2, 60, 0, 80,
                               &colors);
-        val1 = DEV_TYPE_ABANDONED;
-        val2 = DEV_TYPE_ABANDONED;
-        Rast_add_c_color_rule(&val1, 120, 155, 200, &val2, 120, 155, 200,
-                              &colors);
+     }
+    else {
         val1 = DEV_TYPE_UNDEVELOPED;
         val2 = DEV_TYPE_UNDEVELOPED;
         Rast_add_c_color_rule(&val1, 180, 255, 160, &val2, 180, 255, 160,
                               &colors);
     }
-    if (developed_as_one) {
-        val1 = 1;
-        val2 = 1;
-        Rast_add_c_color_rule(&val1, 255, 100, 50, &val2, 255, 100, 50,
-                              &colors);
-    }
-    else {
-        val1 = 0;
-        val2 = 0;
-        Rast_add_c_color_rule(&val1, 200, 200, 200, &val2, 200, 200, 200,
-                              &colors);
-        val1 = 1;
-        val2 = nsteps;
-        Rast_add_c_color_rule(&val1, 255, 100, 50, &val2, 255, 255, 0,
-                              &colors);
-    }
+    val1 = 0;
+    val2 = 0;
+    Rast_add_c_color_rule(&val1, 200, 200, 200, &val2, 200, 200, 200,
+                          &colors);
+    val1 = 1;
+    val2 = nsteps;
+    Rast_add_c_color_rule(&val1, 255, 100, 50, &val2, 255, 255, 0,
+                          &colors);
 
     mapset = G_find_file2("cell", name, "");
 
