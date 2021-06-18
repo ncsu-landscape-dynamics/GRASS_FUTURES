@@ -85,6 +85,13 @@
 #% description: Useful for further processing and debugging
 #% guisection: Output
 #%end
+#%option G_OPT_F_OUTPUT
+#% key: resulting_curves
+#% required: no
+#% label: Output CSV file with coefficients of fitted curves
+#% description: Useful for further processing and debugging
+#% guisection: Output
+#%end
 #%option G_OPT_F_SEP
 #% label: Separator used in CSV files
 #% guisection: Optional
@@ -133,6 +140,16 @@ def export_observed_development(table_developed, header,
                     f.write(sep)
             f.write('\n')
             i += 1
+
+
+def export_debug(debug, out_file, sep):
+    header = ['subregion', 'method', 'coef', 'rmse']
+    with open(out_file, 'w') as f:
+        f.write(sep.join(header))
+        f.write('\n')
+        for record in debug:
+            f.write(sep.join(record))
+            f.write('\n')
 
 
 def main():
@@ -201,6 +218,7 @@ def main():
     # regression
     demand = {}
     population_demand = {}
+    debug = []
     i = 0
     if plot:
         import matplotlib
@@ -250,7 +268,7 @@ def main():
                     else:
                         predicted[method] = globals()[method](simulated[method] / magn, *popt) * magn
                         r = globals()[method](x, *popt) * magn - table_developed[subregionId]
-                        coeff[method] = popt
+                        coeff[method] = [each * magn for each in popt]
                         if len(reg_pop) > 3:
                             rmse[method] = np.sqrt((np.sum(r * r) / (len(reg_pop) - 3)))
                         else:
@@ -325,6 +343,8 @@ def main():
                             " demand will be interpolated based on prior change in development only.".format(sub=subregionId)))
         # write population demand
         population_demand[subregionId] = np.diff(population_for_simulated_times[subregionId])
+        # write debug info
+        debug.append([str(subregionId), method,  ';'.join([str(c) for c in coeff[method]]), str(rmse[method])])
         # draw
         if plot:
             ax = fig.add_subplot(n_plots, n_plots, i)
@@ -399,6 +419,10 @@ def main():
                         f.write(sep)
                 f.write('\n')
                 i += 1
+
+    if options['resulting_curves']:
+        export_debug(debug, options['resulting_curves'], sep)
+
 
 if __name__ == "__main__":
     options, flags = gcore.parser()
