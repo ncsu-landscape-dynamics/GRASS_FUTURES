@@ -58,6 +58,13 @@
 #% description: Output kappa simulation raster
 #% required: no
 #%end
+#%option
+#% key: nprocs
+#% type: integer
+#% description: Number of parallel processes
+#% required: yes
+#% answer: 1
+#%end
 #%rules
 #% required: allocation_disagreement, quantity_disagreement, kappasimulation
 #%end
@@ -66,9 +73,12 @@
 #%end
 
 
+import os
 import sys
 import atexit
+from multiprocessing import Pool
 import grass.script as gs
+from grass.exceptions import CalledModuleError
 
 try:
     from grass.script.utils import append_random
@@ -94,6 +104,17 @@ def cleanup():
         gs.run_command("g.remove", flags="f", type="raster", name=TMP, quiet=True)
 
 
+def compute_count_raster(params):
+    simulated, output_map1, output_map2, condition = params
+    env = os.environ.copy()
+    env["GRASS_REGION"] = gs.region_env(align=simulated)
+    gs.mapcalc(f"{output_map1} = if ({condition}, 1, null())", env=env)
+    gs.run_command(
+        "r.resamp.stats", input=output_map1, output=output_map2, method="count"
+    )
+    gs.run_command("g.remove", type="raster", name=output_map1, flags="f", quiet=True)
+
+
 def main():
     simulated = options["simulated"]
     original = options["original"]
@@ -102,6 +123,7 @@ def main():
     kappasimulation = options["kappasimulation"]
     quantity_disagreement = options["quantity_disagreement"]
     allocation_disagreement = options["allocation_disagreement"]
+    nprocs = int(options["nprocs"])
 
     maps = {
         "R1S1": (
@@ -223,15 +245,17 @@ def main():
         compute_maps.extend(allocation)
     compute_maps = list(set(compute_maps))
 
+    params = []
     for compute_map in compute_maps:
         cmap = maps[compute_map]
-        gs.use_temp_region()
-        gs.run_command("g.region", align=simulated)
-        gs.mapcalc(f"{cmap[0]} = if ({cmap[2]}, 1, null())")
-        gs.del_temp_region()
-        gs.run_command("r.resamp.stats", input=cmap[0], output=cmap[1], method="count")
-        gs.run_command("g.remove", type="raster", name=cmap[0], flags="f", quiet=True)
+        params.append((simulated, *cmap))
         TMP.append(cmap[1])
+    pool = Pool(nprocs)
+    p = pool.map_async(compute_count_raster, params)
+    try:
+        p.wait()
+    except (KeyboardInterrupt, CalledModuleError):
+        return
 
     maps = {k: v[1] for k, v in maps.items()}
     if kappa:
