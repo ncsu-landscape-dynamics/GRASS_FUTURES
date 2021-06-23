@@ -83,7 +83,8 @@ def main():
     reference = options["reference"]
     oformat = options["format"]
     # reclassify FUTURES output to binary (developed/undeveloped)
-    tmp_simulated = append_random(simulated, 8)
+    simulated_name = simulated.split('@')[0]
+    tmp_simulated = append_random(simulated_name, 8)
     TMP.append(tmp_simulated)
     gs.write_command(
         "r.reclass",
