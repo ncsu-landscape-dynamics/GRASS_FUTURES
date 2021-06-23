@@ -211,7 +211,7 @@ def main():
         "all": (
             append_random("all", 8),
             append_random("all", 8),
-            f" ! isnull({simulated})",
+            f" ! isnull({reference})",
         ),
     }
     kappasim = [
