@@ -271,21 +271,21 @@ def main():
                         """
         gs.mapcalc(expr)
     if kappasimulation:
-        expr = f"""eval(R0O0 = float({maps['R0O0']}) / {maps['all']}, \
-                        S0O0 = float({maps['S0O0']}) / {maps['all']}, \
-                        R1O0 = float({maps['R1O0']}) / {maps['all']}, \
-                        S1O0 = float({maps['S1O0']}) / {maps['all']}, \
-                        R0O1 = float({maps['R0O1']}) / {maps['all']}, \
-                        S0O1 = float({maps['S0O1']}) / {maps['all']}, \
-                        R1O1 = float({maps['R1O1']}) / {maps['all']}, \
-                        S1O1 = float({maps['S1O1']}) / {maps['all']}, \
-                        R0S0 = float({maps['R0S0']}) / {maps['all']}, \
-                        R1S1 = float({maps['R1S1']}) / {maps['all']}, \
-                        O0 = float({maps['O0']}) / {maps['all']}, \
-                        O1 = float({maps['O1']}) / {maps['all']}, \
+        expr = f"""eval(R0O0 = {maps['R0O0']}, \
+                        S0O0 = {maps['S0O0']}, \
+                        R1O0 = {maps['R1O0']}, \
+                        S1O0 = {maps['S1O0']}, \
+                        R0O1 = {maps['R0O1']}, \
+                        S0O1 = {maps['S0O1']}, \
+                        R1O1 = {maps['R1O1']}, \
+                        S1O1 = {maps['S1O1']}, \
+                        R0S0 = {maps['R0S0']}, \
+                        R1S1 = {maps['R1S1']}, \
+                        O0 = float({maps['O0']}), \
+                        O1 = float({maps['O1']}), \
                         p0 = R1S1 + R0S0, \
-                        pe = O0 * (R0O0 * S0O0 + R1O0 * S1O0) + O1 * (R0O1 * S0O1 + R1O1 * S1O1))
-                        {kappasimulation} = (p0 - pe) / (1 - pe)
+                        pe = (R0O0 * S0O0 + R1O0 * S1O0) / O0 + (R0O1 * S0O1 + R1O1 * S1O1) / O1)
+                        {kappasimulation} = (p0 - pe) / ({maps['all']} - pe)
             """
         gs.mapcalc(expr)
     if quantity_disagreement:

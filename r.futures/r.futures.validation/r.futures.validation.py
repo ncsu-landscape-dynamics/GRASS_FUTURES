@@ -154,10 +154,11 @@ def main():
     pe = (R0 / all) * (S0 / all) + (R1 / all) * (S1 / all)
     kappa = (p0 - pe) / (1 - pe)
     if original:
-        a = (R0O0 / all) * (S0O0 / all) + (R1O0 / all) * (S1O0 / all)
-        b = (R0O1 / all) * (S0O1 / all) + (R1O1 / all) * (S1O1 / all)
-        pe_tr = (O0 / all) * a + (O1 / all) * b
-        kappasim = (p0 - pe_tr) / (1 - pe_tr)
+        p0 = TP + TN
+        a = R0O0 * S0O0 + R1O0 * S1O0
+        b = R0O1 * S0O1 + R1O1 * S1O1
+        pe_tr = a / O0 + b / O1
+        kappasim = (p0 - pe_tr) / (all - pe_tr)
 
     # print
     if oformat == "plain":
