@@ -1,33 +1,28 @@
 <h2>DESCRIPTION</h2>
-Module <em>r.futures.gridvalidation</em> is a support tool for
-validation of FUTURES simulation results.
-It computes allocation disagreement, quantity disagreement,
-Cohen's kappa and Kappa simulation.
+Module <em>r.futures.gridvalidation</em> allows to
+validate land change simulation results.
+It computes:
+<ul>
+<li>Allocation disagreement (total and per class), see Pontius et al, 2011</li>
+<li>Quantity disagreement (total and per class), see Pontius et al, 2011</li>
+<li>Cohen's Kappa</li>
+<li>Kappa simulation, see van Vliet et al, 2011</li>
+</ul>
 
-Input raster <b>simulated</b> should be an output from
-<a href="r.futures.pga.html">r.futures.pga</a> module.
-Input raster <b>reference</b> is a reference raster with 0 as undeveloped
-and 1 as developed pixels.
-Input raster <b>original</b> represents the initial conditions (0 as undeveloped
-and 1 as developed) and is needed only for Kappa simulation.
 
 
 <h2>EXAMPLES</h2>
-Validate FUTURES output by computing quantity and allocation disagreement:
+Validate land change simulation output by computing quantity and allocation disagreement:
 <div class="code"><pre>
-r.futures.validation simulated=simulated_2016 reference=reference_2016 original=orig_2001 format=
+r.futures.validation simulated=simulated_2016 reference=reference_2016 original=orig_2001
 </pre></div>
 
 
 <h2>SEE ALSO</h2>
 
-<a href="r.futures.html">FUTURES</a>,
-<em><a href="r.futures.pga.html">r.futures.pga</a></em>,
-<em><a href="r.futures.potential.html">r.futures.potential</a></em>,
-<em><a href="r.futures.devpressure.html">r.futures.devpressure</a></em>,
-<em><a href="r.futures.demand.html">r.futures.demand</a></em>,
-<em><a href="r.futures.calib.html">r.futures.calib</a></em>,
-<em><a href="r.sample.category.html">r.sample.category</a></em>
+For alternative validation metrics see
+<a href="r.confusionmatrix.html">r.confusionmatrix</a>,
+<a href="r.kappa.html">r.kappa</a>
 
 <h2>REFERENCES</h2>
 <ul>
@@ -41,21 +36,6 @@ r.futures.validation simulated=simulated_2016 reference=reference_2016 original=
     <a href="https://doi.org/10.1016/j.ecolmodel.2011.01.017">Revisiting Kappa to account for change in the accuracy assessment of land-use change models</a>.
     Ecological Modelling, Volume 222, Issue 8.
 </li>
-<li>
-    Meentemeyer, R. K., Tang, W., Dorning, M. A., Vogler, J. B., Cunniffe, N. J., &amp; Shoemaker, D. A. (2013).
-    <a href="http://dx.doi.org/10.1080/00045608.2012.707591">FUTURES: Multilevel Simulations of Emerging
-    Urban-Rural Landscape Structure Using a Stochastic Patch-Growing Algorithm</a>.
-    Annals of the Association of American Geographers, 103(4), 785-807.
-    DOI: 10.1080/00045608.2012.707591
-<li>Dorning, M. A., Koch, J., Shoemaker, D. A., &amp; Meentemeyer, R. K. (2015).
-   <a href="http://dx.doi.org/10.1016/j.landurbplan.2014.11.011">Simulating urbanization scenarios reveals
-    tradeoffs between conservation planning strategies</a>.
-    Landscape and Urban Planning, 136, 28-39.
-    DOI: 10.1016/j.landurbplan.2014.11.011</li>
-<li>Petrasova, A., Petras, V., Van Berkel, D., Harmon, B. A., Mitasova, H.,  &amp; Meentemeyer, R. K. (2016).
-   <a href="https://www.int-arch-photogramm-remote-sens-spatial-inf-sci.net/XLI-B7/953/2016/isprs-archives-XLI-B7-953-2016.pdf">Open Source Approach to Urban Growth Simulation</a>.
-   Int. Arch. Photogramm. Remote Sens. Spatial Inf. Sci., XLI-B7, 953-959.
-   DOI: 10.5194/isprsarchives-XLI-B7-953-2016</li>
 </ul>
 
 <h2>AUTHOR</h2>

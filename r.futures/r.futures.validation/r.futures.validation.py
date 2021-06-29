@@ -6,7 +6,7 @@
 #
 # AUTHOR(S):    Anna Petrasova (kratochanna gmail.com)
 #
-# PURPOSE:      FUTURES Validation (Quantity/Allocation Disagreement, Kappa Simulation)
+# PURPOSE:      Validation metrics (Quantity/Allocation Disagreement, Kappa Simulation)
 #
 # COPYRIGHT:    (C) 2016-2021 by the GRASS Development Team
 #
@@ -17,9 +17,10 @@
 ##############################################################################
 
 #%module
-#% description: Module for gloabal validation of FUTURES simulation
+#% description: Module for land change simulation validation and accuracy assessment
 #% keyword: raster
 #% keyword: statistics
+#% keyword: accuracy
 #% keyword: validation
 #%end
 #%option G_OPT_R_INPUT
@@ -49,146 +50,134 @@
 
 
 import sys
-import atexit
 import json
+import numpy as np
 import grass.script as gs
 
-try:
-    from grass.script.utils import append_random
-except ImportError:
-    import random
-    import string
 
-    def append_random(name, suffix_length=8):
-        """Add a random part to of a specified length to a name (string)
-        ..note::
-            This function is simplified copy from grass79.
-        """
-        allowed_chars = string.ascii_lowercase + string.digits
-        suffix = "".join(random.choice(allowed_chars) for _ in range(suffix_length))
-        return "{name}_{suffix}".format(**locals())
-
-
-TMP = []
-
-
-def cleanup():
-    if TMP:
-        gs.run_command("g.remove", flags="f", type="raster", name=TMP, quiet=True)
-
-
-def main():
-    simulated = options["simulated"]
-    original = options["original"]
-    reference = options["reference"]
-    oformat = options["format"]
-    # reclassify FUTURES output to binary (developed/undeveloped)
-    simulated_name = simulated.split('@')[0]
-    tmp_simulated = append_random(simulated_name, 8)
-    TMP.append(tmp_simulated)
-    gs.write_command(
-        "r.reclass",
-        input=simulated,
-        output=tmp_simulated,
-        rules="-",
-        stdin="-1 = 0\n0 thru 1000 = 1",
-    )
-    # input_maps = [tmp_simulated, reference]
-    input_maps = [simulated, reference]
-    val_col = 2
-    if original:
-        input_maps.append(original)
-        val_col = 3
-    data = gs.read_command("r.stats", flags="cn", input=input_maps).strip()
-    O0 = O1 = 0
-    S0 = R0 = S1 = R1 = 0
-    S1O0 = S0O0 = S0O1 = S1O1 = 0
-    R1O0 = R0O0 = R0O1 = R1O1 = 0
-    TP = FP = FN = TN = 0
-    all = 0
-    for line in data.splitlines():
-        line = [int(n) for n in line.strip().split()]
-        if line[0] == 0:
-            S0 += line[val_col]
-        if line[0] == 1:
-            S1 += line[val_col]
-        if line[1] == 0:
-            R0 += line[val_col]
-        if line[1] == 1:
-            R1 += line[val_col]
-        if line[0] == 0 and line[1] == 0:
-            TN += line[val_col]
-        if line[0] == 0 and line[1] == 1:
-            FN += line[val_col]
-        if line[0] == 1 and line[1] == 0:
-            FP += line[val_col]
-        if line[0] == 1 and line[1] == 1:
-            TP += line[val_col]
-        if original and line[0] == 1 and line[2] == 0:
-            S1O0 += line[val_col]
-        if original and line[0] == 0 and line[2] == 0:
-            S0O0 += line[val_col]
-        if original and line[0] == 0 and line[2] == 1:
-            S0O1 += line[val_col]
-        if original and line[0] == 1 and line[2] == 1:
-            S1O1 += line[val_col]
-        if original and line[2] == 1:
-            O1 += line[val_col]
-        if original and line[2] == 0:
-            O0 += line[val_col]
-        if original and line[1] == 1 and line[2] == 0:
-            R1O0 += line[val_col]
-        if original and line[1] == 0 and line[2] == 0:
-            R0O0 += line[val_col]
-        if original and line[1] == 0 and line[2] == 1:
-            R0O1 += line[val_col]
-        if original and line[1] == 1 and line[2] == 1:
-            R1O1 += line[val_col]
-        all += line[val_col]
-
-    # compute
-    all = float(all)
-    quantity_disagreement = abs((TP + FP) - (TP + FN)) / all
-    allocation_disagreement = 2 * min(FP, FN) / all
-    p0 = (TP / all) + (TN / all)
-    pe = (R0 / all) * (S0 / all) + (R1 / all) * (S1 / all)
-    kappa = (p0 - pe) / (1 - pe)
-    if original:
-        p0 = TP + TN
-        a = R0O0 * S0O0 + R1O0 * S1O0
-        b = R0O1 * S0O1 + R1O1 * S1O1
-        pe_tr = a / O0 + b / O1
-        kappasim = (p0 - pe_tr) / (all - pe_tr)
-
-    # print
-    if oformat == "plain":
-        print(f"Quantity disagreement: {100 * quantity_disagreement:.3f} %")
-        print(f"Allocation disagreement: {100 * allocation_disagreement:.3f} %")
-        print(f"Kappa: {kappa:.3f}")
-        if original:
-            print(f"Kappa simulation: {kappasim:.5f}")
-    elif oformat == "shell":
-        print(f"quantity={quantity_disagreement:.5f}")
-        print(f"allocation={allocation_disagreement:.5f}")
-        print(f"kappa={kappa:.3f}")
-        if original:
-            print(f"kappasimulation={kappasim:.5f}")
-    elif oformat == "json":
-        out = {
-            "quantity": quantity_disagreement,
-            "allocation": allocation_disagreement,
-            "kappa": kappa,
-        }
-        if original:
-            out.update({"kappasimulation": kappasim})
+def print_results(
+    formatting,
+    cats,
+    quantity,
+    total_quantity,
+    allocation,
+    total_allocation,
+    kappa,
+    kappasim=None,
+):
+    if formatting == "plain":
+        for i, c in enumerate(cats):
+            print(f"Quantity disagreement for class {c}: {100 * quantity[i]:.2f} %")
+        print(f"Total quantity disagreement: {100 * total_quantity:.2f} %")
+        for i, c in enumerate(cats):
+            print(f"Allocation disagreement for class {c}: {100 * allocation[i]:.2f} %")
+        print(f"Total allocation disagreement: {100 * total_allocation:.2f} %")
+        print(f"Kappa: {kappa:.4f}")
+        if kappasim is not None:
+            print(f"Kappa simulation: {kappasim:.4f}")
+    elif formatting == "shell":
+        for i, c in enumerate(cats):
+            print(f"quantity_class_{c}={quantity[i]:.4f}")
+        print(f"total_quantity={total_quantity:.4f}")
+        for i, c in enumerate(cats):
+            print(f"allocation_class_{c}={allocation[i]:.4f}")
+        print(f"total_allocation={total_allocation:.4f}")
+        print(f"kappa={kappa:.4f}")
+        if kappasim is not None:
+            print(f"kappasimulation={kappasim:.4f}")
+    elif formatting == "json":
+        out = {}
+        for i, c in enumerate(cats):
+            out[f"quantity_class_{c}"] = quantity[i]
+        for i, c in enumerate(cats):
+            out[f"allocation_class_{c}"] = allocation[i]
+        out["total_quantity"] = total_quantity
+        out["total_allocation"] = total_allocation
+        out["kappa"] = kappa
+        if kappasim is not None:
+            out["kappasimulation"] = kappasim
         print(
             json.dumps(
-                json.loads(json.dumps(out), parse_float=lambda x: round(float(x), 5))
+                json.loads(json.dumps(out), parse_float=lambda x: round(float(x), 4))
             )
         )
 
 
-if __name__ == "__main__":
+def compute(reference, simulated, original):
+    results = {}
+    if original:
+        input_maps = [original, reference, simulated]
+    else:
+        input_maps = [reference, simulated]
+    data = gs.read_command("r.stats", flags="cn", input=input_maps).strip()
+    cats = []
+    for line in data.splitlines():
+        line = [int(n) for n in line.strip().split()]
+        cats.extend(line[:-1])
+    cats = sorted(list(set(cats)))
+
+    n_cats = len(cats)
+    ref_sim = np.zeros((n_cats, n_cats))
+    orig_sim = np.zeros((n_cats, n_cats))
+    orig_ref = np.zeros((n_cats, n_cats))
+    for line in data.splitlines():
+        line = [int(n) for n in line.strip().split()]
+        if original:
+            orig_idx = cats.index(line[0])
+            ref_idx = cats.index(line[1])
+            sim_idx = cats.index(line[2])
+            ref_sim[sim_idx, ref_idx] += line[3]
+            orig_sim[orig_idx, sim_idx] += line[3]
+            orig_ref[orig_idx, ref_idx] += line[3]
+        else:
+            ref_idx = cats.index(line[0])
+            sim_idx = cats.index(line[1])
+            ref_sim[sim_idx, ref_idx] += line[2]
+    # quantity disagreement
+    quantity = np.abs(ref_sim.sum(axis=0) - ref_sim.sum(axis=1)) / ref_sim.sum()
+    total_quantity = quantity.sum() / 2
+    results["quantity"] = quantity
+    results["total_quantity"] = total_quantity
+    # allocation disagreement
+    allocation = (
+        2
+        * np.minimum(
+            ref_sim.sum(axis=0) - ref_sim.diagonal(),
+            ref_sim.sum(axis=1) - ref_sim.diagonal(),
+        )
+        / ref_sim.sum()
+    )
+    total_allocation = allocation.sum() / 2
+    results["allocation"] = allocation
+    results["total_allocation"] = total_allocation
+    # kappa
+    p_0 = ref_sim.diagonal().sum() / ref_sim.sum()
+    p_e = np.multiply(
+        ref_sim.sum(axis=0) / ref_sim.sum(), ref_sim.sum(axis=1) / ref_sim.sum()
+    ).sum()
+    kappa = (p_0 - p_e) / (1 - p_e)
+    results["kappa"] = kappa
+    # kappa simulation
+    a = orig_sim / orig_sim.sum(axis=1)[:, None]
+    b = orig_ref / orig_ref.sum(axis=1)[:, None]
+    c = np.multiply(a, b)
+    d = orig_sim.sum(axis=1) / orig_sim.sum()
+    e = np.multiply(c.sum(axis=1), d)
+    p_e = e.sum()
+    kappasim = (p_0 - p_e) / (1 - p_e)
+    results["kappasim"] = kappasim
+    return cats, results
+
+
+def main():
     options, flags = gs.parser()
-    atexit.register(cleanup)
+    simulated = options["simulated"]
+    original = options["original"]
+    reference = options["reference"]
+    oformat = options["format"]
+    cats, results = compute(reference, simulated, original)
+    print_results(oformat, cats, **results)
+
+
+if __name__ == "__main__":
     sys.exit(main())
