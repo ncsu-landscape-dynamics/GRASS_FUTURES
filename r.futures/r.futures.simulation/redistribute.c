@@ -263,6 +263,7 @@ void write_redistribution_matrix(struct RedistributionMatrix *matrix,
     filename = G_malloc((strlen(name) + strlen(ext) + 1) * sizeof(char));
     sprintf(filename, "%s%s", name, ext);
     fp = fopen(filename, "w+");
+    fprintf(fp, "ID");
     for (col = 0; col < matrix->dim_to; col++) {
         ID = map_get_int(&matrix->to_map, col);
         fprintf(fp, ",%d", *ID);
