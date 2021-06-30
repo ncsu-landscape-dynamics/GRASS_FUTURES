@@ -156,7 +156,7 @@ int main(int argc, char **argv)
                 *density, *densityCapacity, *outputDensity, *redevelopmentLag,
                 *redevelopmentPotentialFile, *redistributionMatrix, *redistributionMatrixOutput,
                 *HAND, *HAND_percentile, *floodInputFile, *floodLog,
-                *depthDamageFunc, *ddf_subregions,
+                *depthDamageFunc, *ddf_subregions, *response_func,
                 *adaptations, *adaptiveCapacity, *HUCs, *outputAdaptation,
                 *patchFile, *numSteps, *output, *outputSeries, *seed, *memory;
     } opt;
@@ -464,6 +464,18 @@ int main(int argc, char **argv)
     opt.ddf_subregions->description = _("Subregions raster for depth-damage functions");
     opt.ddf_subregions->guisection = _("Climate scenarios");
 
+    opt.response_func = G_define_option();
+    opt.response_func->key = "response_func";
+    opt.response_func->key_desc = "vuln_a,vuln_b,resil_a,resil_b";
+    opt.response_func->type = TYPE_INTEGER;
+    opt.response_func->required = NO;
+    opt.response_func->multiple = YES;
+    opt.response_func->options = "0-100";
+    opt.response_func->answer = "0.5,0.5,0.5,0.5";
+    opt.response_func->description =
+            _("Coefficients of linear functions for flood response");
+    opt.response_func->guisection = _("Climate scenarios");
+
     opt.numNeighbors = G_define_option();
     opt.numNeighbors->key = "num_neighbors";
     opt.numNeighbors->type = TYPE_INTEGER;
@@ -573,7 +585,7 @@ int main(int argc, char **argv)
                         opt.redevelopmentLag, opt.redevelopmentPotentialFile, NULL);
     G_option_collective(opt.floodInputFile, opt.redistributionMatrix, opt.populationDemandFile,
                         opt.adaptiveCapacity, opt.HUCs,
-                        opt.depthDamageFunc, NULL);
+                        opt.depthDamageFunc, opt.response_func, NULL);
     G_option_requires(opt.outputAdaptation, opt.adaptiveCapacity, NULL);
     G_option_requires(opt.HAND, opt.HAND_percentile, NULL);
     G_option_requires(opt.floodLog, opt.floodInputFile, NULL);
@@ -728,7 +740,8 @@ int main(int argc, char **argv)
             HAND_percentile = atof(opt.HAND_percentile->answer);
         }
     }
-    initialize_flood_response(&response_relation);
+    if (opt.response_func->answer)
+        initialize_flood_response(&response_relation, opt.response_func->answers);
     if (flood_inputs.array)
         init_flood_segment(&flood_inputs, &segments, segment_info);
     if (opt.adaptations)

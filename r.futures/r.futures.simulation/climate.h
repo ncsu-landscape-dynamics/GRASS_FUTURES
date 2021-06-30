@@ -46,7 +46,7 @@ enum FloodResponse flood_response(float damage, float adaptive_capacity,
 void initialize_flood_log(struct FloodLog *log, int maxsize);
 void log_flood(struct FloodLog *log, int step, int HUC_idx, float flood_probability);
 void write_flood_log(struct FloodLog *log, const char *filename, map_int_t *HUC_map);
-void initialize_flood_response(struct ACDamageRelation *response_relation);
+void initialize_flood_response(struct ACDamageRelation *response_relation, char **response);
 bool is_adapted(SEGMENT *adaptation, float flood_probability, int row, int col);
 void adapt(SEGMENT *adaptation, float flood_probability, int row, int col);
 void stay(SEGMENT *adaptation, int row, int col);

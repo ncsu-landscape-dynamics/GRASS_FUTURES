@@ -27,12 +27,13 @@
  * \brief Initialize flood response
  * \param response_relation
  */
-void initialize_flood_response(struct ACDamageRelation *response_relation)
+void initialize_flood_response(struct ACDamageRelation *response_relation,
+                               char **response)
 {
-    response_relation->resilience_a = 0.5;
-    response_relation->resilience_b = 0.5;
-    response_relation->vulnerability_a = 0.5;
-    response_relation->vulnerability_b = 0.5;
+    response_relation->vulnerability_a = atof(response[0]);
+    response_relation->vulnerability_b = atof(response[1]);
+    response_relation->resilience_a = atof(response[2]);
+    response_relation->resilience_b = atof(response[3]);
 }
 
 void initialize_flood_log(struct FloodLog *log, int maxsize)
