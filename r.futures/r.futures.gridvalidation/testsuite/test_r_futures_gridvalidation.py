@@ -2,74 +2,32 @@
 
 from grass.gunittest.case import TestCase
 from grass.gunittest.main import test
+from grass.gunittest.gmodules import SimpleModule
 
 
-class TestGridValidation(TestCase):
+class TestValidation(TestCase):
+    """Test case built on van Vliet 2011 paper"""
 
-    kappasim = "kappa_output"
-    allocation = "allocation"
-    quantity = "quantity"
-    actual = "actual"
+    actual = "test_actual"
+    original = "test_original"
+    S1 = "test_S1"
+    S2 = "test_S2"
+    S3 = "test_S3"
+    S4 = "test_S4"
+    region = "test_region"
+    kappasim = "test_kappasim"
 
     @classmethod
     def setUpClass(cls):
-        cls.runModule("g.region", raster="lsat7_2002_30@PERMANENT")
-        cls.runModule("r.unpack", input="data/result.pack", output=cls.actual)
+        cls.runModule("r.unpack", input="data/actual.pack", output=cls.actual)
+        cls.runModule("r.unpack", input="data/original.pack", output=cls.original)
+        cls.runModule("r.unpack", input="data/S1.pack", output=cls.S1)
+        cls.runModule("r.unpack", input="data/S2.pack", output=cls.S2)
+        cls.runModule("r.unpack", input="data/S3.pack", output=cls.S3)
+        cls.runModule("r.unpack", input="data/S4.pack", output=cls.S4)
+        cls.runModule("g.region", raster=cls.original)
         cls.runModule(
-            "r.mapcalc",
-            expression=f"{cls.actual} = if ({cls.actual} >= 0, 1, 0)",
-            overwrite=True,
-        )
-        cls.runModule(
-            "r.mapcalc",
-            expression="ndvi_2002 = double(lsat7_2002_40@PERMANENT - lsat7_2002_30@PERMANENT) / double(lsat7_2002_40@PERMANENT + lsat7_2002_30@PERMANENT)",
-        )
-        cls.runModule(
-            "r.mapcalc",
-            expression="ndvi_1987 = double(lsat5_1987_40@landsat - lsat5_1987_30@landsat) / double(lsat5_1987_40@landsat + lsat5_1987_30@landsat)",
-        )
-        cls.runModule(
-            "r.mapcalc",
-            expression="urban_1987 = if(ndvi_1987 <= 0.1 && isnull(lakes), 1, if(isnull(lakes), 0, null()))",
-        )
-        cls.runModule(
-            "r.mapcalc",
-            expression="urban_2002 = if(ndvi_2002 <= 0.1 && isnull(lakes), 1, if(isnull(lakes), 0, null()))",
-        )
-        cls.runModule("r.slope.aspect", elevation="elevation", slope="slope")
-        cls.runModule("r.grow.distance", input="lakes", distance="lakes_dist")
-        cls.runModule("r.mapcalc", expression="lakes_dist_km = lakes_dist/1000.")
-        cls.runModule("v.to.rast", input="streets_wake", output="streets", use="val")
-        cls.runModule("r.grow.distance", input="streets", distance="streets_dist")
-        cls.runModule("r.mapcalc", expression="streets_dist_km = streets_dist/1000.")
-        cls.runModule(
-            "r.futures.devpressure",
-            input="urban_2002",
-            output="devpressure",
-            method="gravity",
-            size=15,
-            flags="n",
-        )
-        cls.runModule(
-            "r.futures.pga",
-            developed="urban_2002",
-            development_pressure="devpressure",
-            compactness_mean=0.4,
-            compactness_range=0.05,
-            discount_factor=0.1,
-            patch_sizes="data/patches.txt",
-            predictors=["slope", "lakes_dist_km", "streets_dist_km"],
-            n_dev_neighbourhood=15,
-            devpot_params="data/potential.csv",
-            random_seed=2,
-            num_neighbors=4,
-            seed_search="random",
-            development_pressure_approach="gravity",
-            gamma=1.5,
-            scaling_factor=1,
-            subregions="zipcodes",
-            demand="data/demand.csv",
-            output="simulated",
+            "g.region", raster=cls.original, res=10, flags="a", save=cls.region
         )
 
     @classmethod
@@ -79,41 +37,52 @@ class TestGridValidation(TestCase):
             flags="f",
             type="raster",
             name=[
-                "slope",
-                "lakes_dist",
-                "lakes_dist_km",
-                "streets",
-                "streets_dist",
-                "streets_dist_km",
-                "devpressure",
-                "ndvi_2002",
-                "ndvi_1987",
-                "urban_1987",
-                "urban_2002",
-                "simulated",
                 cls.actual,
+                cls.original,
+                cls.S1,
+                cls.S2,
+                cls.S3,
+                cls.S4,
+                cls.kappasim,
             ],
         )
-
-    def tearDown(self):
-        self.runModule(
+        cls.runModule(
             "g.remove",
             flags="f",
-            type="raster",
-            name=[self.kappasim, self.quantity, self.allocation],
+            type="region",
+            name=[cls.region],
         )
 
-    def test_kappasim_run(self):
+    def test_validation_run(self):
         """Test if results is in expected limits"""
-        self.runModule("g.region", flags="a", res=100)
-        self.assertModule(
+        module = SimpleModule(
             "r.futures.gridvalidation",
-            original="urban_2002",
-            simulated="simulated",
+            original=self.original,
+            simulated=self.S1,
             reference=self.actual,
-            allocation_disagreement=self.allocation,
-            quantity_disagreement=self.quantity,
             kappasimulation=self.kappasim,
+            region=self.region,
+            overwrite=True,
+        )
+        # test that module fails (ends with non-zero return code)
+        self.assertModule(module)
+        self.assertRasterFitsUnivar(
+            raster=self.kappasim, reference="min=0", precision=0.01
+        )
+        module.inputs["simulated"].value = self.S2
+        self.assertModule(module)
+        self.assertRasterFitsUnivar(
+            raster=self.kappasim, reference="min=-0.06", precision=0.01
+        )
+        module.inputs["simulated"].value = self.S3
+        self.assertModule(module)
+        self.assertRasterFitsUnivar(
+            raster=self.kappasim, reference="min=0.15", precision=0.01
+        )
+        module.inputs["simulated"].value = self.S4
+        self.assertModule(module)
+        self.assertRasterFitsUnivar(
+            raster=self.kappasim, reference="min=0.6", precision=0.01
         )
 
 

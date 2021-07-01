@@ -68,24 +68,32 @@ def print_results(
     if formatting == "plain":
         for i, c in enumerate(cats):
             print(f"Quantity disagreement for class {c}: {100 * quantity[i]:.2f} %")
-        print(f"Total quantity disagreement: {100 * total_quantity:.2f} %")
+        if total_quantity is not None:
+            print(f"Total quantity disagreement: {100 * total_quantity:.2f} %")
         for i, c in enumerate(cats):
             print(f"Allocation disagreement for class {c}: {100 * allocation[i]:.2f} %")
-        print(f"Total allocation disagreement: {100 * total_allocation:.2f} %")
-        print(f"Kappa: {kappa:.4f}")
+        if total_allocation is not None:
+            print(f"Total allocation disagreement: {100 * total_allocation:.2f} %")
+        if kappa is not None:
+            print(f"Kappa: {kappa:.4f}")
         if kappasim is not None:
             print(f"Kappa simulation: {kappasim:.4f}")
     elif formatting == "shell":
         for i, c in enumerate(cats):
             print(f"quantity_class_{c}={quantity[i]:.4f}")
-        print(f"total_quantity={total_quantity:.4f}")
+        if total_quantity is not None:
+            print(f"total_quantity={total_quantity:.4f}")
         for i, c in enumerate(cats):
             print(f"allocation_class_{c}={allocation[i]:.4f}")
-        print(f"total_allocation={total_allocation:.4f}")
-        print(f"kappa={kappa:.4f}")
+        if total_allocation is not None:
+            print(f"total_allocation={total_allocation:.4f}")
+        if kappa is not None:
+            print(f"kappa={kappa:.4f}")
         if kappasim is not None:
             print(f"kappasimulation={kappasim:.4f}")
     elif formatting == "json":
+        # export everything even when None
+        # for automated processing
         out = {}
         for i, c in enumerate(cats):
             out[f"quantity_class_{c}"] = quantity[i]
@@ -94,8 +102,7 @@ def print_results(
         out["total_quantity"] = total_quantity
         out["total_allocation"] = total_allocation
         out["kappa"] = kappa
-        if kappasim is not None:
-            out["kappasimulation"] = kappasim
+        out["kappasimulation"] = kappasim
         print(
             json.dumps(
                 json.loads(json.dumps(out), parse_float=lambda x: round(float(x), 4))
@@ -115,6 +122,15 @@ def compute(reference, simulated, original):
         line = [int(n) for n in line.strip().split()]
         cats.extend(line[:-1])
     cats = sorted(list(set(cats)))
+    if not cats:
+        results["quantity"] = None
+        results["total_quantity"] = None
+        results["allocation"] = None
+        results["total_allocation"] = None
+        results["kappa"] = None
+        if original:
+            results["kappasim"] = None
+        return cats, results
 
     n_cats = len(cats)
     ref_sim = np.zeros((n_cats, n_cats))
@@ -155,17 +171,30 @@ def compute(reference, simulated, original):
     p_e = np.multiply(
         ref_sim.sum(axis=0) / ref_sim.sum(), ref_sim.sum(axis=1) / ref_sim.sum()
     ).sum()
-    kappa = (p_0 - p_e) / (1 - p_e)
-    results["kappa"] = kappa
+    with np.errstate(all="raise"):
+        try:
+            kappa = (p_0 - p_e) / (1 - p_e)
+            results["kappa"] = kappa
+        except FloatingPointError:
+            gs.warning(_("Kappa could not be computed due to division by zero"))
+            results["kappa"] = None
     # kappa simulation
-    a = orig_sim / orig_sim.sum(axis=1)[:, None]
-    b = orig_ref / orig_ref.sum(axis=1)[:, None]
-    c = np.multiply(a, b)
-    d = orig_sim.sum(axis=1) / orig_sim.sum()
-    e = np.multiply(c.sum(axis=1), d)
-    p_e = e.sum()
-    kappasim = (p_0 - p_e) / (1 - p_e)
-    results["kappasim"] = kappasim
+    if original:
+        a = orig_sim / orig_sim.sum(axis=1)[:, None]
+        b = orig_ref / orig_ref.sum(axis=1)[:, None]
+        c = np.multiply(a, b)
+        d = orig_sim.sum(axis=1) / orig_sim.sum()
+        e = np.multiply(c.sum(axis=1), d)
+        p_e = np.nansum(e)
+        with np.errstate(all="raise"):
+            try:
+                kappasim = (p_0 - p_e) / (1 - p_e)
+                results["kappasim"] = kappasim
+            except FloatingPointError:
+                gs.warning(
+                    _("Kappa simulation could not be computed due to division by zero")
+                )
+                results["kappasim"] = None
     return cats, results
 
 
