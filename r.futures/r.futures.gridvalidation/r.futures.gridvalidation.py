@@ -102,8 +102,8 @@ def compute(params):
     )
     results = json.loads(results)
     reg = gs.region(env=env)
-    results["n"] = (reg["n"] - reg["s"]) / 2
-    results["e"] = (reg["e"] - reg["w"]) / 2
+    results["n"] = (reg["n"] + reg["s"]) / 2
+    results["e"] = (reg["e"] + reg["w"]) / 2
     return results
 
 
