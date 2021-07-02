@@ -66,29 +66,45 @@ def print_results(
     kappasim=None,
 ):
     if formatting == "plain":
+        if total_quantity is None:
+            print(_("No data found in current region"))
+            return
         for i, c in enumerate(cats):
-            print(f"Quantity disagreement for class {c}: {100 * quantity[i]:.2f} %")
-        if total_quantity is not None:
-            print(f"Total quantity disagreement: {100 * total_quantity:.2f} %")
+            print(
+                _("Quantity disagreement for class {c}: {q:.2f} %").format(
+                    c=c, q=quantity[i] * 100
+                )
+            )
+        print(
+            _("Total quantity disagreement: {q:.2f} %").format(q=total_quantity * 100)
+        )
         for i, c in enumerate(cats):
-            print(f"Allocation disagreement for class {c}: {100 * allocation[i]:.2f} %")
-        if total_allocation is not None:
-            print(f"Total allocation disagreement: {100 * total_allocation:.2f} %")
+            print(
+                _("Allocation disagreement for class {c}: {q:.2f} %").format(
+                    c=c, q=allocation[i] * 100
+                )
+            )
+        print(
+            _("Total allocation disagreement: {q:.2f} %").format(
+                q=total_allocation * 100
+            )
+        )
         if kappa is not None:
-            print(f"Kappa: {kappa:.4f}")
+            print(_("Kappa: {kappa:.4f}").format(kappa=kappa))
         if kappasim is not None:
-            print(f"Kappa simulation: {kappasim:.4f}")
+            print(_("Kappa simulation: {kappasim:.4f}").format(kappasim=kappasim))
     elif formatting == "shell":
+
+        def format_value(val):
+            return f"{val:.4f}" if val is not None else ""
+
         for i, c in enumerate(cats):
             print(f"quantity_class_{c}={quantity[i]:.4f}")
-        if total_quantity is not None:
-            print(f"total_quantity={total_quantity:.4f}")
+        print(f"total_quantity={format_value(total_quantity)}")
         for i, c in enumerate(cats):
             print(f"allocation_class_{c}={allocation[i]:.4f}")
-        if total_allocation is not None:
-            print(f"total_allocation={total_allocation:.4f}")
-        if kappa is not None:
-            print(f"kappa={kappa:.4f}")
+        print(f"total_allocation={format_value(total_allocation)}")
+        print(f"kappa={format_value(kappa)}")
         if kappasim is not None:
             print(f"kappasimulation={kappasim:.4f}")
     elif formatting == "json":
