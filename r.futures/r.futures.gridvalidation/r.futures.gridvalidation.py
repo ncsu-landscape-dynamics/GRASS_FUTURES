@@ -202,7 +202,7 @@ def main():
                     }
         for k in outputs:
             if outputs[k]["param"] in r and r[outputs[k]["param"]] is not None:
-                outputs[k]["inp"] += f"{r['n']},{r['e']},{r[outputs[k]['param']]}\n"
+                outputs[k]["inp"] += f"{r['e']},{r['n']},{r[outputs[k]['param']]}\n"
     for k in outputs:
         gs.write_command(
             "r.in.xyz",
