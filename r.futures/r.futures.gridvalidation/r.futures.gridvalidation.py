@@ -6,7 +6,8 @@
 #
 # AUTHOR(S):    Anna Petrasova (kratochanna gmail.com)
 #
-# PURPOSE:      FUTURES Validation (Quantity/Allocation Disagreement, Kappa Simulation)
+# PURPOSE:      Validation metrics computed on a grid
+#               (Quantity/Allocation Disagreement, Kappa Simulation)
 #
 # COPYRIGHT:    (C) 2016-2021 by the GRASS Development Team
 #
@@ -17,9 +18,10 @@
 ##############################################################################
 
 #%module
-#% description: Module for validating FUTURES simulation on a grid
+#% description: Module for validating land change simulation on a grid
 #% keyword: raster
 #% keyword: statistics
+#% keyword: accuracy
 #% keyword: validation
 #%end
 #%option G_OPT_R_INPUT

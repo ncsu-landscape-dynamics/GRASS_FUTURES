@@ -1,31 +1,47 @@
 <h2>DESCRIPTION</h2>
-Module <em>r.futures.gridvalidation</em> is a support tool for
-validation of FUTURES simulation results.
-It computes allocation disagreement, quantity disagreement
-and kappa simulation on a grid to validate simulation
-results spatially.
+Module <em>r.futures.gridvalidation</em> allows to
+validate land change simulation results on a spatial grid.
+It computes:
+<ul>
+<li>Allocation disagreement (total and per class), see Pontius et al, 2011</li>
+<li>Quantity disagreement (total and per class), see Pontius et al, 2011</li>
+<li>Cohen's Kappa</li>
+<li>Kappa simulation, see van Vliet et al, 2011</li>
+</ul>
 
-Input raster <b>simulated</b> should be an output from
-<a href="r.futures.pga.html">r.futures.pga</a> module.
-Input raster <b>reference</b> is a reference raster with 0 as undeveloped
-and 1 as developed pixels.
-Input raster <b>original</b> represents the initial conditions (0 as undeveloped
-and 1 as developed) and is needed only for Kappa simulation.
+These metrics are computed for each cell of a region
+provided in <b>region</b> option resulting in spatially
+variable validation results. Cell size of the region
+should be larger than the cell size of the current region.
+<p>
+This module can be used for any number of classes.
+Input raster <b>original</b> represents the initial conditions
+and is needed only for Kappa simulation.
 
 
 <h2>EXAMPLES</h2>
 Validate FUTURES output by computing quantity and allocation disagreement
-on a 5km grid:
+on a 5km grid.
+First reclassify FUTURES output to 0 (undeveloped) and 1 (developed)
+by creating a text file "rules.txt" with the following content:
+<pre>
+-1 = 0
+0 thru 100 = 1
+</pre>
+Then save a region used as a grid:
 <div class="code"><pre>
-g.region res=5000 -pa
-r.futures.gridvalidation simulated=simulated reference=reference allocation_disagreement=allocation quantity_disagreement=quantity
+g.region res=5000 -a save=grid
+</pre></div>
+
+Reclass FUTURES output:
+<div class="code"><pre>
+r.reclass input=simulated_2016 output=simulated_2016_reclass rules=rules.txt
 </pre></div>
 
 Validate FUTURES output by computing kappa simulation
 on a 5km grid:
 <div class="code"><pre>
-g.region res=5000 -pa
-r.futures.gridvalidation simulated=simulated_2016 reference=reference_2016 original=orig_2001 kappasimulation=kappa
+r.futures.gridvalidation simulated=simulated_2016_reclass reference=reference_2016 original=orig_2001 kappasimulation=kappasim
 </pre></div>
 
 
