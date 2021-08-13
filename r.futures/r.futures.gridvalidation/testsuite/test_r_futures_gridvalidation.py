@@ -19,12 +19,12 @@ class TestValidation(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.runModule("r.unpack", input="data/actual.pack", output=cls.actual)
-        cls.runModule("r.unpack", input="data/original.pack", output=cls.original)
-        cls.runModule("r.unpack", input="data/S1.pack", output=cls.S1)
-        cls.runModule("r.unpack", input="data/S2.pack", output=cls.S2)
-        cls.runModule("r.unpack", input="data/S3.pack", output=cls.S3)
-        cls.runModule("r.unpack", input="data/S4.pack", output=cls.S4)
+        cls.runModule("r.unpack", input="data/actual.pack", flags="o", output=cls.actual)
+        cls.runModule("r.unpack", input="data/original.pack", flags="o", output=cls.original)
+        cls.runModule("r.unpack", input="data/S1.pack", flags="o", output=cls.S1)
+        cls.runModule("r.unpack", input="data/S2.pack", flags="o", output=cls.S2)
+        cls.runModule("r.unpack", input="data/S3.pack", flags="o", output=cls.S3)
+        cls.runModule("r.unpack", input="data/S4.pack", flags="o", output=cls.S4)
         cls.runModule("g.region", raster=cls.original)
         cls.runModule(
             "g.region", raster=cls.original, res=10, flags="a", save=cls.region
