@@ -18,7 +18,7 @@ export INSTALL_PREFIX=$1
 
 # GRASS GIS
 
-git clone https://github.com/OSGeo/grass.git --branch master --depth=1
+git clone https://github.com/OSGeo/grass.git --branch main --depth=1
 
 cd grass
 
