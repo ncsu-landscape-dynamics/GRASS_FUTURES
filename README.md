@@ -71,7 +71,7 @@ If you want to use latest tested code, use the version in GRASS GIS Addons
 Subversion repository which is installable using *g.extension* in GRASS GIS
 and the code is available at:
 
- * https://github.com/OSGeo/grass-addons/tree/master/grass7/raster/r.futures
+ * https://github.com/OSGeo/grass-addons/tree/grass7/src/raster/r.futures
 
 The corresponding documentation is available at:
 
