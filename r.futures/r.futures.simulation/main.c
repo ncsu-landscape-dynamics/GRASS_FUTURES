@@ -470,7 +470,6 @@ int main(int argc, char **argv)
     opt.response_func->type = TYPE_INTEGER;
     opt.response_func->required = NO;
     opt.response_func->multiple = YES;
-    opt.response_func->options = "0-100";
     opt.response_func->answer = "0.5,0.5,0.5,0.5";
     opt.response_func->description =
             _("Coefficients of linear functions for flood response");
