@@ -66,6 +66,7 @@ jobs:
             --grassdata $HOME --location nc_spm_08_grass7 --location-type nc \
             --min-success 100
     - name: Make HTML test report available
+      if: ${{ always() }}
       uses: actions/upload-artifact@v2
       with:
         name: futures-testreport-ppa
