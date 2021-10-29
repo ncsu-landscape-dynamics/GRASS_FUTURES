@@ -161,8 +161,6 @@ def main():
                                                                 xp=np.append(observed_times, projected_times),
                                                                 fp=np.append(observed_popul[subregionId],
                                                                              projected_popul[subregionId]))
-    print(table_developed)
-    print(population_for_simulated_times)
     # regression
     demand = {}
     i = 0
