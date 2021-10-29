@@ -27,7 +27,7 @@ class TestValidation(TestCase):
         cls.runModule("r.unpack", input="data/S4.pack", flags="o", output=cls.S4)
         cls.runModule("g.region", raster=cls.original)
         cls.runModule(
-            "g.region", raster=cls.original, res=10, flags="a", save=cls.region
+            "g.region", raster=cls.original, res=10, flags="au", save=cls.region
         )
 
     @classmethod
