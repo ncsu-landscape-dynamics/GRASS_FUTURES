@@ -97,7 +97,7 @@ class TestPGA(TestCase):
                           hand='HAND_filled', hand_percentile=100, redistribution_matrix='data/matrix.csv',
                           flood_maps_file='data/flood_probability_input.csv', adaptive_capacity='acapacity',
                           huc='basin', depth_damage_functions='data/damage_curves_single.csv',
-                          population_demand='data/population_demand.csv',
+                          population_demand='data/population_demand.csv', response_func=[0.5,0.5,0.5,0.5],
                           output=self.output)
 
     def test_pga_flooding_depth(self):
@@ -114,7 +114,7 @@ class TestPGA(TestCase):
                           redistribution_matrix='data/matrix.csv',
                           flood_maps_file='data/flood_depth_input.csv', adaptive_capacity='acapacity',
                           huc='basin', depth_damage_functions='data/damage_curves_single.csv',
-                          population_demand='data/population_demand.csv',
+                          population_demand='data/population_demand.csv', response_func=[0.5,0.5,0.5,0.5],
                           output=self.output)
 
     def test_pga_flooding_DDF(self):
@@ -131,7 +131,7 @@ class TestPGA(TestCase):
                           hand='HAND_filled', hand_percentile=100, redistribution_matrix='data/matrix.csv',
                           flood_maps_file='data/flood_probability_input.csv', adaptive_capacity='acapacity',
                           huc='basin', depth_damage_functions='data/damage_curves.csv', ddf_subregions='zipcodes',
-                          population_demand='data/population_demand.csv',
+                          population_demand='data/population_demand.csv', response_func=[0.5,0.5,0.5,0.5],
                           output=self.output)
 
 if __name__ == '__main__':
