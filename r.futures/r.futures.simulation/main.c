@@ -406,7 +406,6 @@ int main(int argc, char **argv)
     opt.HAND_percentile->type = TYPE_INTEGER;
     opt.HAND_percentile->required = NO;
     opt.HAND_percentile->options = "0-100";
-    opt.HAND_percentile->answer = "90";
     opt.HAND_percentile->description =
             _("Percentile of HAND values within inundated area for depth estimation");
     opt.HAND_percentile->guisection = _("Climate scenarios");
@@ -470,7 +469,6 @@ int main(int argc, char **argv)
     opt.response_func->type = TYPE_DOUBLE;
     opt.response_func->required = NO;
     opt.response_func->multiple = YES;
-    opt.response_func->answer = "0.5,0.5,0.5,0.5";
     opt.response_func->description =
             _("Coefficients of linear functions for flood response");
     opt.response_func->guisection = _("Climate scenarios");
