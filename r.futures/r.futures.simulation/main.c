@@ -467,7 +467,7 @@ int main(int argc, char **argv)
     opt.response_func = G_define_option();
     opt.response_func->key = "response_func";
     opt.response_func->key_desc = "vuln_a,vuln_b,resil_a,resil_b";
-    opt.response_func->type = TYPE_INTEGER;
+    opt.response_func->type = TYPE_DOUBLE;
     opt.response_func->required = NO;
     opt.response_func->multiple = YES;
     opt.response_func->answer = "0.5,0.5,0.5,0.5";
