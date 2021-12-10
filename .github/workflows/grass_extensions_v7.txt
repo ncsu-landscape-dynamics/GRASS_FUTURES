@@ -1,0 +1,4 @@
+g.download.location
+r.sample.category
+r.object.geometry
+r.stream.distance
