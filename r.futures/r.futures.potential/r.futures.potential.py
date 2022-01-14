@@ -78,7 +78,7 @@
 #%end
 #%flag
 #% key: d
-#% description: Use dredge fuction to find best model
+#% description: Use dredge function to find best model
 #% guisection: Dredge
 #%end
 #%option
