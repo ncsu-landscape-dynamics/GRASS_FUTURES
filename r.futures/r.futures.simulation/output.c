@@ -73,12 +73,12 @@ char *name_for_step(const char *basename, const int step, const int nsteps)
  * \param year_from year to put as timestamp
  * \param year_to if > 0 it is end year of timestamp interval
  * \param nsteps total number of steps (needed for color table)
- * \param undeveloped_as_null Represent undeveloped areas as NULLs instead of -1
- * \param developed_as_one Represent all developed areas aoutputs 1 instead of number
-        representing the step when it was developed
+ * \param contains_abandoned If true, represent undeveloped areas as NULLS, and
+ *        shift values <= -2 (abandoned) by +1 to represent in absolute value
+ *        step when they were abandoned.
  */
 void output_developed_step(SEGMENT *developed_segment, const char *name,
-                           int year_from, int year_to, int nsteps, bool output_undeveloped)
+                           int year_from, int year_to, int nsteps, bool contains_abandoned)
 {
     int out_fd;
     int row, col, rows, cols;
@@ -103,7 +103,7 @@ void output_developed_step(SEGMENT *developed_segment, const char *name,
             if (Rast_is_c_null_value(&developed)) {
                 continue;
             }
-            if (!output_undeveloped) {
+            if (contains_abandoned) {
                 if (developed < DEV_TYPE_UNDEVELOPED) {
                     developed += 1;
                 }
@@ -121,7 +121,7 @@ void output_developed_step(SEGMENT *developed_segment, const char *name,
     Rast_init_colors(&colors);
     // TODO: the map max is 36 for 36 steps, it is correct?
 
-    if (!output_undeveloped) {
+    if (contains_abandoned) {
         val1 = -nsteps;
         val2 = -1;
         Rast_add_c_color_rule(&val1, 230, 163, 255, &val2, 60, 0, 80,

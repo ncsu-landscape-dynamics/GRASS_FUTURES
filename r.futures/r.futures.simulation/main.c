@@ -879,7 +879,7 @@ int main(int argc, char **argv)
             name_step = name_for_step(opt.outputSeries->answer, step, num_steps);
             output_developed_step(&segments.developed, name_step,
                                   demand_info.years[step], -1, num_steps,
-                                  segments.use_climate ? false : true);
+                                  segments.use_climate ? true : false);
         }
         /* export density for that step */
         if (opt.outputDensity->answer) {
@@ -896,7 +896,7 @@ int main(int argc, char **argv)
     /* write */
     output_developed_step(&segments.developed, opt.output->answer,
                           demand_info.years[0], demand_info.years[step-1],
-                          num_steps, segments.use_climate ? false : true);
+                          num_steps, segments.use_climate ? true : false);
     if (opt.floodLog->answer)
         write_flood_log(&flood_log, opt.floodLog->answer, &HUC_map);
 
