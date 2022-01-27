@@ -11,6 +11,7 @@
    \author Anna Petrasova
  */
 #include <math.h>
+#include <stdbool.h>
 
 #include <grass/gis.h>
 #include <grass/raster.h>
@@ -325,16 +326,16 @@ enum FloodResponse flood_response(float damage, float adaptive_capacity,
     double response_val;
 
     gauss_xy(0, 0.1, &x, &y);
-    if (adaptive_capacity > 0) {
-        response_val = response->resilience_a * (adaptive_capacity + y) + response->resilience_b;
-        if (damage + x > response_val)
+    if (adaptive_capacity + x > 0) {
+        response_val = response->resilience_a * (adaptive_capacity + x) + response->resilience_b;
+        if (damage + y > response_val)
             return Retreat;
         else
             return Adapt;
     }
     else {
-        response_val = response->vulnerability_a * (adaptive_capacity + y) + response->vulnerability_b;
-        if (damage + x > response_val)
+        response_val = response->vulnerability_a * (adaptive_capacity + x) + response->vulnerability_b;
+        if (damage + y > response_val)
             return Retreat;
         else
             return Stay;
