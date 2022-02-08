@@ -156,7 +156,7 @@ int main(int argc, char **argv)
                 *density, *densityCapacity, *outputDensity, *redevelopmentLag,
                 *redevelopmentPotentialFile, *redistributionMatrix, *redistributionMatrixOutput,
                 *HAND, *HAND_percentile, *floodInputFile, *floodLog,
-                *depthDamageFunc, *ddf_subregions, *response_func,
+                *depthDamageFunc, *ddf_subregions, *response_func, *responseStddev,
                 *adaptations, *adaptiveCapacity, *HUCs, *outputAdaptation,
                 *patchFile, *numSteps, *output, *outputSeries, *seed, *memory;
     } opt;
@@ -473,6 +473,15 @@ int main(int argc, char **argv)
             _("Coefficients of linear functions for flood response");
     opt.response_func->guisection = _("Climate scenarios");
 
+    opt.responseStddev = G_define_option();
+    opt.responseStddev->key = "response_stddev";
+    opt.responseStddev->type = TYPE_DOUBLE;
+    opt.responseStddev->required = NO;
+    opt.responseStddev->label = _("Standard deviation of stochastic response adjustment");
+    opt.responseStddev->description = _("Flood response is adjusted stochastically by ading a random number N(0, stddev).");
+    opt.responseStddev->options = "0-1";
+    opt.responseStddev->guisection = _("Climate scenarios");
+
     opt.numNeighbors = G_define_option();
     opt.numNeighbors->key = "num_neighbors";
     opt.numNeighbors->type = TYPE_INTEGER;
@@ -582,7 +591,7 @@ int main(int argc, char **argv)
                         opt.redevelopmentLag, opt.redevelopmentPotentialFile, NULL);
     G_option_collective(opt.floodInputFile, opt.redistributionMatrix, opt.populationDemandFile,
                         opt.adaptiveCapacity, opt.HUCs,
-                        opt.depthDamageFunc, opt.response_func, NULL);
+                        opt.depthDamageFunc, opt.response_func, opt.responseStddev, NULL);
     G_option_requires(opt.outputAdaptation, opt.adaptiveCapacity, NULL);
     G_option_requires(opt.HAND, opt.HAND_percentile, NULL);
     G_option_requires(opt.floodLog, opt.floodInputFile, NULL);
@@ -738,7 +747,7 @@ int main(int argc, char **argv)
         }
     }
     if (opt.response_func->answer)
-        initialize_flood_response(&response_relation, opt.response_func->answers);
+        initialize_flood_response(&response_relation, opt.response_func->answers, atof(opt.responseStddev->answer));
     if (flood_inputs.array)
         init_flood_segment(&flood_inputs, &segments, segment_info);
     if (opt.adaptations)

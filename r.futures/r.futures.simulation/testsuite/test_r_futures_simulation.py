@@ -98,7 +98,7 @@ class TestPGA(TestCase):
                           flood_maps_file='data/flood_probability_input.csv', adaptive_capacity='acapacity',
                           huc='basin', depth_damage_functions='data/damage_curves_single.csv',
                           population_demand='data/population_demand.csv', response_func=[0.5,0.5,0.5,0.5],
-                          output=self.output)
+                          response_stddev=0.1, output=self.output)
 
     def test_pga_flooding_depth(self):
         """Test if results is in expected limits"""
@@ -115,7 +115,7 @@ class TestPGA(TestCase):
                           flood_maps_file='data/flood_depth_input.csv', adaptive_capacity='acapacity',
                           huc='basin', depth_damage_functions='data/damage_curves_single.csv',
                           population_demand='data/population_demand.csv', response_func=[0.5,0.5,0.5,0.5],
-                          output=self.output)
+                          response_stddev=0.1, output=self.output)
 
     def test_pga_flooding_DDF(self):
         """Test if results is in expected limits"""
@@ -132,7 +132,7 @@ class TestPGA(TestCase):
                           flood_maps_file='data/flood_probability_input.csv', adaptive_capacity='acapacity',
                           huc='basin', depth_damage_functions='data/damage_curves.csv', ddf_subregions='zipcodes',
                           population_demand='data/population_demand.csv', response_func=[0.5,0.5,0.5,0.5],
-                          output=self.output)
+                          response_stddev=0.1, output=self.output)
 
 if __name__ == '__main__':
     test()

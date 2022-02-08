@@ -29,7 +29,7 @@
  * \param response_relation
  */
 void initialize_flood_response(struct ACDamageRelation *response_relation,
-                               char **response)
+                               char **response, float stddev)
 {
     response_relation->vulnerability_a = atof(response[0]);
     response_relation->vulnerability_b = atof(response[1]);
@@ -325,7 +325,10 @@ enum FloodResponse flood_response(float damage, float adaptive_capacity,
     double x, y;
     double response_val;
 
-    gauss_xy(0, 0.1, &x, &y);
+    if (response->stddev == 0)
+        x = y = 0;
+    else
+        gauss_xy(0, response->stddev, &x, &y);
     if (adaptive_capacity + x > 0) {
         response_val = response->resilience_a * (adaptive_capacity + x) + response->resilience_b;
         if (damage + y > response_val)
