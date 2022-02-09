@@ -348,8 +348,8 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
                   bool overgrow)
 {
     int *region_id;
-    unsigned n_to_convert;
-    unsigned n_done;
+    int n_to_convert;
+    int n_done;
     int n_done_redevelop;
     int *added_ids;
     bool force_convert_all;
