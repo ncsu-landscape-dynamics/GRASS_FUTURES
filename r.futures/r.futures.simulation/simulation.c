@@ -409,7 +409,7 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
     while (n_done < n_to_convert) {
         attempt_grow_patch(undev_cells, search_alg, segments, patch_sizes, patch_info,
                            devpressure_info, patch_overflow, step, region,
-                           false, overgrow, force_convert_all, &allow_already_tried_ones,
+                           PATCH_TYPE_NEW, overgrow, force_convert_all, &allow_already_tried_ones,
                            &unsuccessful_tries, added_ids, n_to_convert, &n_done, &popul_done);
     }
     if (segments->use_density) {
@@ -419,7 +419,7 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
         while (popul_done < popul_to_place) {
             attempt_grow_patch(dev_cells, search_alg, segments, patch_sizes, patch_info,
                                devpressure_info, patch_overflow, step, region,
-                               true, overgrow, force_convert_all, &allow_already_tried_ones,
+                               PATCH_TYPE_REDEVELOP, overgrow, force_convert_all, &allow_already_tried_ones,
                                &unsuccessful_tries, added_ids, n_to_convert, &n_done_redevelop, &popul_done);
         }
     }
