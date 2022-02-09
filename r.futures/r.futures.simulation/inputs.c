@@ -76,10 +76,10 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
 {
     int row, col;
     int rows, cols;
-    int fd_developed, fd_reg, fd_devpressure, fd_weights,
-            fd_pot_reg, fd_density, fd_density_cap,
-            fd_HAND, fd_adaptive_capacity,
-            fd_HUC, fd_DDF, fd_adaptations;
+    int fd_developed = 0, fd_reg = 0, fd_devpressure = 0, fd_weights = 0,
+            fd_pot_reg = 0, fd_density = 0, fd_density_cap = 0,
+            fd_HAND = 0, fd_adaptive_capacity = 0,
+            fd_HUC = 0, fd_DDF = 0, fd_adaptations = 0;
     int count_regions, pot_count_regions, HUC_count, DDF_count;
     int region_index, pot_region_index, HUC_index, DDF_index;
     int *region_pindex;
@@ -89,16 +89,16 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
     bool isnull;
     CELL *developed_row;
     CELL *subregions_row;
-    CELL *pot_subregions_row;
+    CELL *pot_subregions_row = NULL;
     FCELL *devpressure_row;
-    FCELL *weights_row;
-    FCELL *density_row;
-    FCELL *density_capacity_row;
-    FCELL *HAND_row;
-    FCELL *adaptive_capacity_row;
-    CELL *HUC_row;
-    CELL *DDF_row;
-    CELL *adaptation_row;
+    FCELL *weights_row = NULL;
+    FCELL *density_row = NULL;
+    FCELL *density_capacity_row = NULL;
+    FCELL *HAND_row = NULL;
+    FCELL *adaptive_capacity_row = NULL;
+    CELL *HUC_row = NULL;
+    CELL *DDF_row = NULL;
+    CELL *adaptation_row = NULL;
     float *pvalue;
 
 
@@ -544,7 +544,7 @@ static int _read_demand_file(FILE *fp, const char *separator,
                         " contains less than one line"));
 
     char **tokens;
-    int ntokens;
+    unsigned ntokens;
 
     const char *td = "\"";
 
@@ -556,7 +556,7 @@ static int _read_demand_file(FILE *fp, const char *separator,
     struct ilist *ids = G_new_ilist();
     int count;
     // skip first column which does not contain id of the region
-    int i;
+    unsigned i;
     for (i = 1; i < ntokens; i++) {
         G_chop(tokens[i]);
         G_ilist_add(ids, atoi(tokens[i]));
@@ -568,15 +568,14 @@ static int _read_demand_file(FILE *fp, const char *separator,
             continue;
 
         tokens = G_tokenize2(buf, separator, td);
-        int ntokens2 = G_number_of_tokens(tokens);
+        unsigned ntokens2 = G_number_of_tokens(tokens);
         if (ntokens2 != ntokens)
             G_fatal_error(_("Demand: wrong number of columns in line: %s"), buf);
         if (ntokens - 1 < map_nitems(region_map))
             G_fatal_error(_("Demand: some subregions are missing"));
         count = 0;
-        int i;
         demand_years[years] = atoi(tokens[0]);
-        for (i = 1; i < ntokens; i++) {
+        for (unsigned i = 1; i < ntokens; i++) {
             // skip first column which is the year which we ignore
             int *idx = map_get_int(region_map, ids->value[count]);
             if (idx) {
@@ -595,7 +594,7 @@ static int _read_demand_file(FILE *fp, const char *separator,
 
 void read_demand_file(struct Demand *demandInfo, map_int_t *region_map)
 {
-    FILE *fp_cell, *fp_population;
+    FILE *fp_cell = NULL, *fp_population = NULL;
     if ((fp_cell = fopen(demandInfo->cells_filename, "r")) == NULL)
         G_fatal_error(_("Cannot open area demand file <%s>"),
                       demandInfo->cells_filename);
@@ -624,7 +623,7 @@ void read_demand_file(struct Demand *demandInfo, map_int_t *region_map)
 
     demandInfo->years = (int *) G_malloc(countlines * sizeof(int));
     demandInfo->cells_table = (float **) G_malloc(map_nitems(region_map) * sizeof(float *));
-    for (int i = 0; i < map_nitems(region_map); i++) {
+    for (unsigned i = 0; i < map_nitems(region_map); i++) {
         demandInfo->cells_table[i] = (float *) G_malloc(countlines * sizeof(float));
     }
     int num_years = _read_demand_file(fp_cell, demandInfo->separator,
@@ -638,7 +637,7 @@ void read_demand_file(struct Demand *demandInfo, map_int_t *region_map)
     if (demandInfo->has_population) {
         int *years2 = (int *) G_malloc(countlines * sizeof(int));
         demandInfo->population_table = (float **) G_malloc(map_nitems(region_map) * sizeof(float *));
-        for (int i = 0; i < map_nitems(region_map); i++) {
+        for (unsigned i = 0; i < map_nitems(region_map); i++) {
             demandInfo->population_table[i] = (float *) G_malloc(countlines * sizeof(float));
         }
         int num_years2 = _read_demand_file(fp_population, demandInfo->separator,
@@ -755,14 +754,14 @@ void read_patch_sizes(struct PatchSizes *patch_sizes,
     size_t buflen = 4000;
     char buf[buflen];
     int patch;
-    char** tokens;
+    char** tokens = NULL;
     char** header_tokens;
-    int ntokens;
-    int i, j;
-    int region_id;
+    unsigned ntokens;
+    unsigned i, j;
+    unsigned region_id;
     int *region_pid;
     const char *td = "\"";
-    int num_regions;
+    unsigned num_regions = 0;
     bool found;
     bool use_header;
     int n_max_patches;
@@ -1022,7 +1021,7 @@ void update_flood_probability(int step, const struct FloodInputs *flood_inputs, 
 {
     int i;
     int row, col;
-    int fd_flood_probability;
+    int fd_flood_probability = 0;
     FCELL *flood_probability_row;
     FCELL fc;
     float *pvalue;

@@ -164,7 +164,8 @@ void recompute_probabilities(struct Developables *developable_cells,
                              bool use_developed)
 {
     int row, col, cols, rows;
-    int id, i, idx, new_size;
+    int id, idx, new_size;
+    unsigned i;
     int region_idx;
     CELL developed;
     CELL region;
@@ -347,8 +348,8 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
                   bool overgrow)
 {
     int *region_id;
-    int n_to_convert;
-    int n_done;
+    unsigned n_to_convert;
+    unsigned n_done;
     int n_done_redevelop;
     int *added_ids;
     bool force_convert_all;
@@ -356,8 +357,8 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
     bool allow_already_tried_ones;
     int unsuccessful_tries;
     float popul_done;
-    float popul_to_place;
-    float extra_population;
+    float popul_to_place = 0;
+    float extra_population = 0;
 
 
     added_ids = (int *) G_malloc(sizeof(int) * patch_sizes->max_patch_size);
@@ -447,7 +448,7 @@ void climate_step(struct Segments *segments, struct Demand *demand,
                   const struct ACDamageRelation *response_relation, int HUC_idx)
 {
     float flood_probability;
-    float flood_level;
+    float flood_level = 0;
     int row, col;
     struct BBox bbox;
     CELL HUC_value;
@@ -476,6 +477,7 @@ void climate_step(struct Segments *segments, struct Demand *demand,
         if (flood_inputs->depth)
             depth_values = G_malloc(sizeof(float) * flood_inputs->num_return_periods);
         else {
+            depth_values = NULL;
             flood_level = get_max_HAND(segments, &bbox, flood_probability,
                                        HAND_bbox_vals, percentile);
             /* no flood */

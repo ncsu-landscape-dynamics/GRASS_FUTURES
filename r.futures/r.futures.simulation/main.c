@@ -170,8 +170,8 @@ int main(int argc, char **argv)
     int num_predictors;
     int num_steps;
     int nseg;
-    int region;
-    int HUC;
+    unsigned region;
+    unsigned HUC;
     int step;
     float memory;
     double discount_factor;
@@ -711,6 +711,7 @@ int main(int argc, char **argv)
         redistr_matrix.filename = opt.redistributionMatrix->answer;
         read_redistribution_matrix(&redistr_matrix);
     }
+    HAND_percentile = 0;
     if (flood_inputs.array) {
         raster_inputs.adaptive_capacity = opt.adaptiveCapacity->answer;
         raster_inputs.HUC = opt.HUCs->answer;
@@ -851,6 +852,10 @@ int main(int argc, char **argv)
     if (segments.use_density) {
         dev_cells = initialize_developables(map_nitems(&region_map));
         population_overflow = G_calloc(map_nitems(&region_map), sizeof(float));
+    }
+    else {
+        dev_cells = NULL;
+        population_overflow = NULL;
     }
     /* here do the modeling */
     overgrow = true;

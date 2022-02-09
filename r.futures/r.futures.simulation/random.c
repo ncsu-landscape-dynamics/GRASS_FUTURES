@@ -30,6 +30,7 @@
 void gauss_xy(double mean, double std_dev, double *x, double *y)
 {
     double r = 0., vv1, vv2, fac;
+    vv1 = vv2 = 0;
 
     while (r >= 1. || r == 0.) {
         vv1 = G_drand48() * 2. - 1.;

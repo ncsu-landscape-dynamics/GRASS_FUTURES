@@ -93,7 +93,7 @@ void write_flood_log(struct FloodLog *log, const char *filename,
  */
 void adapt(SEGMENT *adaptation,  float flood_probability, int row, int col)
 {
-    int i;
+    unsigned i;
     int rp[] = {2, 5, 10, 20, 50, 100};
 
     for (i = 0; i < sizeof(rp) / sizeof(int); i++) {
