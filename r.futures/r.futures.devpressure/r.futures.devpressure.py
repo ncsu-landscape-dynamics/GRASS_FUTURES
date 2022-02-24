@@ -59,6 +59,8 @@
 #% required: no
 #% answer: 1
 #%end
+#%option G_OPT_M_NPROCS
+#%end
 #%flag
 #% key: n
 #% description: Do not propagate nulls
@@ -84,6 +86,13 @@ def cleanup():
     if TMP:
         gcore.run_command('g.remove', flags='f', type=['raster'], name=TMP)
     gutils.try_remove(TMPFILE)
+
+
+def module_has_parameter(module, parameter):
+    from grass.script import task as gtask
+
+    task = gtask.command_info(module)
+    return parameter in [each["name"] for each in task["params"]]
 
 
 def main():
@@ -143,7 +152,10 @@ def main():
     with open(path, 'w') as f:
         f.write(write_filter(matrix))
     gcore.message(_("Running development pressure filter..."))
-    gcore.run_command('r.mfilter', input=rmfilter_inp, output=rmfilter_out, filter=path)
+    params = {}
+    if module_has_parameter("r.mfilter", "nprocs"):
+        params["nprocs"] = options["nprocs"]
+    gcore.run_command('r.mfilter', input=rmfilter_inp, output=rmfilter_out, filter=path, **params)
 
     if flags['n']:
         gcore.run_command('g.region', n=region['n'],  s=region['s'], e=region['e'], w=region['w'],)

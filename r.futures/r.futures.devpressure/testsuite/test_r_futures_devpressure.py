@@ -29,7 +29,7 @@ class TestDevpressure(TestCase):
 
     def test_devpressure_run(self):
         """Test if results is in expected limits"""
-        self.assertModule('r.futures.devpressure', input='urban_2002', output=self.output, method='gravity', size=15, flags='n')
+        self.assertModule('r.futures.devpressure', input='urban_2002', output=self.output, method='gravity', size=15, flags='n', nprocs=2)
         self.assertRastersNoDifference(actual=self.output, reference=self.result, precision=1e-6)
 
 
