@@ -77,6 +77,8 @@ from math import sqrt
 import grass.script.core as gcore
 import grass.script.utils as gutils
 import grass.script.raster as grast
+from grass.script import task as gtask
+
 
 TMPFILE = None
 TMP = []
@@ -89,8 +91,6 @@ def cleanup():
 
 
 def module_has_parameter(module, parameter):
-    from grass.script import task as gtask
-
     task = gtask.command_info(module)
     return parameter in [each["name"] for each in task["params"]]
 
