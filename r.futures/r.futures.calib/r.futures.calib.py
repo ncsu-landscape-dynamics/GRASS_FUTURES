@@ -283,7 +283,7 @@ import os
 import atexit
 import numpy as np
 from io import StringIO
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, Pool
 
 import grass.script.core as gcore
 import grass.script.raster as grast
@@ -399,26 +399,59 @@ def new_development(development_end, development_diff):
                   dev_end=development_end), overwrite=True, quiet=True)
 
 
-def patch_analysis_per_subregion(development_diff, subregions, threshold, tmp_clump, tmp_clump_cat):
-    gcore.run_command('r.clump', input=development_diff, output=tmp_clump, overwrite=True, quiet=True)
-    cats = gcore.read_command("r.describe", flags="1n", map=subregions, quiet=True).strip().splitlines()
-    subregions_data = {}
+def analyse_subregion(params):
+    tmp_clump_cat, subregions, cat, clump, threshold = params
+    grast.mapcalc(
+        "{new} = if ({reg} == {cat}, {clump}, null())".format(
+            new=tmp_clump_cat, reg=subregions, cat=cat, clump=clump
+        ),
+        overwrite=True,
+    )
     env = os.environ.copy()
+    env["GRASS_REGION"] = gcore.region_env(zoom=tmp_clump_cat)
+    try:
+        data = gcore.read_command(
+            "r.object.geometry",
+            input=tmp_clump_cat,
+            flags="m",
+            separator="comma",
+            env=env,
+            quiet=True,
+        ).strip()
+        data = np.loadtxt(StringIO(data), delimiter=",", usecols=(1, 2), skiprows=1)
+        # in case there is just one record
+        data = data.reshape((-1, 2))
+        return data[data[:, 0] > threshold]
+    except CalledModuleError:
+        gcore.warning(
+            "Subregion {cat} has no changes in development, no patches found.".format(
+                cat=cat
+            )
+        )
+        return np.empty([0, 2])
+
+
+def patch_analysis_per_subregion_parallel(
+    development_diff, subregions, threshold, tmp_clump, tmp_name, nprocs
+):
+    gcore.run_command(
+        "r.clump", input=development_diff, output=tmp_clump, overwrite=True, quiet=True
+    )
+    cats = (
+        gcore.read_command("r.describe", flags="1n", map=subregions, quiet=True)
+        .strip()
+        .splitlines()
+    )
+    params = []
+    toremove = []
     for cat in cats:
-        grast.mapcalc('{new} = if ({reg} == {cat}, {clump}, null())'.format(new=tmp_clump_cat, reg=subregions,
-                                                                            cat=cat, clump=tmp_clump),
-                      overwrite=True)
-        env['GRASS_REGION'] = gcore.region_env(zoom=tmp_clump_cat)
-        try:
-            data = gcore.read_command('r.object.geometry', input=tmp_clump_cat,
-                                    flags='m', separator='comma', env=env, quiet=True).strip()
-            data = np.loadtxt(StringIO(data), delimiter=',', usecols=(1, 2), skiprows=1)
-            # in case there is just one record
-            data = data.reshape((-1, 2))
-            subregions_data[cat] = data[data[:, 0] > threshold]
-        except CalledModuleError:
-            gcore.warning("Subregion {cat} has no changes in development, no patches found.".format(cat=cat))
-            subregions_data[cat] = np.empty([0, 2])
+        tmp_clump_cat = gutils.append_random(tmp_name, suffix_length=8)
+        toremove.append(tmp_clump_cat)
+        params.append((tmp_clump_cat, subregions, cat, tmp_clump, threshold))
+    with Pool(processes=nprocs) as pool:
+        results = pool.map_async(analyse_subregion, params).get()
+    subregions_data = dict(zip(cats, results))
+    gcore.run_command("g.remove", type="raster", flags="f", name=toremove, quiet=True)
     return subregions_data
 
 
@@ -516,10 +549,11 @@ def process_calibration(calib_file):
 def main():
     check_addon_installed('r.object.geometry', fatal=True)
 
-    dev_start = options['development_start']
-    dev_end = options['development_end']
-    only_file = flags['l']
-    patches_per_subregion = flags['s']
+    dev_start = options["development_start"]
+    dev_end = options["development_end"]
+    only_file = flags["l"]
+    nprocs = int(options["nprocs"])
+    patches_per_subregion = flags["s"]
     if not only_file:
         repeat = int(options['repeat'])
         compactness_means = [float(each) for each in options['compactness_mean'].split(',')]
@@ -552,8 +586,14 @@ def main():
     diff_development(dev_start, dev_end, options['subregions'], orig_patch_diff)
     data = write_data = patch_analysis(orig_patch_diff, threshold, tmp_clump)
     if patches_per_subregion:
-        subregions_data = patch_analysis_per_subregion(orig_patch_diff, options['subregions'],
-                                                       threshold, tmp_clump, tmp_cat_clump)
+        subregions_data = patch_analysis_per_subregion_parallel(
+            orig_patch_diff,
+            options["subregions"],
+            threshold,
+            tmp_clump,
+            tmp_name,
+            nprocs,
+        )
         # if there is just one column, write the previous analysis result
         if len(subregions_data.keys()) > 1:
             write_data = subregions_data
@@ -583,7 +623,6 @@ def main():
     histogram_compactness_orig = histogram_compactness_orig * 100  # to get percentage for readability
 
     seed = int(options['random_seed'])
-    nprocs = int(options['nprocs'])
     count = 0
     proc_count = 0
     queue_list = []
