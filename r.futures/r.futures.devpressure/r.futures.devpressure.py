@@ -73,7 +73,7 @@ import atexit
 import numpy as np
 from math import sqrt
 
-#from grass.exceptions import CalledModuleError
+# from grass.exceptions import CalledModuleError
 import grass.script.core as gcore
 import grass.script.utils as gutils
 import grass.script.raster as grast
@@ -86,7 +86,7 @@ TMP = []
 
 def cleanup():
     if TMP:
-        gcore.run_command('g.remove', flags='f', type=['raster'], name=TMP)
+        gcore.run_command("g.remove", flags="f", type=["raster"], name=TMP)
     gutils.try_remove(TMPFILE)
 
 
@@ -96,37 +96,48 @@ def module_has_parameter(module, parameter):
 
 
 def main():
-    size = int(options['size'])
+    size = int(options["size"])
     gamma = scale = None
-    if options['gamma']:
-        gamma = float(options['gamma'])
-    if options['scaling_factor']:
-        scale = float(options['scaling_factor'])
-    input_dev = options['input']
-    output = options['output']
-    method = options['method']
+    if options["gamma"]:
+        gamma = float(options["gamma"])
+    if options["scaling_factor"]:
+        scale = float(options["scaling_factor"])
+    input_dev = options["input"]
+    output = options["output"]
+    method = options["method"]
 
-    if method in ('gravity', 'kernel') and (gamma is None or scale is None):
-        gcore.fatal(_("Methods gravity and kernel require options scaling_factor and gamma"))
+    if method in ("gravity", "kernel") and (gamma is None or scale is None):
+        gcore.fatal(
+            _("Methods gravity and kernel require options scaling_factor and gamma")
+        )
 
-    temp_map = 'tmp_futures_devPressure_' + str(os.getpid()) + '_copy'
-    temp_map_out = 'tmp_futures_devPressure_' + str(os.getpid()) + '_out'
-    temp_map_nulls = 'tmp_futures_devPressure_' + str(os.getpid()) + '_nulls'
+    temp_map = "tmp_futures_devPressure_" + str(os.getpid()) + "_copy"
+    temp_map_out = "tmp_futures_devPressure_" + str(os.getpid()) + "_out"
+    temp_map_nulls = "tmp_futures_devPressure_" + str(os.getpid()) + "_nulls"
     global TMP, TMPFILE
-    if flags['n']:
+    if flags["n"]:
         gcore.message(_("Preparing data..."))
         region = gcore.region()
         gcore.use_temp_region()
-        gcore.run_command('g.region', n=region['n'] + size * region['nsres'],
-                          s=region['s'] - size * region['nsres'],
-                          e=region['e'] + size * region['ewres'],
-                          w=region['w'] - size * region['ewres'])
+        gcore.run_command(
+            "g.region",
+            n=region["n"] + size * region["nsres"],
+            s=region["s"] - size * region["nsres"],
+            e=region["e"] + size * region["ewres"],
+            w=region["w"] - size * region["ewres"],
+        )
         TMP.append(temp_map)
         TMP.append(temp_map_nulls)
         TMP.append(temp_map_out)
-        exp = "{temp_map_nulls} = if(isnull({inp}), 1, null())".format(temp_map_nulls=temp_map_nulls, inp=input_dev)
+        exp = "{temp_map_nulls} = if(isnull({inp}), 1, null())".format(
+            temp_map_nulls=temp_map_nulls, inp=input_dev
+        )
         grast.mapcalc(exp=exp)
-        grast.mapcalc(exp="{temp} = if(isnull({inp}), 0, {inp})".format(temp=temp_map, inp=input_dev))
+        grast.mapcalc(
+            exp="{temp} = if(isnull({inp}), 0, {inp})".format(
+                temp=temp_map, inp=input_dev
+            )
+        )
         rmfilter_inp = temp_map
         rmfilter_out = temp_map_out
     else:
@@ -134,10 +145,10 @@ def main():
         rmfilter_out = output
 
     matrix = distance_matrix(size)
-    if method == 'occurrence':
+    if method == "occurrence":
         matrix[matrix > 0] = 1
-    elif method == 'gravity':
-        with np.errstate(divide='ignore'):
+    elif method == "gravity":
+        with np.errstate(divide="ignore"):
             denom = np.power(matrix, gamma)
             matrix = scale / denom
             matrix[denom == 0] = 0
@@ -149,18 +160,29 @@ def main():
     global TMPFILE
     TMPFILE = path
 
-    with open(path, 'w') as f:
+    with open(path, "w") as f:
         f.write(write_filter(matrix))
     gcore.message(_("Running development pressure filter..."))
     params = {}
     if module_has_parameter("r.mfilter", "nprocs"):
         params["nprocs"] = options["nprocs"]
-    gcore.run_command('r.mfilter', input=rmfilter_inp, output=rmfilter_out, filter=path, **params)
+    gcore.run_command(
+        "r.mfilter", input=rmfilter_inp, output=rmfilter_out, filter=path, **params
+    )
 
-    if flags['n']:
-        gcore.run_command('g.region', n=region['n'],  s=region['s'], e=region['e'], w=region['w'],)
-        grast.mapcalc(exp="{out} = if(isnull({temp_null}), {rmfilter_out}, null())".format(temp_null=temp_map_nulls,
-                      rmfilter_out=rmfilter_out, out=output))
+    if flags["n"]:
+        gcore.run_command(
+            "g.region",
+            n=region["n"],
+            s=region["s"],
+            e=region["e"],
+            w=region["w"],
+        )
+        grast.mapcalc(
+            exp="{out} = if(isnull({temp_null}), {rmfilter_out}, null())".format(
+                temp_null=temp_map_nulls, rmfilter_out=rmfilter_out, out=output
+            )
+        )
         gcore.del_temp_region()
 
     grast.raster_history(output)
@@ -179,21 +201,21 @@ def distance_matrix(size):
 
 
 def write_filter(matrix):
-    filter_text = ['TITLE development pressure']
-    filter_text.append('MATRIX %s' % matrix.shape[0])
+    filter_text = ["TITLE development pressure"]
+    filter_text.append("MATRIX %s" % matrix.shape[0])
     for i in range(matrix.shape[0]):
-        line = ''
+        line = ""
         for j in range(matrix.shape[0]):
             line += str(matrix[i, j])
-            line += ' '
+            line += " "
         filter_text.append(line)
-    filter_text.append('DIVISOR 1')
-    filter_text.append('TYPE P')
+    filter_text.append("DIVISOR 1")
+    filter_text.append("TYPE P")
 
-    return '\n'.join(filter_text)
+    return "\n".join(filter_text)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     options, flags = gcore.parser()
     atexit.register(cleanup)
     sys.exit(main())
