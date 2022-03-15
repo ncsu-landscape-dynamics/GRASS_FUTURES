@@ -68,7 +68,8 @@ class TestPGACalib(TestCase):
                           development_end='urban_2002',
                           patch_threshold=0,
                           subregions='zipcodes',
-                          patch_sizes='data/out_library_subregion.csv')
+                          patch_sizes='data/out_library_subregion.csv',
+                          nprocs=8)
         self.assertTrue(filecmp.cmp('data/out_library_subregion.csv', 'data/ref_library_subregion.csv', shallow=False),
                         "Patch libraries differ")
 
