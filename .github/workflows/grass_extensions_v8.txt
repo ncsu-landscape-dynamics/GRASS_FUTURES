@@ -1,3 +1,2 @@
 r.sample.category
-r.object.geometry
 r.stream.distance
