@@ -1,2 +1,1 @@
 r.sample.category
-r.object.geometry
