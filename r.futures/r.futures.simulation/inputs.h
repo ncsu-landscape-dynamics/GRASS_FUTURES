@@ -179,6 +179,7 @@ void read_predictors(struct RasterInputs inputs, struct Segments *segments,
                      const struct Potential *potential,
                      const struct SegmentMemory segment_info);
 void read_demand_file(struct Demand *demandInfo, map_int_t *region_map);
+void fill_predictor_map(struct RasterInputs inputs, map_int_t *predictor_map, int num_predictors);
 void read_potential_file(struct Potential *potentialInfo, map_int_t *region_map,
                          map_int_t *predictor_map);
 void read_patch_sizes(struct PatchSizes *patch_sizes, map_int_t *region_map,

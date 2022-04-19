@@ -659,6 +659,24 @@ void read_demand_file(struct Demand *demandInfo, map_int_t *region_map)
     }
 }
 
+/**
+ * Load "predictor@mapset" and "predictor" to map names with indices.
+ * This is used when reading potential file to check column names.
+ *
+ */
+void fill_predictor_map(struct RasterInputs inputs, map_int_t *predictor_map, int num_predictors) {
+    char xname[GNAME_MAX], xmapset[GMAPSET_MAX];
+    for (int i = 0; i < num_predictors; i++) {
+        if (G_unqualified_name(inputs.predictors[i], "", xname, xmapset))
+            map_set(predictor_map, xname, i);
+        else
+            map_set(predictor_map,
+                    G_fully_qualified_name(xname, G_find_raster2(inputs.predictors[i], "")),
+                    i);
+        map_set(predictor_map, inputs.predictors[i], i);
+    }
+}
+
 void read_potential_file(struct Potential *potentialInfo, map_int_t *region_map,
                          map_int_t *predictor_map)
 {

@@ -776,9 +776,8 @@ int main(int argc, char **argv)
                      Rast_cell_size(FCELL_TYPE), segment_info.in_memory) != 1)
         G_fatal_error(_("Cannot create temporary file with segments of a raster map"));
 
-    /* fill predictor map for potential reading */
-    for (i = 0; i < num_predictors; i++)
-        map_set(&predictor_map, raster_inputs.predictors[i], i);
+    /* fill predictor map for potential reading, include both (un)qualified names */
+    fill_predictor_map(raster_inputs, &predictor_map, num_predictors);
 
     /* read Potential file */
     G_verbose_message("Reading potential file...");
