@@ -84,7 +84,7 @@ static int manage_memory(struct SegmentMemory *memory, struct Segments *segments
 {
     int nseg, nseg_total;
     int cols, rows;
-    int undev_size;
+    size_t undev_size;
     size_t size;
     size_t estimate;
 
