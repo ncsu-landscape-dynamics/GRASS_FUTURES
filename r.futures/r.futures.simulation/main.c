@@ -171,6 +171,7 @@ int main(int argc, char **argv)
     int num_steps;
     int nseg;
     unsigned region;
+    int *region_id;
     unsigned HUC;
     int step;
     float memory;
@@ -867,6 +868,10 @@ int main(int argc, char **argv)
         if (step == num_steps - 1)
             overgrow = false;
         for (region = 0; region < map_nitems(&region_map); region++) {
+            region_id = map_get_int(&reverse_region_map, region);
+            G_verbose_message("Computing step %d (out of %d), region %d (%d out of %d)",
+                              step + 1, num_steps, *region_id,
+                              region + 1, map_nitems(&region_map));
             compute_step(undev_cells, dev_cells, &demand_info, search_alg, &segments,
                          &patch_sizes, &patch_info, &devpressure_info, patch_overflow,
                          population_overflow, &redistr_matrix, step, region, &reverse_region_map, overgrow);
