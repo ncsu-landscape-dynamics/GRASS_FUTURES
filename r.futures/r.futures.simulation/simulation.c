@@ -379,8 +379,8 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
             n_to_convert = 0;
         }
     }
+    region_id = map_get_int(reverse_region_map, region);
     if (n_to_convert > undev_cells->num[region]) {
-        region_id = map_get_int(reverse_region_map, region);
         G_warning("Not enough undeveloped cells in region %d (requested: %d,"
                   " available: %ld). Converting all available.",
                   *region_id, n_to_convert, undev_cells->num[region]);
@@ -407,6 +407,12 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
     }
 
     while (n_done < n_to_convert) {
+        if (unsuccessful_tries > MAX_TRIES_ITER) {
+            G_warning("Too many failed attempts to find a seed for region %d, "
+                      "won't be able to develop %d cells.",
+                      *region_id, n_to_convert - n_done);
+            break;
+        }
         attempt_grow_patch(undev_cells, search_alg, segments, patch_sizes, patch_info,
                            devpressure_info, patch_overflow, step, region,
                            PATCH_TYPE_NEW, overgrow, force_convert_all, &allow_already_tried_ones,
