@@ -186,7 +186,7 @@ void recompute_probabilities(struct Undeveloped *undeveloped_cells,
             
             /* realloc if needed */
             if (undeveloped_cells->num[region] >= undeveloped_cells->max[region]) {
-                new_size = 2 * undeveloped_cells->max[region];
+                new_size = 1.25 * undeveloped_cells->max[region];
                 undeveloped_cells->cells[region] = 
                         (struct UndevelopedCell *) G_realloc(undeveloped_cells->cells[region],
                                                              new_size * sizeof(struct UndevelopedCell));
