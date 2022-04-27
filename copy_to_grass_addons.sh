@@ -13,8 +13,8 @@ if [ $# -lt 1 ] ; then
 fi
 
 git archive HEAD r.futures/ | tar -x -C /tmp
-rm /tmp/r.futures/r.futures.pga/Doxyfile
-rm /tmp/r.futures/r.futures.pga/incentive.svg
-rm /tmp/r.futures/r.futures.pga/futures_indent.sh
+rm /tmp/r.futures/r.futures.simulation/Doxyfile
+rm /tmp/r.futures/r.futures.simulation/incentive.svg
+rm /tmp/r.futures/r.futures.simulation/futures_indent.sh
 cp -r /tmp/r.futures/* $1
 rm -rf /tmp/r.futures/
