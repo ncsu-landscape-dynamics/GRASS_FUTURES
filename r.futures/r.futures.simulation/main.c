@@ -66,7 +66,7 @@
 #include "climate.h"
 
 
-struct Developables *initialize_developables(int num_subregions)
+struct Developables *initialize_developables(int num_subregions, size_t undev_estimate)
 {
     struct Developables *dev = (struct Developables *) G_malloc(sizeof(struct Developables));
     dev->max_subregions = num_subregions;
@@ -74,14 +74,16 @@ struct Developables *initialize_developables(int num_subregions)
     dev->num = (size_t *) G_calloc(dev->max_subregions, sizeof(size_t));
     dev->cells = (struct DevelopableCell **) G_malloc(dev->max_subregions * sizeof(struct DevelopableCell *));
     for (int i = 0; i < dev->max_subregions; i++){
-        dev->max[i] = (Rast_window_rows() * Rast_window_cols()) / num_subregions;
+        /* set smaller estimate, let large regions reallocate later */
+        dev->max[i] = 0.75 * undev_estimate / num_subregions;
         dev->cells[i] = (struct DevelopableCell *) G_malloc(dev->max[i] * sizeof(struct DevelopableCell));
     }
     return dev;
 }
 
 static int manage_memory(struct SegmentMemory *memory, struct Segments *segments,
-                         const struct FloodInputs *flood_inputs, float input_memory)
+                         const struct FloodInputs *flood_inputs, float input_memory,
+                         size_t undev_estimate)
 {
     int nseg, nseg_total;
     int cols, rows;
@@ -94,7 +96,7 @@ static int manage_memory(struct SegmentMemory *memory, struct Segments *segments
     rows = Rast_window_rows();
     cols = Rast_window_cols();
 
-    undev_size = (sizeof(size_t) + sizeof(float) * 2 + sizeof(bool)) * rows * cols;
+    undev_size = (sizeof(size_t) + sizeof(float) * 2 + sizeof(bool)) * undev_estimate;
     estimate = undev_size;
     if (segments->use_density)
         estimate += undev_size;
@@ -209,6 +211,7 @@ int main(int argc, char **argv)
     char *name_step;
     float leaving_population;
     bool overgrow;
+    size_t undev_estimate;
 
     G_gisinit(argv[0]);
 
@@ -676,9 +679,6 @@ int main(int argc, char **argv)
         read_flood_file(&flood_inputs);
     }
 
-    nseg = manage_memory(&segment_info, &segments, &flood_inputs, memory);
-    segment_info.in_memory = nseg;
-
     potential_info.incentive_transform_size = 0;
     potential_info.incentive_transform = NULL;
     if (opt.incentivePower->answer) {
@@ -712,6 +712,11 @@ int main(int argc, char **argv)
         redistr_matrix.filename = opt.redistributionMatrix->answer;
         read_redistribution_matrix(&redistr_matrix);
     }
+    /* memory estimate */
+    undev_estimate = estimate_undev_size(raster_inputs);
+    nseg = manage_memory(&segment_info, &segments, &flood_inputs, memory, undev_estimate);
+    segment_info.in_memory = nseg;
+
     HAND_percentile = 0;
     if (flood_inputs.array) {
         raster_inputs.adaptive_capacity = opt.adaptiveCapacity->answer;
@@ -845,12 +850,12 @@ int main(int argc, char **argv)
     patch_sizes.filename = opt.patchFile->answer;
     read_patch_sizes(&patch_sizes, &region_map, discount_factor);
 
-    undev_cells = initialize_developables(map_nitems(&region_map));
+    undev_cells = initialize_developables(map_nitems(&region_map), undev_estimate);
     patch_overflow = G_calloc(map_nitems(&region_map), sizeof(int));
 
     /* redevelopment */
     if (segments.use_density) {
-        dev_cells = initialize_developables(map_nitems(&region_map));
+        dev_cells = initialize_developables(map_nitems(&region_map), undev_estimate);
         population_overflow = G_calloc(map_nitems(&region_map), sizeof(float));
     }
     else {
