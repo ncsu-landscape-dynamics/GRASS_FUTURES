@@ -89,6 +89,76 @@ Figure: Output map of developed areas
 Figure: Detail of output map
 </center>
 
+<h3>Climate forcing</h3>
+Climate forcing submodel estimates the probability that a developed pixel will experience flood damage
+and the likely adaptation response (protect and armour, retreat, or stay trapped).
+Response is based on flood probability, level of damage, and local estimates of adaptive capacity.
+Climate forcing submodel integrates current and future flood probability and flood depth data
+with the adaptive capacity of developed pixels to probabilistically predict flood severity
+and the response evoked by flooding in a developed pixel. The model also predicts the within- or
+between-county destinations of displaced residents. 
+
+<p>
+The input <b>flood_maps_file</b> includes flood depth data for different flood probabilities
+for different steps of the simulation:
+<pre>
+step,probability,raster
+1,0.05,flood_20yr_2020_depth
+1,0.01,flood_100yr_2020_depth
+1,0.002,flood_500yr_2020_depth
+11,0.05,flood_20yr_2030_depth
+11,0.01,flood_100yr_2030_depth
+11,0.002,flood_500yr_2030_depth
+</pre>
+
+Alternatively, if such detailed data are not available, one can use floodplain raster
+of given flood return period together with HAND (Height Above Nearest Drainage) raster 
+(<b>hand</b> option) derived from a DEM
+to estimate flood depth automatically (experimental). Flood probablity raster
+then contains the probability values (e.g., 0.01 for a 100-yr flood).
+<pre>
+  step,raster
+  1,flood_probability_2020
+  11,flood_probability_2030
+</pre>
+Option <b>hand_percentile</b> influences the derived depth, high values (> 90)
+tend to overestimate the flood depth.
+
+<p>Flood events are stochastically simulated on the level of HUCs (e.g., HUC 12),
+use <b>huc</b> input option for raster representation of HUCs.
+Use <b>flood_logfile</b> to log the simulated flood events into a CSV file
+for further information (step, HUC ID, flood probability).
+
+<p>Once a flood event is simulated, local damage is estimated
+  using flood-damage curves provided in a CSV file in option <b>depth_damage_functions</b>.
+Its header includes inundation levels in vertical units.
+The first column is an id of a subregion given in <b>ddf_subregions</b>
+and the values are percentages of structural damage.
+<pre>
+ID,0.3,0.6,0.9
+101,0,15,20
+102,10,20,30
+</pre>
+
+Once the damage is established, response is stochastically evaluated based
+on the <b>adaptive_capacity</b> raster with values ranging from -1 (most vulnerable)
+to 1 (most resilient). Option <b>response_func</b> evaluates the response
+based on the damage and adaptive capacity, e.g., with high damage vulnerable populations are
+less likely to protect and armour (adapt) than higly resilient populations.
+Responses include 1) retreat resulting in pixel abandonment,
+2) stay and adapt, and 3) stay trapped.
+When a pixel is abandoned, the <b>redistribution_matrix</b>
+is used to decide to which subregion the pixel is moved.
+It contains probabilities of moving from one subregion to another:
+<pre>
+ID,37013,37014,...
+37013,0.6,0.01,...
+37014,0.05,0.3,...
+</pre>
+Output file <b>redistribution_output</b> can be used to log the redistribution
+happening during the simulation.
+
+
 
 <h2>EXAMPLE</h2>
 
