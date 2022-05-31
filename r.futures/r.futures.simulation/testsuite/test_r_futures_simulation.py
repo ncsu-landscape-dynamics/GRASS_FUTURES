@@ -177,10 +177,14 @@ class TestPGA(TestCase):
     def test_pga_run_potential_header(self):
         """Test potential header with (un)qualified names"""
         mapset = gs.gisenv()["MAPSET"]
-        with open("data/potential.csv", "r") as inp, open(self.potential_test, "w") as out:
+        with open("data/potential.csv", "r") as inp, open(
+            self.potential_test, "w"
+        ) as out:
             for line in inp:
                 if line.startswith("ID"):
-                    out.write(f"ID,Intercept,devpressure,slope@{mapset},lakes_dist_km@{mapset},streets_dist_km\n")
+                    out.write(
+                        f"ID,Intercept,devpressure,slope@{mapset},lakes_dist_km@{mapset},streets_dist_km\n"
+                    )
                 else:
                     out.write(line)
         self.assertModule(

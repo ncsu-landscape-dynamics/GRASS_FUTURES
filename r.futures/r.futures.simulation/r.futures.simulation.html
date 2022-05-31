@@ -96,7 +96,7 @@ Response is based on flood probability, level of damage, and local estimates of 
 Climate forcing submodel integrates current and future flood probability and flood depth data
 with the adaptive capacity of developed pixels to probabilistically predict flood severity
 and the response evoked by flooding in a developed pixel. The model also predicts the within- or
-between-county destinations of displaced residents. 
+between-county destinations of displaced residents.
 
 <p>
 The input <b>flood_maps_file</b> includes flood depth data for different flood probabilities
@@ -112,14 +112,14 @@ step,probability,raster
 </pre>
 
 Alternatively, if such detailed data are not available, one can use floodplain raster
-of given flood return period together with HAND (Height Above Nearest Drainage) raster 
+of given flood return period together with HAND (Height Above Nearest Drainage) raster
 (<b>hand</b> option) derived from a DEM
 to estimate flood depth automatically (experimental). Flood probablity raster
 then contains the probability values (e.g., 0.01 for a 100-yr flood).
 <pre>
-  step,raster
-  1,flood_probability_2020
-  11,flood_probability_2030
+step,raster
+1,flood_probability_2020
+11,flood_probability_2030
 </pre>
 Option <b>hand_percentile</b> influences the derived depth, high values (> 90)
 tend to overestimate the flood depth.
