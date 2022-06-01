@@ -277,6 +277,7 @@ import sys
 
 import grass.script as gs
 
+
 def main():
     options, flags = gs.parser()
     gs.warning("Module r.futures.pga was renamed, use r.futures.simulation instead.")
@@ -285,6 +286,7 @@ def main():
     else:
         gs.run_command("r.futures.simulation", **options)
     return
+
 
 if __name__ == "__main__":
     sys.exit(main())
