@@ -6,7 +6,7 @@
 
 #include "map.h"
 enum development_type {DEV_TYPE_INITIAL = 0,
-                       DEV_TYPE_UNDEVELOPED = -1};
+                       DEV_TYPE_UNDEVELOPED = -1000};
 
 enum DDF_subregions_source {DDF_DEFAULT = 0,
                             DDF_POTENTIAL = -1,

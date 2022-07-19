@@ -35,7 +35,7 @@
 int get_developed_val_from_step(int step, bool abandon)
 {
     if (abandon)
-        return -step - 2;
+        return -step - 1;
     else
         return step + 1;
 }
@@ -275,10 +275,13 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         for (col = 0; col < cols; col++) {
             isnull = false;
             /* developed */
-            /* undeveloped 0 -> -1, developed 1 -> 0 */
+            /* undeveloped 0 -> -1000, developed 1 -> 0 */
             if (!Rast_is_null_value(&((CELL *) developed_row)[col], CELL_TYPE)) {
                 c = ((CELL *) developed_row)[col];
-                ((CELL *) developed_row)[col] = c - 1;
+                if (c == 0)
+                    ((CELL *) developed_row)[col] = DEV_TYPE_UNDEVELOPED;
+                else
+                    ((CELL *) developed_row)[col] = c - 1;
             }
             else
                 isnull = true;
