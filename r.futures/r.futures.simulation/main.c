@@ -167,7 +167,7 @@ int main(int argc, char **argv)
 
     struct
     {
-        struct Flag *generateSeed;
+        struct Flag *generateSeed, *steering;
     } flg;
 
     int i;
@@ -351,7 +351,7 @@ int main(int argc, char **argv)
     opt.outputDevPressure->required = NO;
     opt.outputDevPressure->label =
         _("Output development pressure raster");
-    opt.outputDevPressure->guisection = _("Development pressure");
+    opt.outputDevPressure->guisection = _("Steering");
 
     opt.outputDensity = G_define_standard_option(G_OPT_R_BASENAME_OUTPUT);
     opt.outputDensity->key = "output_density";
@@ -593,6 +593,11 @@ int main(int argc, char **argv)
     opt.memory->required = NO;
     opt.memory->description = _("Memory in GB");
 
+    flg.steering = G_define_flag();
+    flg.steering->key = 'r';
+    flg.steering->description = _("Use steering");
+    flg.steering->guisection = _("Steering");
+
     // TODO: add mutually exclusive?
     // TODO: add flags or options to control values in series and final rasters
 
@@ -608,6 +613,7 @@ int main(int argc, char **argv)
     G_option_requires(opt.outputAdaptation, opt.adaptiveCapacity, NULL);
     G_option_requires(opt.HAND, opt.HAND_percentile, NULL);
     G_option_requires(opt.floodLog, opt.floodInputFile, NULL);
+    G_option_requires_all(flg.steering, opt.outputDevPressure, NULL);
     if (G_parser(argc, argv))
         exit(EXIT_FAILURE);
 
@@ -781,7 +787,7 @@ int main(int argc, char **argv)
     read_input_rasters(raster_inputs, &segments, segment_info, &region_map,
                        &reverse_region_map, &potential_region_map,
                        &HUC_map, &max_flood_probability_map,
-                       &DDF_region_map);
+                       &DDF_region_map, flg.steering->answer);
     if (flood_inputs.array) {
         create_bboxes(&segments.HUC, &segments.developed, &bboxes);
     }

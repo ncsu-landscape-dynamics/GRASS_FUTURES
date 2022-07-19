@@ -175,7 +175,8 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                         map_int_t *reverse_region_map,
                         map_int_t *potential_region_map,
                         map_int_t *HUC_map, map_float_t *max_flood_probability_map,
-                        map_int_t *DDF_region_map);
+                        map_int_t *DDF_region_map,
+                        bool steering);
 void read_predictors(struct RasterInputs inputs, struct Segments *segments,
                      const struct Potential *potential,
                      const struct SegmentMemory segment_info);

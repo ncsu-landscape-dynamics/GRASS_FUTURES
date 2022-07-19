@@ -107,7 +107,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                         map_int_t *reverse_region_map,
                         map_int_t *potential_region_map,
                         map_int_t *HUC_map, map_float_t *max_flood_probability_map,
-                        map_int_t *DDF_region_map)
+                        map_int_t *DDF_region_map, bool steering)
 {
     int row, col;
     int rows, cols;
@@ -275,13 +275,22 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         for (col = 0; col < cols; col++) {
             isnull = false;
             /* developed */
-            /* undeveloped 0 -> -1000, developed 1 -> 0 */
             if (!Rast_is_null_value(&((CELL *) developed_row)[col], CELL_TYPE)) {
                 c = ((CELL *) developed_row)[col];
-                if (c == 0)
-                    ((CELL *) developed_row)[col] = DEV_TYPE_UNDEVELOPED;
-                else
-                    ((CELL *) developed_row)[col] = c - 1;
+                if (steering) {
+                    if (!segments->use_climate) {
+                        /* undeveloped -1 -> -1000 */
+                        if (c == -1)
+                            ((CELL *) developed_row)[col] = DEV_TYPE_UNDEVELOPED;
+                    }
+                }
+                /* undeveloped 0 -> -1000, developed 1 -> 0 */
+                else {
+                    if (c == 0)
+                        ((CELL *) developed_row)[col] = DEV_TYPE_UNDEVELOPED;
+                    else
+                        ((CELL *) developed_row)[col] = c - 1;
+                }
             }
             else
                 isnull = true;
