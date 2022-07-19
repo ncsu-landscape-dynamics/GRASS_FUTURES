@@ -35,6 +35,7 @@ void initialize_flood_response(struct ACDamageRelation *response_relation,
     response_relation->vulnerability_b = atof(response[1]);
     response_relation->resilience_a = atof(response[2]);
     response_relation->resilience_b = atof(response[3]);
+    response_relation->stddev = stddev;
 }
 
 void initialize_flood_log(struct FloodLog *log, int maxsize)
