@@ -160,7 +160,9 @@ int main(int argc, char **argv)
                 *HAND, *HAND_percentile, *floodInputFile, *floodLog,
                 *depthDamageFunc, *ddf_subregions, *response_func, *responseStddev,
                 *adaptations, *adaptiveCapacity, *HUCs, *outputAdaptation,
-                *patchFile, *numSteps, *output, *outputSeries, *seed, *memory;
+                *patchFile, *numSteps, *output, *outputSeries,
+                *outputDevPressure,
+                *seed, *memory;
     } opt;
 
     struct
@@ -343,6 +345,13 @@ int main(int argc, char **argv)
     opt.outputSeries->label =
         _("Basename for raster maps of development generated after each step");
     opt.outputSeries->guisection = _("Output");
+
+    opt.outputDevPressure = G_define_standard_option(G_OPT_R_OUTPUT);
+    opt.outputDevPressure->key = "output_development_pressure";
+    opt.outputDevPressure->required = NO;
+    opt.outputDevPressure->label =
+        _("Output development pressure raster");
+    opt.outputDevPressure->guisection = _("Development pressure");
 
     opt.outputDensity = G_define_standard_option(G_OPT_R_BASENAME_OUTPUT);
     opt.outputDensity->key = "output_density";
@@ -920,6 +929,10 @@ int main(int argc, char **argv)
     output_developed_step(&segments.developed, opt.output->answer,
                           demand_info.years[0], demand_info.years[step-1],
                           num_steps, segments.use_climate ? true : false);
+
+    if (opt.outputDevPressure->answer)
+        output_step(&segments.devpressure, &segments.developed, opt.outputDevPressure->answer, FCELL_TYPE);
+
     if (opt.floodLog->answer)
         write_flood_log(&flood_log, opt.floodLog->answer, &HUC_map);
 
