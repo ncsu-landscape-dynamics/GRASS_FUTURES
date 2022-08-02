@@ -16,6 +16,8 @@ struct Demand
 {
     const char *cells_filename;
     const char *population_filename;
+    const char *cells_output_filename;
+    const char *population_output_filename;
     float **cells_table;
     float **population_table;
     int *years;

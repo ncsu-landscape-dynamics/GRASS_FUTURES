@@ -23,6 +23,7 @@
 
 #include "output.h"
 #include "inputs.h"
+#include "map.h"
 
 
 static void create_timestamp(int year, struct TimeStamp* timestamp)
@@ -206,4 +207,45 @@ void output_step(SEGMENT *output_segment, SEGMENT *developed_segment,
 
     G_message(_("Raster map <%s> created"), name);
 
+}
+
+void output_demand_file(struct Demand *demandInfo, map_int_t *reverse_region_map,
+                        int *patch_overflow, int step)
+{
+    FILE *fp_cell = NULL;
+    if ((fp_cell = fopen(demandInfo->cells_output_filename, "w")) == NULL)
+        G_fatal_error(_("Cannot open area demand file <%s> for writing"),
+                      demandInfo->cells_output_filename);
+    fprintf(fp_cell, "year");
+    /* wtite region header */
+    for (int region = 0; region < map_nitems(reverse_region_map); region++) {
+        int *region_id = map_get_int(reverse_region_map, region);
+        fprintf(fp_cell, ",%d", *region_id);
+    }
+    fprintf(fp_cell, "\n");
+
+    int *patch_overflow_copy = G_calloc(map_nitems(reverse_region_map), sizeof(int));
+    memcpy(patch_overflow_copy, patch_overflow, sizeof(int) * map_nitems(reverse_region_map));
+    for (int row = 0; row < demandInfo->max_steps; row++) {
+        /* write year */
+        fprintf(fp_cell, "%d", demandInfo->years[row]);
+        for (int region = 0; region < map_nitems(reverse_region_map); region++) {
+            /* resolve patch overflow */
+            int n_to_convert = lroundf(demandInfo->cells_table[region][row]);
+
+            if ((row == step + 1) && patch_overflow_copy[region] > 0) {
+                if (n_to_convert - patch_overflow_copy[region] > 0) {
+                    n_to_convert -= patch_overflow_copy[region];
+                }
+                else {
+                    patch_overflow_copy[region] -= n_to_convert;
+                    n_to_convert = 0;
+                }
+            }
+            fprintf(fp_cell, ",%d", n_to_convert);
+        }
+        fprintf(fp_cell, "\n");
+    }
+    G_free(patch_overflow_copy);
+    fclose(fp_cell);
 }

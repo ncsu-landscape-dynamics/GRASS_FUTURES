@@ -161,7 +161,7 @@ int main(int argc, char **argv)
                 *depthDamageFunc, *ddf_subregions, *response_func, *responseStddev,
                 *adaptations, *adaptiveCapacity, *HUCs, *outputAdaptation,
                 *patchFile, *numSteps, *output, *outputSeries,
-                *outputDevPressure,
+                *steering_step, *outputDevPressure, *outputCellDemandFile,
                 *seed, *memory;
     } opt;
 
@@ -173,6 +173,9 @@ int main(int argc, char **argv)
     int i;
     int num_predictors;
     int num_steps;
+    int max_steps;
+    int steering_step;
+    int internal_step;
     int nseg;
     unsigned region;
     int *region_id;
@@ -384,6 +387,13 @@ int main(int argc, char **argv)
             _("CSV file with population size to accommodate");
     opt.populationDemandFile->guisection = _("Demand");
 
+    opt.outputCellDemandFile = G_define_standard_option(G_OPT_F_OUTPUT);
+    opt.outputCellDemandFile->key = "output_demand";
+    opt.outputCellDemandFile->required = NO;
+    opt.outputCellDemandFile->description =
+            _("Output CSV file with number of cells to convert for each step and subregion");
+    opt.outputCellDemandFile->guisection = _("Steering");
+
     opt.separator = G_define_standard_option(G_OPT_F_SEP);
     opt.separator->answer = "comma";
     opt.separator->description =
@@ -546,6 +556,15 @@ int main(int argc, char **argv)
         _("Number of steps to be simulated");
     opt.numSteps->guisection = _("Basic input");
 
+    opt.steering_step = G_define_option();
+    opt.steering_step->key = "steering_step";
+    opt.steering_step->type = TYPE_INTEGER;
+    opt.steering_step->required = NO;
+    opt.steering_step->options = "0-1000";
+    opt.steering_step->description =
+        _("Steering step");
+    opt.steering_step->guisection = _("Steering");
+
     opt.potentialWeight = G_define_standard_option(G_OPT_R_INPUT);
     opt.potentialWeight->key = "potential_weight";
     opt.potentialWeight->required = NO;
@@ -613,7 +632,8 @@ int main(int argc, char **argv)
     G_option_requires(opt.outputAdaptation, opt.adaptiveCapacity, NULL);
     G_option_requires(opt.HAND, opt.HAND_percentile, NULL);
     G_option_requires(opt.floodLog, opt.floodInputFile, NULL);
-    G_option_requires_all(flg.steering, opt.outputDevPressure, NULL);
+    G_option_requires_all(flg.steering, opt.outputDevPressure,
+                          opt.outputCellDemandFile, opt.steering_step, NULL);
     if (G_parser(argc, argv))
         exit(EXIT_FAILURE);
 
@@ -657,11 +677,12 @@ int main(int argc, char **argv)
     patch_info.strategy = SKIP;
     if (opt.redevelopmentLag->answer)
         patch_info.redevelopment_lag = atoi(opt.redevelopmentLag->answer);
-    
-    num_steps = 0;
-    if (opt.numSteps->answer)
-        num_steps = atoi(opt.numSteps->answer);
-    
+
+    step = 0;
+    if (opt.steering_step->answer) {
+        steering_step = atoi(opt.steering_step->answer);
+        step = steering_step;
+    }
     num_predictors = 0;
     for (i = 0; opt.predictors->answers[i]; i++)
         num_predictors++;
@@ -827,15 +848,22 @@ int main(int argc, char **argv)
         demand_info.has_population = true;
         demand_info.population_filename = opt.populationDemandFile->answer;
     }
+    if (opt.outputCellDemandFile->answer)
+        demand_info.cells_output_filename = opt.outputCellDemandFile->answer;
     demand_info.separator = G_option_to_separator(opt.separator);
     read_demand_file(&demand_info, &region_map);
-    if (num_steps == 0)
-        num_steps = demand_info.max_steps;
+
+    max_steps = demand_info.max_steps;
+    internal_step = 0;
+    num_steps = max_steps;
+    if (opt.numSteps->answer)
+        num_steps = atoi(opt.numSteps->answer);
+
 
     /* check redistribution matrix output files */
     if (opt.redistributionMatrixOutput->answer) {
         redistr_matrix.output_basename = opt.redistributionMatrixOutput->answer;
-        if (check_matrix_filenames_exist(&redistr_matrix, num_steps)) {
+        if (check_matrix_filenames_exist(&redistr_matrix, max_steps)) {
             if (!G_check_overwrite(argc, argv))
                 G_fatal_error(_("At least one of the requested matrix output files exists. Use --o to overwrite."));
         }
@@ -881,16 +909,16 @@ int main(int argc, char **argv)
     overgrow = true;
     G_verbose_message("Starting simulation...");
     leaving_population = 0;
-    for (step = 0; step < num_steps; step++) {
+    for (; step < max_steps && internal_step < num_steps; step++, internal_step++) {
         recompute_probabilities(undev_cells, &segments, &potential_info, false);
         if (segments.use_density)
             recompute_probabilities(dev_cells, &segments, &redev_potential_info, true);
-        if (step == num_steps - 1)
+        if (step == max_steps - 1)
             overgrow = false;
         for (region = 0; region < map_nitems(&region_map); region++) {
             region_id = map_get_int(&reverse_region_map, region);
             G_verbose_message("Computing step %d (out of %d), region %d (%d out of %d)",
-                              step + 1, num_steps, *region_id,
+                              step + 1, max_steps, *region_id,
                               region + 1, map_nitems(&region_map));
             compute_step(undev_cells, dev_cells, &demand_info, search_alg, &segments,
                          &patch_sizes, &patch_info, &devpressure_info, patch_overflow,
@@ -910,31 +938,33 @@ int main(int argc, char **argv)
                              &max_flood_probability_map, &flood_inputs, &flood_log, &DDF,
                              &response_relation, HUC);
             if (opt.redistributionMatrixOutput->answer)
-                write_redistribution_matrix(&redistr_matrix, step, num_steps);
+                write_redistribution_matrix(&redistr_matrix, step, max_steps);
         }
         /* export developed for that step */
         if (opt.outputSeries->answer) {
-            name_step = name_for_step(opt.outputSeries->answer, step, num_steps);
+            name_step = name_for_step(opt.outputSeries->answer, step, max_steps);
             output_developed_step(&segments.developed, name_step,
-                                  demand_info.years[step], -1, num_steps,
+                                  demand_info.years[step], -1, max_steps,
                                   segments.use_climate ? true : false);
         }
         /* export density for that step */
         if (opt.outputDensity->answer) {
-            name_step = name_for_step(opt.outputDensity->answer, step, num_steps);
+            name_step = name_for_step(opt.outputDensity->answer, step, max_steps);
             output_step(&segments.density, &segments.developed, name_step, FCELL_TYPE);
         }
         /* export density for that step */
         if (opt.outputAdaptation->answer) {
-            name_step = name_for_step(opt.outputAdaptation->answer, step, num_steps);
+            name_step = name_for_step(opt.outputAdaptation->answer, step, max_steps);
             output_step(&segments.adaptation, &segments.developed, name_step, CELL_TYPE);
         }
+        if (opt.outputCellDemandFile->answer)
+            output_demand_file(&demand_info, &reverse_region_map, patch_overflow, step);
     }
 
     /* write */
     output_developed_step(&segments.developed, opt.output->answer,
                           demand_info.years[0], demand_info.years[step-1],
-                          num_steps, segments.use_climate ? true : false);
+                          max_steps, segments.use_climate ? true : false);
 
     if (opt.outputDevPressure->answer)
         output_step(&segments.devpressure, &segments.developed, opt.outputDevPressure->answer, FCELL_TYPE);
