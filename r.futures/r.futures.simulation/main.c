@@ -851,7 +851,7 @@ int main(int argc, char **argv)
     if (opt.outputCellDemandFile->answer)
         demand_info.cells_output_filename = opt.outputCellDemandFile->answer;
     demand_info.separator = G_option_to_separator(opt.separator);
-    read_demand_file(&demand_info, &region_map);
+    read_demand_file(&demand_info, &region_map, &reverse_region_map);
 
     max_steps = demand_info.max_steps;
     internal_step = 0;

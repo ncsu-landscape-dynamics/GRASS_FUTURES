@@ -580,11 +580,11 @@ void read_predictors(struct RasterInputs inputs, struct Segments *segments,
 
 
 static int _read_demand_file(FILE *fp, const char *separator,
-                             float **table, int *demand_years,
-                             map_int_t *region_map)
+                             float ***table, int n_years, int *demand_years,
+                             map_int_t *region_map, map_int_t *reverse_region_map)
 {
 
-    size_t buflen = 4000;
+    size_t buflen = 35000;
     char buf[buflen];
     // read in the first row (header)
     if (G_getl2(buf, buflen, fp) == 0)
@@ -605,9 +605,23 @@ static int _read_demand_file(FILE *fp, const char *separator,
     int count;
     // skip first column which does not contain id of the region
     unsigned i;
+    int count_regions = map_nitems(region_map);
     for (i = 1; i < ntokens; i++) {
         G_chop(tokens[i]);
-        G_ilist_add(ids, atoi(tokens[i]));
+        int region_ID = atoi(tokens[i]);
+        G_ilist_add(ids, region_ID);
+        /* include subregions outside of subregion map too */
+        int *idx = map_get_int(region_map, region_ID);
+        if (!idx) {
+            map_set_int(region_map, region_ID, count_regions);
+            map_set_int(reverse_region_map, count_regions, region_ID);
+            count_regions++;
+        }
+    }
+    /* once we know how big the table is, allocate it */
+    *table = (float **) G_malloc(map_nitems(region_map) * sizeof(float *));
+    for (unsigned i = 0; i < map_nitems(region_map); i++) {
+        (*table)[i] = (float *) G_malloc(n_years * sizeof(float));
     }
 
     int years = 0;
@@ -628,7 +642,7 @@ static int _read_demand_file(FILE *fp, const char *separator,
             int *idx = map_get_int(region_map, ids->value[count]);
             if (idx) {
                 G_chop(tokens[i]);
-                table[*idx][years] = atof(tokens[i]);
+                (*table)[*idx][years] = atof(tokens[i]);
             }
             count++;
         }
@@ -640,7 +654,8 @@ static int _read_demand_file(FILE *fp, const char *separator,
     return years;
 }
 
-void read_demand_file(struct Demand *demandInfo, map_int_t *region_map)
+void read_demand_file(struct Demand *demandInfo, map_int_t *region_map,
+                      map_int_t *reverse_region_map)
 {
     FILE *fp_cell = NULL, *fp_population = NULL;
     if ((fp_cell = fopen(demandInfo->cells_filename, "r")) == NULL)
@@ -670,13 +685,9 @@ void read_demand_file(struct Demand *demandInfo, map_int_t *region_map)
     }
 
     demandInfo->years = (int *) G_malloc(countlines * sizeof(int));
-    demandInfo->cells_table = (float **) G_malloc(map_nitems(region_map) * sizeof(float *));
-    for (unsigned i = 0; i < map_nitems(region_map); i++) {
-        demandInfo->cells_table[i] = (float *) G_malloc(countlines * sizeof(float));
-    }
     int num_years = _read_demand_file(fp_cell, demandInfo->separator,
-                                      demandInfo->cells_table,
-                                      demandInfo->years, region_map);
+                                      &(demandInfo->cells_table), countlines,
+                                      demandInfo->years, region_map, reverse_region_map);
     demandInfo->max_subregions = map_nitems(region_map);
     demandInfo->max_steps = num_years;
     G_verbose_message("Number of steps in area demand file: %d", num_years);
@@ -684,13 +695,9 @@ void read_demand_file(struct Demand *demandInfo, map_int_t *region_map)
 
     if (demandInfo->has_population) {
         int *years2 = (int *) G_malloc(countlines * sizeof(int));
-        demandInfo->population_table = (float **) G_malloc(map_nitems(region_map) * sizeof(float *));
-        for (unsigned i = 0; i < map_nitems(region_map); i++) {
-            demandInfo->population_table[i] = (float *) G_malloc(countlines * sizeof(float));
-        }
         int num_years2 = _read_demand_file(fp_population, demandInfo->separator,
-                                          demandInfo->population_table,
-                                          years2, region_map);
+                                          &(demandInfo->population_table), countlines,
+                                          years2, region_map, reverse_region_map);
         // check files for consistency
         if (num_years != num_years2)
             G_fatal_error(_("Area and population demand files (<%s> and <%s>) "
