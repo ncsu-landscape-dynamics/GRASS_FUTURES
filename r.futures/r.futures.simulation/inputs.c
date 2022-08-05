@@ -104,7 +104,7 @@ void initialize_incentive(struct Potential *potential_info, float exponent)
  */
 void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                         struct SegmentMemory segment_info, map_int_t *region_map,
-                        map_int_t *reverse_region_map,
+                        map_int_t *reverse_region_map, map_int_t *internal_region_map,
                         map_int_t *potential_region_map,
                         map_int_t *HUC_map, map_float_t *max_flood_probability_map,
                         map_int_t *DDF_region_map, bool steering)
@@ -300,6 +300,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                 region_pindex = map_get_int(region_map, c);
                 if (!region_pindex) {
                     map_set_int(region_map, c, count_regions);
+                    map_set_int(internal_region_map, c, count_regions);
                     map_set_int(reverse_region_map, count_regions, c);
                     region_index = count_regions;
                     count_regions++;

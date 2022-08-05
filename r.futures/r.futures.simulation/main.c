@@ -157,6 +157,7 @@ int main(int argc, char **argv)
                 *cellDemandFile, *populationDemandFile, *separator,
                 *density, *densityCapacity, *outputDensity, *redevelopmentLag,
                 *redevelopmentPotentialFile, *redistributionMatrix, *redistributionMatrixOutput,
+                *redistributionMatrixExternalOutput,
                 *HAND, *HAND_percentile, *floodInputFile, *floodLog,
                 *depthDamageFunc, *ddf_subregions, *response_func, *responseStddev,
                 *adaptations, *adaptiveCapacity, *HUCs, *outputAdaptation,
@@ -188,6 +189,7 @@ int main(int argc, char **argv)
     struct RasterInputs raster_inputs;
     map_int_t region_map;
     map_int_t reverse_region_map;
+    map_int_t internal_region_map;
     map_int_t potential_region_map;
     map_int_t predictor_map;
     map_float_t max_flood_probability_map;
@@ -417,6 +419,12 @@ int main(int argc, char **argv)
     opt.redistributionMatrixOutput->required = NO;
     opt.redistributionMatrixOutput->description = _("Base name for output file containing matrix of pixels moved from one subregion to another");
     opt.redistributionMatrixOutput->guisection = _("Climate scenarios");
+
+    opt.redistributionMatrixExternalOutput = G_define_standard_option(G_OPT_F_OUTPUT);
+    opt.redistributionMatrixExternalOutput->key = "redistribution_external_output";
+    opt.redistributionMatrixExternalOutput->required = NO;
+    opt.redistributionMatrixExternalOutput->description = _("Base name for output file containing matrix of pixels moved from one subregion to another");
+    opt.redistributionMatrixExternalOutput->guisection = _("Steering");
 
     opt.HAND = G_define_standard_option(G_OPT_R_INPUT);
     opt.HAND->key = "hand";
@@ -801,12 +809,13 @@ int main(int argc, char **argv)
     //    read Subregions layer
     map_init(&region_map);
     map_init(&reverse_region_map);
+    map_init(&internal_region_map);
     map_init(&potential_region_map);
     map_init(&predictor_map);
     map_init(&DDF_region_map);
     G_verbose_message("Reading input rasters...");
     read_input_rasters(raster_inputs, &segments, segment_info, &region_map,
-                       &reverse_region_map, &potential_region_map,
+                       &reverse_region_map, &internal_region_map, &potential_region_map,
                        &HUC_map, &max_flood_probability_map,
                        &DDF_region_map, flg.steering->answer);
     if (flood_inputs.array) {
@@ -863,7 +872,14 @@ int main(int argc, char **argv)
     /* check redistribution matrix output files */
     if (opt.redistributionMatrixOutput->answer) {
         redistr_matrix.output_basename = opt.redistributionMatrixOutput->answer;
-        if (check_matrix_filenames_exist(&redistr_matrix, max_steps)) {
+        if (check_matrix_filenames_exist(&redistr_matrix, false, max_steps)) {
+            if (!G_check_overwrite(argc, argv))
+                G_fatal_error(_("At least one of the requested matrix output files exists. Use --o to overwrite."));
+        }
+    }
+    if (opt.redistributionMatrixExternalOutput->answer) {
+        redistr_matrix.output_external_basename = opt.redistributionMatrixExternalOutput->answer;
+        if (check_matrix_filenames_exist(&redistr_matrix, true, max_steps)) {
             if (!G_check_overwrite(argc, argv))
                 G_fatal_error(_("At least one of the requested matrix output files exists. Use --o to overwrite."));
         }
@@ -932,13 +948,15 @@ int main(int argc, char **argv)
                 update_flood_probability(step, &flood_inputs, &segments, &HUC_map, &max_flood_probability_map);
             for (HUC = 0; HUC < map_nitems(&HUC_map); HUC++)
                 climate_step(&segments, &demand_info, &bboxes,
-                             &redistr_matrix, &region_map, &reverse_region_map,
+                             &redistr_matrix, &region_map, &reverse_region_map, &internal_region_map,
                              step, &leaving_population,
                              &HUC_bbox_vals, HAND_percentile,
                              &max_flood_probability_map, &flood_inputs, &flood_log, &DDF,
                              &response_relation, HUC);
             if (opt.redistributionMatrixOutput->answer)
-                write_redistribution_matrix(&redistr_matrix, step, max_steps);
+                write_redistribution_matrix(&redistr_matrix, false, step, max_steps);
+            if (opt.redistributionMatrixExternalOutput->answer)
+                write_redistribution_matrix(&redistr_matrix, true, step, max_steps);
         }
         /* export developed for that step */
         if (opt.outputSeries->answer) {
@@ -1009,6 +1027,7 @@ int main(int argc, char **argv)
     }
     map_deinit(&region_map);
     map_deinit(&reverse_region_map);
+    map_deinit(&internal_region_map);
     map_deinit(&predictor_map);
     map_deinit(&potential_region_map);
     map_deinit(&DDF_region_map);

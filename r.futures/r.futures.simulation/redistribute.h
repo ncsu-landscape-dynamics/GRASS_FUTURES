@@ -8,8 +8,10 @@ struct RedistributionMatrix
 {
     const char *filename;
     const char *output_basename;
+    const char *output_external_basename;
     float **probabilities;
     float **moved_px;
+    float **external_px;
     int dim_from;
     int dim_to;
     int max_dim_from;
@@ -19,10 +21,10 @@ struct RedistributionMatrix
 };
 
 void redistribute(struct RedistributionMatrix *matrix, struct Demand *demand,
-                  int regionID, int num_px, map_int_t *region_map,
+                  int regionID, int num_px, map_int_t *region_map, map_int_t *internal_region_map,
                   int step, float *leaving_population);
 void read_redistribution_matrix(struct RedistributionMatrix *matrix);
-bool check_matrix_filenames_exist(const struct RedistributionMatrix *matrix, int nsteps);
-void write_redistribution_matrix(struct RedistributionMatrix *matrix, int step, int nsteps);
+bool check_matrix_filenames_exist(const struct RedistributionMatrix *matrix, bool external, int nsteps);
+void write_redistribution_matrix(struct RedistributionMatrix *matrix, bool external, int step, int nsteps);
 void free_redistribution_matrix(struct RedistributionMatrix *matrix);
 #endif // FUTURES_REDISTRIBUTE_H
