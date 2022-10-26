@@ -907,15 +907,15 @@ int main(int argc, char **argv)
     /* read Patch sizes file */
     G_verbose_message("Reading patch size file...");
     patch_sizes.filename = opt.patchFile->answer;
-    read_patch_sizes(&patch_sizes, &region_map, discount_factor);
+    read_patch_sizes(&patch_sizes, &internal_region_map, discount_factor);
 
-    undev_cells = initialize_developables(map_nitems(&region_map), undev_estimate);
-    patch_overflow = G_calloc(map_nitems(&region_map), sizeof(int));
+    undev_cells = initialize_developables(map_nitems(&internal_region_map), undev_estimate);
+    patch_overflow = G_calloc(map_nitems(&internal_region_map), sizeof(int));
 
     /* redevelopment */
     if (segments.use_density) {
-        dev_cells = initialize_developables(map_nitems(&region_map), undev_estimate);
-        population_overflow = G_calloc(map_nitems(&region_map), sizeof(float));
+        dev_cells = initialize_developables(map_nitems(&internal_region_map), undev_estimate);
+        population_overflow = G_calloc(map_nitems(&internal_region_map), sizeof(float));
     }
     else {
         dev_cells = NULL;
@@ -931,11 +931,12 @@ int main(int argc, char **argv)
             recompute_probabilities(dev_cells, &segments, &redev_potential_info, true);
         if (step == max_steps - 1)
             overgrow = false;
-        for (region = 0; region < map_nitems(&region_map); region++) {
+        for (region = 0; region < map_nitems(&internal_region_map); region++) {
+            /* Indices of regions present in subregions always start with 0 because they are read in first */
             region_id = map_get_int(&reverse_region_map, region);
             G_verbose_message("Computing step %d (out of %d), region %d (%d out of %d)",
                               step + 1, max_steps, *region_id,
-                              region + 1, map_nitems(&region_map));
+                              region + 1, map_nitems(&internal_region_map));
             compute_step(undev_cells, dev_cells, &demand_info, search_alg, &segments,
                          &patch_sizes, &patch_info, &devpressure_info, patch_overflow,
                          population_overflow, &redistr_matrix, step, region, &reverse_region_map, overgrow);
