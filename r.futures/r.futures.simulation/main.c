@@ -910,12 +910,13 @@ int main(int argc, char **argv)
     read_patch_sizes(&patch_sizes, &internal_region_map, discount_factor);
 
     undev_cells = initialize_developables(map_nitems(&internal_region_map), undev_estimate);
-    patch_overflow = G_calloc(map_nitems(&internal_region_map), sizeof(int));
+    /* all demand related arrays need to account for external subregions, hence region_map */
+    patch_overflow = G_calloc(map_nitems(&region_map), sizeof(int));
 
     /* redevelopment */
     if (segments.use_density) {
         dev_cells = initialize_developables(map_nitems(&internal_region_map), undev_estimate);
-        population_overflow = G_calloc(map_nitems(&internal_region_map), sizeof(float));
+        population_overflow = G_calloc(map_nitems(&region_map), sizeof(float));
     }
     else {
         dev_cells = NULL;
@@ -977,7 +978,7 @@ int main(int argc, char **argv)
             output_step(&segments.adaptation, &segments.developed, name_step, CELL_TYPE);
         }
         if (opt.outputCellDemandFile->answer)
-            output_demand_file(&demand_info, &reverse_region_map, patch_overflow, step);
+            output_demand_file(&demand_info, &region_map, patch_overflow, step);
     }
 
     /* write */
@@ -1037,11 +1038,13 @@ int main(int argc, char **argv)
             G_free(demand_info.cells_table[i]);
         G_free(demand_info.cells_table);
         G_free(demand_info.years);
+        G_free_ilist(demand_info.cells_header);
     }
     if (demand_info.has_population) {
         for (int i = 0; i < demand_info.max_subregions; i++)
             G_free(demand_info.population_table[i]);
         G_free(demand_info.population_table);
+        G_free_ilist(demand_info.population_header);
     }
     if (potential_info.predictors) {
         for (int i = 0; i < potential_info.max_predictors; i++)

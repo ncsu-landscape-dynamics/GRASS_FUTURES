@@ -209,7 +209,7 @@ void output_step(SEGMENT *output_segment, SEGMENT *developed_segment,
 
 }
 
-void output_demand_file(struct Demand *demandInfo, map_int_t *reverse_region_map,
+void output_demand_file(struct Demand *demandInfo, map_int_t *region_map,
                         int *patch_overflow, int step)
 {
     FILE *fp_cell = NULL;
@@ -217,28 +217,28 @@ void output_demand_file(struct Demand *demandInfo, map_int_t *reverse_region_map
         G_fatal_error(_("Cannot open area demand file <%s> for writing"),
                       demandInfo->cells_output_filename);
     fprintf(fp_cell, "year");
-    /* wtite region header */
-    for (int region = 0; region < map_nitems(reverse_region_map); region++) {
-        int *region_id = map_get_int(reverse_region_map, region);
-        fprintf(fp_cell, ",%d", *region_id);
+    /* write region header */
+    for (int region = 0; region < demandInfo->cells_header->n_values; region++) {
+        fprintf(fp_cell, ",%d", demandInfo->cells_header->value[region]);
     }
     fprintf(fp_cell, "\n");
 
-    int *patch_overflow_copy = G_calloc(map_nitems(reverse_region_map), sizeof(int));
-    memcpy(patch_overflow_copy, patch_overflow, sizeof(int) * map_nitems(reverse_region_map));
+    int *patch_overflow_copy = G_calloc(map_nitems(region_map), sizeof(int));
+    memcpy(patch_overflow_copy, patch_overflow, sizeof(int) * map_nitems(region_map));
     for (int row = 0; row < demandInfo->max_steps; row++) {
         /* write year */
         fprintf(fp_cell, "%d", demandInfo->years[row]);
-        for (int region = 0; region < map_nitems(reverse_region_map); region++) {
+        for (int region = 0; region < demandInfo->cells_header->n_values; region++) {
+            int *region_idx = map_get_int(region_map, demandInfo->cells_header->value[region]);
             /* resolve patch overflow */
-            int n_to_convert = lroundf(demandInfo->cells_table[region][row]);
+            int n_to_convert = lroundf(demandInfo->cells_table[*region_idx][row]);
 
-            if ((row == step + 1) && patch_overflow_copy[region] > 0) {
-                if (n_to_convert - patch_overflow_copy[region] > 0) {
-                    n_to_convert -= patch_overflow_copy[region];
+            if ((row == step + 1) && patch_overflow_copy[*region_idx] > 0) {
+                if (n_to_convert - patch_overflow_copy[*region_idx] > 0) {
+                    n_to_convert -= patch_overflow_copy[*region_idx];
                 }
                 else {
-                    patch_overflow_copy[region] -= n_to_convert;
+                    patch_overflow_copy[*region_idx] -= n_to_convert;
                     n_to_convert = 0;
                 }
             }

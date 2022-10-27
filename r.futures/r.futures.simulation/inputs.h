@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <grass/segment.h>
+#include <grass/gis.h>
 
 #include "map.h"
 enum development_type {DEV_TYPE_INITIAL = 0,
@@ -20,6 +21,8 @@ struct Demand
     const char *population_output_filename;
     float **cells_table;
     float **population_table;
+    struct ilist *cells_header;
+    struct ilist *population_header;
     int *years;
     int max_subregions;
     int max_steps;

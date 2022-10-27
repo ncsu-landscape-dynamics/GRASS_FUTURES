@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
+import pandas as pd
 
 from grass.gunittest.case import TestCase
 from grass.gunittest.main import test
 import grass.script as gs
-import unittest
 
 
 def compare_base_stats(reference, output_map):
@@ -40,6 +40,8 @@ class TestSteering(TestCase):
     output_development_pressure = "output_development_pressure"
     output_development_pressure_1 = "output_development_pressure_1"
     output_development_pressure_2 = "output_development_pressure_2"
+    redistribution_1 = "redistribution_1"
+    redistribution_2 = "redistribution_2"
 
     @classmethod
     def setUpClass(cls):
@@ -150,6 +152,9 @@ class TestSteering(TestCase):
         cls.runModule(
             "r.mapcalc", expression="urban_2002_steered = if (urban_2002 == 0, -1, 0)"
         )
+        cls.runModule(
+            "r.mapcalc", expression="urban_2002_flooded_steered = if (urban_2002 == 0, -1000, 0)"
+        )
         rules_1 = """27511 = 27511
                     27513 = 27513
                     27518 = 27518
@@ -207,6 +212,7 @@ class TestSteering(TestCase):
                 "acapacity",
                 "basin",
                 "urban_2002_steered",
+                "urban_2002_flooded_steered",
                 "subregions_1",
                 "subregions_2",
                 cls.result,
@@ -234,7 +240,7 @@ class TestSteering(TestCase):
             ],
         )
 
-    # @unittest.skip
+
     def test_pga_run_simple_steering(self):
         """Test if results is in expected limits"""
         for i in range(0, 7):
@@ -345,6 +351,145 @@ class TestSteering(TestCase):
             actual=self.output,
             reference=self.result_steering_distributed,
             precision=1e-6,
+        )
+
+    def test_pga_run_flooding_steering(self):
+        """Test if results is in expected limits"""
+        for i in range(0, 7):
+            self.assertModule(
+                "r.futures.simulation",
+                developed="urban_2002_flooded_steered" if i == 0 else self.output,
+                development_pressure="devpressure"
+                if i == 0
+                else self.output_development_pressure,
+                compactness_mean=0.4,
+                compactness_range=0.05,
+                discount_factor=0.1,
+                patch_sizes="data/patches.csv",
+                predictors=["slope", "lakes_dist_km", "streets_dist_km"],
+                n_dev_neighbourhood=15,
+                devpot_params="data/potential.csv",
+                random_seed=1,
+                num_neighbors=4,
+                seed_search="random",
+                development_pressure_approach="gravity",
+                gamma=1.5,
+                scaling_factor=1,
+                subregions="zipcodes",
+                demand="data/demand.csv" if i == 0 else self.output_demand,
+                output=self.output,
+                flags="r",
+                output_development_pressure=self.output_development_pressure,
+                output_demand=self.output_demand,
+                redistribution_matrix="data/matrix.csv",
+                flood_maps_file="data/flood_depth_input_steered.csv",
+                adaptive_capacity="acapacity",
+                huc="basin",
+                depth_damage_functions="data/damage_curves.csv",
+                ddf_subregions="zipcodes",
+                population_demand="data/population_demand.csv",
+                response_func=[0.25, 0.5, 0.25, 0.5],
+                response_stddev=0.1,
+                num_steps=1,
+                steering_step=i,
+                overwrite=True,
+            )
+
+    def test_pga_run_flooding_distributed_steering(self):
+        """Test if results is in expected limits"""
+        for i in range(0, 7):
+            self.assertModule(
+                "r.futures.simulation",
+                developed="urban_2002_flooded_steered" if i == 0 else self.output_1,
+                development_pressure="devpressure"
+                if i == 0
+                else self.output_development_pressure_1,
+                compactness_mean=0.4,
+                compactness_range=0.05,
+                discount_factor=0.1,
+                patch_sizes="data/patches.csv",
+                predictors=["slope", "lakes_dist_km", "streets_dist_km"],
+                n_dev_neighbourhood=15,
+                devpot_params="data/potential.csv",
+                random_seed=1,
+                num_neighbors=4,
+                seed_search="random",
+                development_pressure_approach="gravity",
+                gamma=1.5,
+                scaling_factor=1,
+                subregions="subregions_1",
+                demand="data/demand.csv" if i == 0 else self.output_demand_1,
+                output=self.output_1,
+                flags="r",
+                output_development_pressure=self.output_development_pressure_1,
+                output_demand=self.output_demand_1,
+                redistribution_matrix="data/matrix.csv",
+                flood_maps_file="data/flood_depth_input_steered.csv",
+                adaptive_capacity="acapacity",
+                huc="basin",
+                depth_damage_functions="data/damage_curves.csv",
+                ddf_subregions="zipcodes",
+                population_demand="data/population_demand.csv",
+                response_func=[0.25, 0.5, 0.25, 0.5],
+                response_stddev=0.1,
+                redistribution_external_output=self.redistribution_1,
+                num_steps=1,
+                steering_step=i,
+                overwrite=True,
+            )
+            self.assertModule(
+                "r.futures.simulation",
+                developed="urban_2002_flooded_steered" if i == 0 else self.output_2,
+                development_pressure="devpressure"
+                if i == 0
+                else self.output_development_pressure_2,
+                compactness_mean=0.4,
+                compactness_range=0.05,
+                discount_factor=0.1,
+                patch_sizes="data/patches.csv",
+                predictors=["slope", "lakes_dist_km", "streets_dist_km"],
+                n_dev_neighbourhood=15,
+                devpot_params="data/potential.csv",
+                random_seed=1,
+                num_neighbors=4,
+                seed_search="random",
+                development_pressure_approach="gravity",
+                gamma=1.5,
+                scaling_factor=1,
+                subregions="subregions_2",
+                demand="data/demand.csv" if i == 0 else self.output_demand_2,
+                output=self.output_2,
+                flags="r",
+                output_development_pressure=self.output_development_pressure_2,
+                output_demand=self.output_demand_2,
+                redistribution_matrix="data/matrix.csv",
+                flood_maps_file="data/flood_depth_input_steered.csv",
+                adaptive_capacity="acapacity",
+                huc="basin",
+                depth_damage_functions="data/damage_curves.csv",
+                ddf_subregions="zipcodes",
+                population_demand="data/population_demand.csv",
+                response_func=[0.25, 0.5, 0.25, 0.5],
+                response_stddev=0.1,
+                redistribution_external_output=self.redistribution_2,
+                num_steps=1,
+                steering_step=i,
+                overwrite=True,
+            )
+            if i < 6:
+                part_1_df = pd.read_csv(f"{self.redistribution_1}_{i + 1}.csv", index_col=0)
+                part_2_df = pd.read_csv(f"{self.redistribution_2}_{i + 1}.csv", index_col=0)
+                migrants_row = (part_1_df + part_2_df).sum()
+                demand_1_df = pd.read_csv(self.output_demand_1, index_col=0)
+                demand_2_df = pd.read_csv(self.output_demand_2, index_col=0)
+                # add all migrants to demand for next year
+                demand_1_df.iloc[i + 1] += migrants_row
+                demand_2_df.iloc[i + 1] += migrants_row
+                demand_1_df.round(0).astype(int).to_csv(self.output_demand_1)
+                demand_2_df.round(0).astype(int).to_csv(self.output_demand_2)
+
+        self.runModule(
+            "r.patch", input=[self.output_1, self.output_2], output=self.output
         )
 
 
