@@ -343,8 +343,9 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                     ((FCELL *) weights_row)[col] = fc;
                 }
             }
-            /* flooding */
-            if (segments->use_climate) {
+            /* flooding; run only for cells which will be part of simulation
+               to avoid collecting unused hucs/ddfs */
+            if (segments->use_climate && !isnull) {
                 if (inputs.HAND)
                     if (Rast_is_null_value(&((FCELL *) HAND_row)[col], FCELL_TYPE))
                         isnull = true;
