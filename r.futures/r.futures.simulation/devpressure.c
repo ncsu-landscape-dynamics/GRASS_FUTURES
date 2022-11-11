@@ -125,7 +125,10 @@ void initialize_devpressure_matrix(struct DevPressure *devpressure_info)
             else if (devpressure_info->alg == OCCURRENCE)
                 value = 1;
             else if (devpressure_info->alg == GRAVITY)
-                value = devpressure_info->scaling_factor / pow(dist, devpressure_info->gamma);
+                if (i == devpressure_info->neighborhood && j == devpressure_info->neighborhood)
+                    value = 0;
+                else
+                    value = devpressure_info->scaling_factor / pow(dist, devpressure_info->gamma);
             else
                 value = devpressure_info->scaling_factor * exp(-2 * dist / devpressure_info->gamma);
             devpressure_info->matrix[i][j] = value;
