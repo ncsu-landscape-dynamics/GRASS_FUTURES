@@ -64,6 +64,14 @@ def print_results(
     total_allocation,
     kappa,
     kappasim=None,
+    misses=None,
+    hits=None,
+    false_alarms=None,
+    null_successes=None,
+    initially_developed=None,
+    figure_of_merit=None,
+    producer=None,
+    user=None,
 ):
     if formatting == "plain":
         if total_quantity is None:
@@ -93,6 +101,47 @@ def print_results(
             print(_("Kappa: {kappa:.4f}").format(kappa=kappa))
         if kappasim is not None:
             print(_("Kappa simulation: {kappasim:.4f}").format(kappasim=kappasim))
+        if misses is not None:
+            print(
+                _(
+                    "Observed change simulated as persistance (misses): {misses:.2f} %"
+                ).format(misses=misses * 100)
+            )
+        if hits is not None:
+            print(
+                _("Observed change simulated as change (hits): {hits:.2f} %").format(
+                    hits=hits * 100
+                )
+            )
+        if false_alarms is not None:
+            print(
+                _(
+                    "Observed persistance simulated as change (false alarms): {false_alarms:.2f} %"
+                ).format(false_alarms=false_alarms * 100)
+            )
+        if null_successes is not None:
+            print(
+                _(
+                    "Observed persistance simulated as persistance: {null_successes:.2f} %"
+                ).format(null_successes=null_successes * 100)
+            )
+        if initially_developed is not None:
+            print(
+                _(
+                    "Excluded as initially developed: {initially_developed:.2f} %"
+                ).format(initially_developed=initially_developed * 100)
+            )
+        if figure_of_merit is not None:
+            print(
+                _("Figure of merit: {figure_of_merit:.4f}").format(
+                    figure_of_merit=figure_of_merit
+                )
+            )
+        if producer is not None:
+            print(_("Producer's accuracy: {producer:.4f}").format(producer=producer))
+        if user is not None:
+            print(_("User's accuracy: {user:.4f}").format(user=user))
+
     elif formatting == "shell":
 
         def format_value(val):
@@ -107,6 +156,22 @@ def print_results(
         print(f"kappa={format_value(kappa)}")
         if kappasim is not None:
             print(f"kappasimulation={kappasim:.4f}")
+        if misses is not None:
+            print(f"misses={misses:.4f}")
+        if hits is not None:
+            print(f"hits={hits:.4f}")
+        if false_alarms is not None:
+            print(f"false_alarms={false_alarms:.4f}")
+        if null_successes is not None:
+            print(f"null_successes={null_successes:.4f}")
+        if figure_of_merit is not None:
+            print(f"figure_of_merit={figure_of_merit:.4f}")
+        if producer is not None:
+            print(f"producer={producer:.4f}")
+        if user is not None:
+            print(f"user={user:.4f}")
+        if initially_developed is not None:
+            print(f"initially_developed={initially_developed:.4f}")
     elif formatting == "json":
         # export everything even when None
         # for automated processing
@@ -119,6 +184,14 @@ def print_results(
         out["total_allocation"] = total_allocation
         out["kappa"] = kappa
         out["kappasimulation"] = kappasim
+        out["misses"] = misses
+        out["hits"] = hits
+        out["false_alarms"] = false_alarms
+        out["null_successes"] = null_successes
+        out["figure_of_merit"] = figure_of_merit
+        out["producer"] = producer
+        out["user"] = user
+        out["initially_developed"] = initially_developed
         print(
             json.dumps(
                 json.loads(json.dumps(out), parse_float=lambda x: round(float(x), 4))
@@ -146,9 +219,18 @@ def compute(reference, simulated, original):
         results["kappa"] = None
         if original:
             results["kappasim"] = None
+            results["misses"] = None
+            results["hits"] = None
+            results["false_alarms"] = None
+            results["null_successes"] = None
+            results["figure_of_merit"] = None
+            results["producer"] = None
+            results["user"] = None
+            results["initially_developed"] = None
         return cats, results
 
     n_cats = len(cats)
+    initially_developed = 0
     ref_sim = np.zeros((n_cats, n_cats))
     orig_sim = np.zeros((n_cats, n_cats))
     orig_ref = np.zeros((n_cats, n_cats))
@@ -161,10 +243,35 @@ def compute(reference, simulated, original):
             ref_sim[sim_idx, ref_idx] += line[3]
             orig_sim[orig_idx, sim_idx] += line[3]
             orig_ref[orig_idx, ref_idx] += line[3]
+
+            # Pontius 2008
+            # relies on 0 and 1 cats
+            if orig_idx == 0:
+                if ref_idx == 0 and sim_idx == 1:
+                    false_alarms = line[3]
+                elif ref_idx == 1 and sim_idx == 0:
+                    misses = line[3]
+                elif ref_idx == 1 and sim_idx == 1:
+                    hits = line[3]
+                elif ref_idx == 0 and sim_idx == 0:
+                    null_successes = line[3]
+            else:
+                initially_developed += line[3]
         else:
             ref_idx = cats.index(line[0])
             sim_idx = cats.index(line[1])
             ref_sim[sim_idx, ref_idx] += line[2]
+
+    if original:
+        total = misses + hits + false_alarms + null_successes + initially_developed
+        results["misses"] = misses / total
+        results["hits"] = hits / total
+        results["false_alarms"] = false_alarms / total
+        results["null_successes"] = null_successes / total
+        results["figure_of_merit"] = hits / (misses + hits + false_alarms)
+        results["producer"] = hits / (misses + hits)
+        results["user"] = hits / (hits + false_alarms)
+        results["initially_developed"] = initially_developed / total
     # quantity disagreement
     quantity = np.abs(ref_sim.sum(axis=0) - ref_sim.sum(axis=1)) / ref_sim.sum()
     total_quantity = quantity.sum() / 2
