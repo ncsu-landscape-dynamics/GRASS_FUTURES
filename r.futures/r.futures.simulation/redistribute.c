@@ -88,11 +88,11 @@ void redistribute(struct RedistributionMatrix *matrix, struct Demand *demand,
     demand_to_idx = map_get_int(region_map, *to_ID);
     if (demand_to_idx) {
         density_to = demand->population_table[*demand_to_idx][step] / demand->cells_table[*demand_to_idx][step];
-        /* number of pixels in 'to' region */
-        to_px = num_px * density_from / density_to;
-        /* density_from/to can be negative or zero */
-        if (!isfinite(to_px) || to_px < 0)
+        if (density_from <= 0 || density_to <= 0)
             to_px = num_px;
+        else
+            /* number of pixels in 'to' region */
+            to_px = num_px * density_from / density_to;
         /* increase number of px to grow next step */
         if (step + 1 < demand->max_steps) {
             demand->cells_table[*demand_to_idx][step + 1] += to_px;
