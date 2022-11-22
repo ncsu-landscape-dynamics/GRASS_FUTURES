@@ -10,10 +10,13 @@ class TestValidation(TestCase):
 
     actual = "test_actual"
     original = "test_original"
+    actual2 = "test_actual2"
+    original2 = "test_original2"
     S1 = "test_S1"
     S2 = "test_S2"
     S3 = "test_S3"
     S4 = "test_S4"
+    S5 = "test_S5"
 
     @classmethod
     def setUpClass(cls):
@@ -23,10 +26,17 @@ class TestValidation(TestCase):
         cls.runModule(
             "r.unpack", input="data/original.pack", flags="o", output=cls.original
         )
+        cls.runModule(
+            "r.unpack", input="data/actual2.pack", flags="o", output=cls.actual2
+        )
+        cls.runModule(
+            "r.unpack", input="data/original2.pack", flags="o", output=cls.original2
+        )
         cls.runModule("r.unpack", input="data/S1.pack", flags="o", output=cls.S1)
         cls.runModule("r.unpack", input="data/S2.pack", flags="o", output=cls.S2)
         cls.runModule("r.unpack", input="data/S3.pack", flags="o", output=cls.S3)
         cls.runModule("r.unpack", input="data/S4.pack", flags="o", output=cls.S4)
+        cls.runModule("r.unpack", input="data/S5.pack", flags="o", output=cls.S4)
         cls.runModule("g.region", raster=cls.original)
 
     @classmethod
@@ -73,6 +83,22 @@ class TestValidation(TestCase):
         self.assertModuleKeyValue(
             module,
             reference=dict(kappasimulation=0.6, kappa=0.89),
+            precision=0.01,
+            sep="=",
+        )
+
+    def test_validation2_run(self):
+        """Test if results is in expected limits"""
+        module = SimpleModule(
+            "r.futures.validation",
+            format_="shell",
+            original=self.original2,
+            simulated=self.S5,
+            reference=self.actual2,
+        )
+        self.assertModuleKeyValue(
+            module,
+            reference=dict(hits=0.04, figure_of_merit=0.1818),
             precision=0.01,
             sep="=",
         )
