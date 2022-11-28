@@ -230,10 +230,10 @@ def compute(reference, simulated, original):
         return cats, results
 
     n_cats = len(cats)
-    initially_developed = 0
     ref_sim = np.zeros((n_cats, n_cats))
     orig_sim = np.zeros((n_cats, n_cats))
     orig_ref = np.zeros((n_cats, n_cats))
+    hits = false_alarms = misses = null_successes = initially_developed = 0
     for line in data.splitlines():
         line = [int(n) for n in line.strip().split()]
         if original:
@@ -264,14 +264,14 @@ def compute(reference, simulated, original):
 
     if original:
         total = misses + hits + false_alarms + null_successes + initially_developed
-        results["misses"] = misses / total
-        results["hits"] = hits / total
-        results["false_alarms"] = false_alarms / total
-        results["null_successes"] = null_successes / total
-        results["figure_of_merit"] = hits / (misses + hits + false_alarms)
-        results["producer"] = hits / (misses + hits)
-        results["user"] = hits / (hits + false_alarms)
-        results["initially_developed"] = initially_developed / total
+        results["misses"] = misses / total if total else None
+        results["hits"] = hits / total if total else None
+        results["false_alarms"] = false_alarms / total if total else None
+        results["null_successes"] = null_successes / total if total else None
+        results["figure_of_merit"] = hits / (misses + hits + false_alarms) if misses + hits + false_alarms else None
+        results["producer"] = hits / (misses + hits) if misses + hits else None
+        results["user"] = hits / (hits + false_alarms) if hits + false_alarms else None
+        results["initially_developed"] = initially_developed / total if total else None
     # quantity disagreement
     quantity = np.abs(ref_sim.sum(axis=0) - ref_sim.sum(axis=1)) / ref_sim.sum()
     total_quantity = quantity.sum() / 2

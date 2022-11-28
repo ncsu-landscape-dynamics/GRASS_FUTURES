@@ -36,7 +36,7 @@ class TestValidation(TestCase):
         cls.runModule("r.unpack", input="data/S2.pack", flags="o", output=cls.S2)
         cls.runModule("r.unpack", input="data/S3.pack", flags="o", output=cls.S3)
         cls.runModule("r.unpack", input="data/S4.pack", flags="o", output=cls.S4)
-        cls.runModule("r.unpack", input="data/S5.pack", flags="o", output=cls.S4)
+        cls.runModule("r.unpack", input="data/S5.pack", flags="o", output=cls.S5)
         cls.runModule("g.region", raster=cls.original)
 
     @classmethod
@@ -45,7 +45,17 @@ class TestValidation(TestCase):
             "g.remove",
             flags="f",
             type="raster",
-            name=[cls.actual, cls.original, cls.S1, cls.S2, cls.S3, cls.S4],
+            name=[
+                cls.actual,
+                cls.original,
+                cls.actual2,
+                cls.original2,
+                cls.S1,
+                cls.S2,
+                cls.S3,
+                cls.S4,
+                cls.S5,
+            ],
         )
 
     def test_validation_run(self):
@@ -99,7 +109,7 @@ class TestValidation(TestCase):
         self.assertModuleKeyValue(
             module,
             reference=dict(hits=0.04, figure_of_merit=0.1818),
-            precision=0.01,
+            precision=0.0001,
             sep="=",
         )
 
