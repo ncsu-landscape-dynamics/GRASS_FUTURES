@@ -70,6 +70,46 @@
 # % description: Output kappa simulation raster
 # % required: no
 # %end
+# %option G_OPT_R_OUTPUT
+# % key: hits
+# % description: Output percentage raster of observed change simulated as change
+# % required: no
+# %end
+# %option G_OPT_R_OUTPUT
+# % key: misses
+# % description: Output percentage raster of observed change simulated as persistance
+# % required: no
+# %end
+# %option G_OPT_R_OUTPUT
+# % key: false_alarms
+# % description: Output percentage raster of observed persistance simulated as change
+# % required: no
+# %end
+# %option G_OPT_R_OUTPUT
+# % key: null_successes
+# % description: Output percentage raster of observed persistance simulated as persistance
+# % required: no
+# %end
+# %option G_OPT_R_OUTPUT
+# % key: initially_developed
+# % description: Output percentage raster of excluded as initially developed
+# % required: no
+# %end
+# %option G_OPT_R_OUTPUT
+# % key: figure_of_merit
+# % description: Output raster of figure of merit
+# % required: no
+# %end
+# %option G_OPT_R_OUTPUT
+# % key: producer_accuracy
+# % description: Output raster of producer accuracy
+# % required: no
+# %end
+# %option G_OPT_R_OUTPUT
+# % key: user_accuracy
+# % description: Output raster of user accuracy
+# % required: no
+# %end
 # %option G_OPT_M_REGION
 # % required: yes
 # %end
@@ -81,12 +121,35 @@
 # % answer: 1
 # %end
 # %rules
-# % required: allocation_disagreement, quantity_disagreement, kappasimulation
+# % required: allocation_disagreement, quantity_disagreement, kappasimulation, hits, misses, false_alarms, null_successes, initially_developed, figure_of_merit, producer_accuracy, user_accuracy
 # %end
 # %rules
 # % requires: kappasimulation, original
 # %end
-
+# %rules
+# % requires: hits, original
+# %end
+# %rules
+# % requires: misses, original
+# %end
+# %rules
+# % requires: false_alarms, original
+# %end
+# %rules
+# % requires: null_successes, original
+# %end
+# %rules
+# % requires: initially_developed, original
+# %end
+# %rules
+# % requires: figure_of_merit, original
+# %end
+# %rules
+# % requires: producer_accuracy, original
+# %end
+# %rules
+# % requires: user_accuracy, original
+# %end
 
 import os
 import sys
@@ -120,6 +183,14 @@ def main():
     allocation_disagreement = options["allocation_disagreement"]
     quantity_disagreement_basename = options["quantity_disagreement_basename"]
     allocation_disagreement_basename = options["allocation_disagreement_basename"]
+    hits = options["hits"]
+    misses = options["misses"]
+    false_alarms = options["false_alarms"]
+    null_successes = options["null_successes"]
+    initially_developed = options["initially_developed"]
+    figure_of_merit = options["figure_of_merit"]
+    producer_accuracy = options["producer_accuracy"]
+    user_accuracy = options["user_accuracy"]
     input_region = options["region"]
     nprocs = int(options["nprocs"])
 
@@ -180,6 +251,46 @@ def main():
         outputs["allocation_disagreement"] = {
             "name": allocation_disagreement,
             "param": "total_allocation",
+            "inp": "",
+        }
+    if hits:
+        outputs["hits"] = {"name": hits, "param": "hits", "inp": ""}
+    if misses:
+        outputs["misses"] = {"name": misses, "param": "misses", "inp": ""}
+    if false_alarms:
+        outputs["false_alarms"] = {
+            "name": false_alarms,
+            "param": "false_alarms",
+            "inp": "",
+        }
+    if null_successes:
+        outputs["null_successes"] = {
+            "name": null_successes,
+            "param": "null_successes",
+            "inp": "",
+        }
+    if initially_developed:
+        outputs["initially_developed"] = {
+            "name": initially_developed,
+            "param": "initially_developed",
+            "inp": "",
+        }
+    if figure_of_merit:
+        outputs["figure_of_merit"] = {
+            "name": figure_of_merit,
+            "param": "figure_of_merit",
+            "inp": "",
+        }
+    if producer_accuracy:
+        outputs["producer_accuracy"] = {
+            "name": producer_accuracy,
+            "param": "producer",
+            "inp": "",
+        }
+    if user_accuracy:
+        outputs["user_accuracy"] = {
+            "name": user_accuracy,
+            "param": "user",
             "inp": "",
         }
     env = os.environ.copy()
