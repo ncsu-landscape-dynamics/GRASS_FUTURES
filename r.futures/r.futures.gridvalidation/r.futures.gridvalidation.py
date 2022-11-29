@@ -40,6 +40,11 @@
 # % description: Required for kappa simulation
 # % required: no
 # %end
+# %option G_OPT_V_OUTPUT
+# % key: vector_output
+# % required: no
+# % description: Vector output with values as attributes
+# %end
 # %option G_OPT_R_OUTPUT
 # % key: allocation_disagreement
 # % required: no
@@ -193,6 +198,7 @@ def main():
     user_accuracy = options["user_accuracy"]
     input_region = options["region"]
     nprocs = int(options["nprocs"])
+    vector_output = options["vector_output"]
 
     current = gs.region()
     region = gs.parse_command("g.region", flags="pug", region=input_region)
@@ -316,6 +322,38 @@ def main():
         for k in outputs:
             if outputs[k]["param"] in r and r[outputs[k]["param"]] is not None:
                 outputs[k]["inp"] += f"{r['e']},{r['n']},{r[outputs[k]['param']]}\n"
+
+    if vector_output:
+        keys = max([r.keys() for r in results], key=len)
+        csv = ""
+        table_header = "x double precision, y double precision"
+        for k in keys:
+            if k not in ("n", "e"):
+                table_header += f", {k} double precision"
+        for r in results:
+            csv += f"{r['e']},{r['n']}"
+            for k in keys:
+                if k not in ("n", "e"):
+                    try:
+                        if r[k] is None:
+                            csv += ","
+                        else:
+                            csv += f",{r[k]}"
+                    except KeyError:
+                        csv += ","
+            csv += "\n"
+        gs.write_command(
+            "v.in.ascii",
+            input="-",
+            stdin=csv,
+            output=vector_output,
+            separator="comma",
+            columns=table_header,
+            x=1,
+            y=2,
+            format="point",
+        )
+
     for k in outputs:
         gs.write_command(
             "r.in.xyz",
