@@ -18,8 +18,7 @@ class TestValidation(TestCase):
     S4 = "test_S4"
     S5 = "test_S5"
     region = "test_region"
-    kappasim = "test_kappasim"
-    figure_of_merit = "test_figure_of_merit"
+    output = "test_output"
 
     @classmethod
     def setUpClass(cls):
@@ -61,9 +60,13 @@ class TestValidation(TestCase):
                 cls.S3,
                 cls.S4,
                 cls.S5,
-                cls.kappasim,
-                cls.figure_of_merit,
             ],
+        )
+        cls.runModule(
+            "g.remove",
+            flags="f",
+            type="vector",
+            name=[cls.output],
         )
         cls.runModule(
             "g.remove",
@@ -79,29 +82,38 @@ class TestValidation(TestCase):
             original=self.original,
             simulated=self.S1,
             reference=self.actual,
-            kappasimulation=self.kappasim,
+            output=self.output,
             region=self.region,
             overwrite=True,
         )
         # test that module fails (ends with non-zero return code)
         self.assertModule(module)
-        self.assertRasterFitsUnivar(
-            raster=self.kappasim, reference="min=0", precision=0.01
+        self.assertVectorFitsUnivar(
+            map=self.output, column="kappasimulation", reference="min=0", precision=0.01
         )
         module.inputs["simulated"].value = self.S2
         self.assertModule(module)
-        self.assertRasterFitsUnivar(
-            raster=self.kappasim, reference="min=-0.06", precision=0.01
+        self.assertVectorFitsUnivar(
+            map=self.output,
+            column="kappasimulation",
+            reference="min=-0.06",
+            precision=0.01,
         )
         module.inputs["simulated"].value = self.S3
         self.assertModule(module)
-        self.assertRasterFitsUnivar(
-            raster=self.kappasim, reference="min=0.15", precision=0.01
+        self.assertVectorFitsUnivar(
+            map=self.output,
+            column="kappasimulation",
+            reference="min=0.15",
+            precision=0.01,
         )
         module.inputs["simulated"].value = self.S4
         self.assertModule(module)
-        self.assertRasterFitsUnivar(
-            raster=self.kappasim, reference="min=0.6", precision=0.01
+        self.assertVectorFitsUnivar(
+            map=self.output,
+            column="kappasimulation",
+            reference="min=0.6",
+            precision=0.01,
         )
 
     def test_validation2_run(self):
@@ -111,14 +123,17 @@ class TestValidation(TestCase):
             original=self.original2,
             simulated=self.S5,
             reference=self.actual2,
-            figure_of_merit=self.figure_of_merit,
+            output=self.output,
             region=self.region,
             overwrite=True,
         )
         # test that module fails (ends with non-zero return code)
         self.assertModule(module)
-        self.assertRasterFitsUnivar(
-            raster=self.figure_of_merit, reference="min=0.1818", precision=0.0001
+        self.assertVectorFitsUnivar(
+            map=self.output,
+            column="figure_of_merit",
+            reference="min=0.1818",
+            precision=0.0001,
         )
 
 

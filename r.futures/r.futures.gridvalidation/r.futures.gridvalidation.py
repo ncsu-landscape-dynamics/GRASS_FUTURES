@@ -41,82 +41,15 @@
 # % required: no
 # %end
 # %option G_OPT_V_OUTPUT
-# % key: vector_output
-# % required: no
 # % description: Vector output with values as attributes
 # %end
-# %option G_OPT_R_OUTPUT
-# % key: allocation_disagreement
-# % required: no
-# % description: Output total allocation disagreement raster
-# %end
-# %option G_OPT_R_BASENAME_OUTPUT
-# % key: allocation_disagreement_basename
-# % description: Basename for per class allocation disagreement raster
-# % required: no
-# %end
-# %option G_OPT_R_OUTPUT
-# % key: quantity_disagreement
-# % description: Output total quantity disagreement raster
-# % required: no
-# %end
-# %option G_OPT_R_BASENAME_OUTPUT
-# % key: quantity_disagreement_basename
-# % description: Basename for per class quantity disagreement raster
-# % required: no
-# %end
-# %option G_OPT_R_OUTPUT
-# % key: kappa
-# % description: Output Cohen's kappa raster
-# % required: no
-# %end
-# %option G_OPT_R_OUTPUT
-# % key: kappasimulation
-# % description: Output kappa simulation raster
-# % required: no
-# %end
-# %option G_OPT_R_OUTPUT
-# % key: hits
-# % description: Output percentage raster of observed change simulated as change
-# % required: no
-# %end
-# %option G_OPT_R_OUTPUT
-# % key: misses
-# % description: Output percentage raster of observed change simulated as persistance
-# % required: no
-# %end
-# %option G_OPT_R_OUTPUT
-# % key: false_alarms
-# % description: Output percentage raster of observed persistance simulated as change
-# % required: no
-# %end
-# %option G_OPT_R_OUTPUT
-# % key: null_successes
-# % description: Output percentage raster of observed persistance simulated as persistance
-# % required: no
-# %end
-# %option G_OPT_R_OUTPUT
-# % key: initially_developed
-# % description: Output percentage raster of excluded as initially developed
-# % required: no
-# %end
-# %option G_OPT_R_OUTPUT
-# % key: figure_of_merit
-# % description: Output raster of figure of merit
-# % required: no
-# %end
-# %option G_OPT_R_OUTPUT
-# % key: producer_accuracy
-# % description: Output raster of producer accuracy
-# % required: no
-# %end
-# %option G_OPT_R_OUTPUT
-# % key: user_accuracy
-# % description: Output raster of user accuracy
-# % required: no
-# %end
 # %option G_OPT_M_REGION
-# % required: yes
+# % required: no
+# %end
+# %option G_OPT_V_INPUT
+# % key: subregions
+# % description: Vector areas for validation
+# % required: no
 # %end
 # %option
 # % key: nprocs
@@ -125,36 +58,13 @@
 # % required: yes
 # % answer: 1
 # %end
-# %rules
-# % required: allocation_disagreement, quantity_disagreement, kappasimulation, hits, misses, false_alarms, null_successes, initially_developed, figure_of_merit, producer_accuracy, user_accuracy
-# %end
-# %rules
-# % requires: kappasimulation, original
-# %end
-# %rules
-# % requires: hits, original
-# %end
-# %rules
-# % requires: misses, original
-# %end
-# %rules
-# % requires: false_alarms, original
-# %end
-# %rules
-# % requires: null_successes, original
-# %end
-# %rules
-# % requires: initially_developed, original
-# %end
-# %rules
-# % requires: figure_of_merit, original
-# %end
-# %rules
-# % requires: producer_accuracy, original
-# %end
-# %rules
-# % requires: user_accuracy, original
-# %end
+#%rules
+#% required: subregions,region
+#%end
+#%rules
+#% exclusive: subregions,region
+#%end
+
 
 import os
 import sys
@@ -165,15 +75,51 @@ import grass.script as gs
 
 def compute(params):
     env = os.environ.copy()
-    region = params.pop("region")
-    env["GRASS_REGION"] = gs.region_env(**region)
+    use_region = False
+    if "region" in params:
+        use_region = True
+        region = params.pop("region")
+        env["GRASS_REGION"] = gs.region_env(**region)
+        reg = gs.region(env=env)
+    if "cat" in params:
+        cat = params.pop("cat")
+        subregions = params.pop("subregions")
+        temp_map = f"rfuturesvalidation_{cat}"
+        temp_map2 = f"rfuturesvalidation_{cat}_2"
+        gs.run_command(
+            "v.extract", input=subregions, cats=cat, type="area", output=temp_map
+        )
+        env["GRASS_REGION"] = gs.region_env(vector=temp_map, align=params["simulated"])
+        gs.run_command(
+            "v.to.rast",
+            input=temp_map,
+            output=temp_map,
+            type="area",
+            use="val",
+            env=env,
+        )
+        gs.mapcalc(
+            f"{temp_map2} = if({temp_map}, {params['simulated']}, null())", env=env
+        )
+        params["simulated"] = temp_map2
+
     results = gs.read_command(
         "r.futures.validation", format="json", env=env, quiet=True, **params
     )
+
     results = json.loads(results)
-    reg = gs.region(env=env)
-    results["n"] = (reg["n"] + reg["s"]) / 2
-    results["e"] = (reg["e"] + reg["w"]) / 2
+    if use_region:
+        results["n"] = (reg["n"] + reg["s"]) / 2
+        results["e"] = (reg["e"] + reg["w"]) / 2
+    else:
+        results["cat"] = cat
+        gs.run_command(
+            "g.remove",
+            type=["raster", "vector"],
+            name=[temp_map, temp_map2],
+            flags="f",
+            quiet=True,
+        )
     return results
 
 
@@ -182,149 +128,80 @@ def main():
     simulated = options["simulated"]
     original = options["original"]
     reference = options["reference"]
-    kappa = options["kappa"]
-    kappasimulation = options["kappasimulation"]
-    quantity_disagreement = options["quantity_disagreement"]
-    allocation_disagreement = options["allocation_disagreement"]
-    quantity_disagreement_basename = options["quantity_disagreement_basename"]
-    allocation_disagreement_basename = options["allocation_disagreement_basename"]
-    hits = options["hits"]
-    misses = options["misses"]
-    false_alarms = options["false_alarms"]
-    null_successes = options["null_successes"]
-    initially_developed = options["initially_developed"]
-    figure_of_merit = options["figure_of_merit"]
-    producer_accuracy = options["producer_accuracy"]
-    user_accuracy = options["user_accuracy"]
     input_region = options["region"]
+    subregions = options["subregions"]
     nprocs = int(options["nprocs"])
-    vector_output = options["vector_output"]
+    vector_output = options["output"]
 
-    current = gs.region()
-    region = gs.parse_command("g.region", flags="pug", region=input_region)
-    regions = []
-    for row in range(int(region["rows"])):
-        for col in range(int(region["cols"])):
-            s = float(region["s"]) + row * float(region["nsres"])
-            n = float(region["s"]) + (row + 1) * float(region["nsres"])
-            w = float(region["w"]) + col * float(region["ewres"])
-            e = float(region["w"]) + (col + 1) * float(region["ewres"])
-            regions.append(
-                {
-                    "n": n,
-                    "s": s,
-                    "w": w,
-                    "e": e,
-                    "nsres": float(current["nsres"]),
-                    "ewres": float(current["ewres"]),
-                }
-            )
-    results = []
     params = []
-    for each in regions:
-        if original:
-            params.append(
-                {
-                    "region": each,
-                    "simulated": simulated,
-                    "reference": reference,
-                    "original": original,
-                }
-            )
-        else:
-            params.append(
-                {"region": each, "simulated": simulated, "reference": reference}
-            )
+    if input_region:
+        current = gs.region()
+        region = gs.parse_command("g.region", flags="pug", region=input_region)
+        regions = []
+        for row in range(int(region["rows"])):
+            for col in range(int(region["cols"])):
+                s = float(region["s"]) + row * float(region["nsres"])
+                n = float(region["s"]) + (row + 1) * float(region["nsres"])
+                w = float(region["w"]) + col * float(region["ewres"])
+                e = float(region["w"]) + (col + 1) * float(region["ewres"])
+                regions.append(
+                    {
+                        "n": n,
+                        "s": s,
+                        "w": w,
+                        "e": e,
+                        "nsres": float(current["nsres"]),
+                        "ewres": float(current["ewres"]),
+                    }
+                )
 
+        for each in regions:
+            if original:
+                params.append(
+                    {
+                        "region": each,
+                        "simulated": simulated,
+                        "reference": reference,
+                        "original": original,
+                    }
+                )
+            else:
+                params.append(
+                    {"region": each, "simulated": simulated, "reference": reference}
+                )
+    if subregions:
+        cats = (
+            gs.read_command("v.category", input=subregions, option="print")
+            .strip()
+            .splitlines()
+        )
+        for cat in cats:
+            if original:
+                params.append(
+                    {
+                        "cat": cat,
+                        "subregions": subregions,
+                        "simulated": simulated,
+                        "reference": reference,
+                        "original": original,
+                    }
+                )
+            else:
+                params.append(
+                    {
+                        "cat": cat,
+                        "subregions": subregions,
+                        "simulated": simulated,
+                        "reference": reference,
+                    }
+                )
+
+    results = []
     with Pool(processes=nprocs) as pool:
         results = pool.map_async(compute, params).get()
-    outputs = {}
-    if kappa:
-        outputs["kappa"] = {"name": kappa, "param": "kappa", "inp": ""}
-    if kappasimulation:
-        outputs["kappasim"] = {
-            "name": kappasimulation,
-            "param": "kappasimulation",
-            "inp": "",
-        }
-    if quantity_disagreement:
-        outputs["quantity_disagreement"] = {
-            "name": quantity_disagreement,
-            "param": "total_quantity",
-            "inp": "",
-        }
-    if allocation_disagreement:
-        outputs["allocation_disagreement"] = {
-            "name": allocation_disagreement,
-            "param": "total_allocation",
-            "inp": "",
-        }
-    if hits:
-        outputs["hits"] = {"name": hits, "param": "hits", "inp": ""}
-    if misses:
-        outputs["misses"] = {"name": misses, "param": "misses", "inp": ""}
-    if false_alarms:
-        outputs["false_alarms"] = {
-            "name": false_alarms,
-            "param": "false_alarms",
-            "inp": "",
-        }
-    if null_successes:
-        outputs["null_successes"] = {
-            "name": null_successes,
-            "param": "null_successes",
-            "inp": "",
-        }
-    if initially_developed:
-        outputs["initially_developed"] = {
-            "name": initially_developed,
-            "param": "initially_developed",
-            "inp": "",
-        }
-    if figure_of_merit:
-        outputs["figure_of_merit"] = {
-            "name": figure_of_merit,
-            "param": "figure_of_merit",
-            "inp": "",
-        }
-    if producer_accuracy:
-        outputs["producer_accuracy"] = {
-            "name": producer_accuracy,
-            "param": "producer",
-            "inp": "",
-        }
-    if user_accuracy:
-        outputs["user_accuracy"] = {
-            "name": user_accuracy,
-            "param": "user",
-            "inp": "",
-        }
-    env = os.environ.copy()
-    env["GRASS_REGION"] = gs.region_env(region=input_region)
-    for r in results:
-        for key in r.keys():
-            if allocation_disagreement_basename and "allocation_class_" in key:
-                cl = key.replace("allocation_class_", "")
-                if cl not in outputs:
-                    outputs[cl] = {
-                        "name": allocation_disagreement_basename + "_" + cl,
-                        "param": key,
-                        "inp": "",
-                    }
-            if quantity_disagreement_basename and "quantity_class_" in key:
-                cl = key.replace("quantity_class_", "")
-                if cl not in outputs:
-                    outputs[cl] = {
-                        "name": quantity_disagreement_basename + "_" + cl,
-                        "param": key,
-                        "inp": "",
-                    }
-        for k in outputs:
-            if outputs[k]["param"] in r and r[outputs[k]["param"]] is not None:
-                outputs[k]["inp"] += f"{r['e']},{r['n']},{r[outputs[k]['param']]}\n"
 
-    if vector_output:
-        keys = max([r.keys() for r in results], key=len)
+    keys = max([r.keys() for r in results], key=len)
+    if input_region:
         csv = ""
         table_header = "x double precision, y double precision"
         for k in keys:
@@ -353,19 +230,36 @@ def main():
             y=2,
             format="point",
         )
-
-    for k in outputs:
-        gs.write_command(
-            "r.in.xyz",
-            input="-",
-            stdin=outputs[k]["inp"],
-            output=outputs[k]["name"],
-            method="mean",
-            separator="comma",
-            env=env,
-            quiet=True,
-        )
-        gs.raster_history(outputs[k]["name"])
+    else:
+        sql = ""
+        table_header = "cat integer"
+        for k in keys:
+            if k != "cat":
+                table_header += f", {k} double precision"
+        gs.run_command("g.copy", vector=[subregions, vector_output])
+        if gs.read_command("v.db.connect", map=vector_output, flags="g").strip():
+            gs.run_command(
+                "v.db.droptable", map=vector_output, flags="f", errors="ignore"
+            )
+        gs.run_command("v.db.addtable", map=vector_output, columns=table_header)
+        for r in results:
+            # UPDATE table SET attrib=5 WHERE cat=1"
+            tmpsql = f"UPDATE {vector_output} SET "
+            subsql = []
+            for k in keys:
+                if k not in ("cat"):
+                    try:
+                        if r[k] is None:
+                            pass
+                        else:
+                            subsql.append(f"{k}={r[k]}")
+                    except KeyError:
+                        pass
+            tmpsql += ",".join(subsql)
+            tmpsql += f" WHERE cat={r['cat']};\n"
+            if subsql:
+                sql += tmpsql
+        gs.write_command("db.execute", input="-", stdin=sql)
 
 
 if __name__ == "__main__":

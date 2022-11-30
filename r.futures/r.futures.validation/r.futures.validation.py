@@ -268,9 +268,13 @@ def compute(reference, simulated, original):
         results["hits"] = hits / total if total else None
         results["false_alarms"] = false_alarms / total if total else None
         results["null_successes"] = null_successes / total if total else None
-        results["figure_of_merit"] = hits / (misses + hits + false_alarms) if misses + hits + false_alarms else None
-        results["producer"] = hits / (misses + hits) if misses + hits else None
-        results["user"] = hits / (hits + false_alarms) if hits + false_alarms else None
+        results["figure_of_merit"] = (
+            hits / (misses + hits + false_alarms)
+            if misses + hits + false_alarms
+            else 0
+        )
+        results["producer"] = hits / (misses + hits) if misses + hits else 0
+        results["user"] = hits / (hits + false_alarms) if hits + false_alarms else 0
         results["initially_developed"] = initially_developed / total if total else None
     # quantity disagreement
     quantity = np.abs(ref_sim.sum(axis=0) - ref_sim.sum(axis=1)) / ref_sim.sum()
