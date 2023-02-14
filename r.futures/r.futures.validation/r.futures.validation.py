@@ -145,33 +145,33 @@ def print_results(
     elif formatting == "shell":
 
         def format_value(val):
-            return f"{val:.4f}" if val is not None else ""
+            return f"{val:.6f}" if val is not None else ""
 
         for i, c in enumerate(cats):
-            print(f"quantity_class_{c}={quantity[i]:.4f}")
+            print(f"quantity_class_{c}={quantity[i]:.6f}")
         print(f"total_quantity={format_value(total_quantity)}")
         for i, c in enumerate(cats):
-            print(f"allocation_class_{c}={allocation[i]:.4f}")
+            print(f"allocation_class_{c}={allocation[i]:.6f}")
         print(f"total_allocation={format_value(total_allocation)}")
         print(f"kappa={format_value(kappa)}")
         if kappasim is not None:
-            print(f"kappasimulation={kappasim:.4f}")
+            print(f"kappasimulation={kappasim:.6f}")
         if misses is not None:
-            print(f"misses={misses:.4f}")
+            print(f"misses={misses:.6f}")
         if hits is not None:
-            print(f"hits={hits:.4f}")
+            print(f"hits={hits:.6f}")
         if false_alarms is not None:
-            print(f"false_alarms={false_alarms:.4f}")
+            print(f"false_alarms={false_alarms:.6f}")
         if null_successes is not None:
-            print(f"null_successes={null_successes:.4f}")
+            print(f"null_successes={null_successes:.6f}")
         if figure_of_merit is not None:
-            print(f"figure_of_merit={figure_of_merit:.4f}")
+            print(f"figure_of_merit={figure_of_merit:.6f}")
         if producer is not None:
-            print(f"producer={producer:.4f}")
+            print(f"producer={producer:.6f}")
         if user is not None:
-            print(f"user={user:.4f}")
+            print(f"user={user:.6f}")
         if initially_developed is not None:
-            print(f"initially_developed={initially_developed:.4f}")
+            print(f"initially_developed={initially_developed:.6f}")
     elif formatting == "json":
         # export everything even when None
         # for automated processing
@@ -194,7 +194,7 @@ def print_results(
         out["initially_developed"] = initially_developed
         print(
             json.dumps(
-                json.loads(json.dumps(out), parse_float=lambda x: round(float(x), 4))
+                json.loads(json.dumps(out), parse_float=lambda x: round(float(x), 6))
             )
         )
 
