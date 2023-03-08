@@ -1,4 +1,4 @@
-/*!
+﻿/*!
    \file redistribute.c
 
    \brief Functions to redistribute population
@@ -63,7 +63,7 @@ int pick_region(const float *probabilities, int size)
  * \param leaving_population population leaving outside of study area
  */
 void redistribute(struct RedistributionMatrix *matrix, struct Demand *demand,
-                  int regionID, int num_px, map_int_t *region_map,
+                  int regionID, int num_px, map_int_t *region_map, map_int_t *internal_region_map,
                   int step, float *leaving_population)
 {
     int to_idx;
@@ -71,6 +71,7 @@ void redistribute(struct RedistributionMatrix *matrix, struct Demand *demand,
     int *to_ID;
     int *demand_to_idx;
     int *demand_from_idx;
+    int *internal_to_idx;
     float density_from, density_to;
     float to_px;
 
@@ -97,7 +98,13 @@ void redistribute(struct RedistributionMatrix *matrix, struct Demand *demand,
             to_px = num_px * density_from / density_to;
         /* increase number of px to grow next step */
         if (step + 1 < demand->max_steps) {
-            demand->cells_table[*demand_to_idx][step + 1] += to_px;
+            internal_to_idx = map_get_int(internal_region_map, *to_ID);
+            /* if destination is inside study area, apply to demand
+               otherwise record in external matrix */
+            if (internal_to_idx)
+                demand->cells_table[*demand_to_idx][step + 1] += to_px;
+            else
+                matrix->external_px[*from_idx][to_idx] += to_px;
             G_debug(2, "%f cells moved from %d to %d in step %d", to_px, regionID, *to_ID, step);
             matrix->moved_px[*from_idx][to_idx] += to_px;
         }
@@ -162,6 +169,7 @@ void read_redistribution_matrix(struct RedistributionMatrix *matrix)
     matrix->dim_from = matrix->dim_to;
     matrix->probabilities = (float **) G_malloc(matrix->dim_from * sizeof(float *));
     matrix->moved_px = (float **) G_malloc(matrix->dim_from * sizeof(float *));
+    matrix->external_px = (float **) G_malloc(matrix->dim_from * sizeof(float *));
     matrix->max_dim_from = matrix->dim_from;
 
     row = 0;
@@ -175,6 +183,7 @@ void read_redistribution_matrix(struct RedistributionMatrix *matrix)
         /* allocate row */
         matrix->probabilities[row] = (float *) G_malloc(matrix->dim_to * sizeof(float));
         matrix->moved_px[row] = (float *) G_malloc(matrix->dim_to * sizeof(float));
+        matrix->external_px[row] = (float *) G_malloc(matrix->dim_to * sizeof(float));
         for (col = 0; col < ntokens2; col++) {
             if (col == 0) {
                 map_set(&matrix->from_map, tokens2[col], row);
@@ -184,6 +193,7 @@ void read_redistribution_matrix(struct RedistributionMatrix *matrix)
                 /* convert from % */
                 matrix->probabilities[row][col - 1] = atof(tokens2[col]) / 100.;
                 matrix->moved_px[row][col - 1] = 0;
+                matrix->external_px[row][col - 1] = 0;
             }
         }
         row++;
@@ -191,6 +201,7 @@ void read_redistribution_matrix(struct RedistributionMatrix *matrix)
             new_size = 2 * matrix->max_dim_from;
             matrix->probabilities = (float **) G_realloc(matrix->probabilities, new_size * sizeof(float *));
             matrix->moved_px = (float **) G_realloc(matrix->moved_px, new_size * sizeof(float *));
+            matrix->external_px = (float **) G_realloc(matrix->external_px, new_size * sizeof(float *));
             matrix->max_dim_from = new_size;
         }
 
@@ -210,14 +221,14 @@ void read_redistribution_matrix(struct RedistributionMatrix *matrix)
  * \param nsteps Number of steps in simulation
  * \return
  */
-static char* get_matrix_filename(const struct RedistributionMatrix *matrix, int step, int nsteps)
+static char* get_matrix_filename(const struct RedistributionMatrix *matrix, bool external, int step, int nsteps)
 {
     const char *name;
     const char *ext;
     char *filename;
 
     ext = ".csv";
-    name = name_for_step(matrix->output_basename, step, nsteps);
+    name = name_for_step(external ? matrix->output_external_basename : matrix->output_basename, step, nsteps);
     filename = G_malloc((strlen(name) + strlen(ext) + 1) * sizeof(char));
     sprintf(filename, "%s%s", name, ext);
     return filename;
@@ -229,12 +240,12 @@ static char* get_matrix_filename(const struct RedistributionMatrix *matrix, int 
  * \param nsteps Number of steps in simulation
  * \return True if any of the files exist otherwise false
  */
-bool check_matrix_filenames_exist(const struct RedistributionMatrix *matrix, int nsteps)
+bool check_matrix_filenames_exist(const struct RedistributionMatrix *matrix, bool external, int nsteps)
 {
     char *filename;
     int step;
     for (step = 0; step < nsteps; step++) {
-        filename = get_matrix_filename(matrix, step, nsteps);
+        filename = get_matrix_filename(matrix, external, step, nsteps);
         if (access(filename, F_OK) != -1) {
             G_free(filename);
             return true;
@@ -247,11 +258,12 @@ bool check_matrix_filenames_exist(const struct RedistributionMatrix *matrix, int
 /*!
  * \brief Write redistribution matrix (number of moved pixels among counties)
  * \param matrix structure
+ * \param external if write external moved px (for steered distributed runs)
  * \param step step number
  * \param nsteps total number of steps (for file name padding)
  */
 void write_redistribution_matrix(struct RedistributionMatrix *matrix,
-                                 int step, int nsteps)
+                                 bool external, int step, int nsteps)
 {
     FILE *fp;
     const char *name;
@@ -261,7 +273,10 @@ void write_redistribution_matrix(struct RedistributionMatrix *matrix,
     int *ID;
 
     ext = ".csv";
-    name = name_for_step(matrix->output_basename, step, nsteps);
+    if (external)
+        name = name_for_step(matrix->output_external_basename, step, nsteps);
+    else
+        name = name_for_step(matrix->output_basename, step, nsteps);
     filename = G_malloc((strlen(name) + strlen(ext) + 1) * sizeof(char));
     sprintf(filename, "%s%s", name, ext);
     fp = fopen(filename, "w+");
@@ -271,14 +286,15 @@ void write_redistribution_matrix(struct RedistributionMatrix *matrix,
         fprintf(fp, ",%d", *ID);
     }
     fprintf(fp, "\n");
+    float **matrix_px = external ? matrix->external_px : matrix->moved_px;
     for (row = 0; row < matrix->dim_from; row++) {
         ID = map_get_int(&matrix->reverse_from_map, row);
         fprintf(fp, "%d", *ID);
         for (col = 0; col < matrix->dim_to; col++) {
-            if (matrix->moved_px[row][col] > 0)
-                fprintf(fp, ",%f", matrix->moved_px[row][col]);
+            if (matrix_px[row][col] > 0)
+                fprintf(fp, ",%f", matrix_px[row][col]);
             else
-                fprintf(fp, ",%d", (int)matrix->moved_px[row][col]);
+                fprintf(fp, ",%d", (int)matrix_px[row][col]);
         }
         fprintf(fp, "\n");
     }
@@ -292,9 +308,11 @@ void free_redistribution_matrix(struct RedistributionMatrix *matrix)
     for (i = 0; i < matrix->dim_from; i++) {
         G_free(matrix->probabilities[i]);
         G_free(matrix->moved_px[i]);
+        G_free(matrix->external_px[i]);
     }
     G_free(matrix->probabilities);
     G_free(matrix->moved_px);
+    G_free(matrix->external_px);
     map_deinit(&matrix->from_map);
     map_deinit(&matrix->to_map);
     map_deinit(&matrix->reverse_from_map);

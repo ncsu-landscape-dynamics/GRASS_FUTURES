@@ -444,6 +444,7 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
 void climate_step(struct Segments *segments, struct Demand *demand,
                   struct BBoxes *bboxes, struct RedistributionMatrix *matrix,
                   map_int_t *region_map, map_int_t *reverse_region_map,
+                  map_int_t *internal_region_map,
                   int step, float *leaving_population,
                   struct HAND_bbox_values *HAND_bbox_vals,
                   float percentile,
@@ -519,7 +520,7 @@ void climate_step(struct Segments *segments, struct Demand *demand,
                             Segment_get(&segments->subregions, (void *)&region_from_idx, row, col);
                             region_from_ID = map_get_int(reverse_region_map, region_from_idx);
                             redistribute(matrix, demand, *region_from_ID, 1,
-                                         region_map, step, leaving_population);
+                                         region_map, internal_region_map, step, leaving_population);
                         }
                         else if (response == Adapt) {
                             adapt(&segments->adaptation, flood_probability, row, col);

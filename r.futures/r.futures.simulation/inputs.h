@@ -3,10 +3,11 @@
 
 #include <stdbool.h>
 #include <grass/segment.h>
+#include <grass/gis.h>
 
 #include "map.h"
 enum development_type {DEV_TYPE_INITIAL = 0,
-                       DEV_TYPE_UNDEVELOPED = -1};
+                       DEV_TYPE_UNDEVELOPED = -1000};
 
 enum DDF_subregions_source {DDF_DEFAULT = 0,
                             DDF_POTENTIAL = -1,
@@ -16,8 +17,12 @@ struct Demand
 {
     const char *cells_filename;
     const char *population_filename;
+    const char *cells_output_filename;
+    const char *population_output_filename;
     float **cells_table;
     float **population_table;
+    struct ilist *cells_header;
+    struct ilist *population_header;
     int *years;
     int max_subregions;
     int max_steps;
@@ -172,14 +177,15 @@ size_t estimate_undev_size(struct RasterInputs inputs);
 void initialize_incentive(struct Potential *potential_info, float exponent);
 void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                         struct SegmentMemory segment_info, map_int_t *region_map,
-                        map_int_t *reverse_region_map,
+                        map_int_t *reverse_region_map, map_int_t *internal_region_map,
                         map_int_t *potential_region_map,
                         map_int_t *HUC_map, map_float_t *max_flood_probability_map,
-                        map_int_t *DDF_region_map);
+                        map_int_t *DDF_region_map,
+                        bool steering);
 void read_predictors(struct RasterInputs inputs, struct Segments *segments,
                      const struct Potential *potential,
                      const struct SegmentMemory segment_info);
-void read_demand_file(struct Demand *demandInfo, map_int_t *region_map);
+void read_demand_file(struct Demand *demandInfo, map_int_t *region_map, map_int_t *reverse_region_map);
 void fill_predictor_map(struct RasterInputs inputs, map_int_t *predictor_map, int num_predictors);
 void read_potential_file(struct Potential *potentialInfo, map_int_t *region_map,
                          map_int_t *predictor_map);

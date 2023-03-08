@@ -45,7 +45,7 @@ void compute_step(struct Developables *undev_cells, struct Developables *dev_cel
                   bool overgrow);
 void climate_step(struct Segments *segments, struct Demand *demand,
                   struct BBoxes *bboxes, struct RedistributionMatrix *matrix,
-                  map_int_t *region_map, map_int_t *reverse_region_map,
+                  map_int_t *region_map, map_int_t *reverse_region_map, map_int_t *internal_region_map,
                   int step, float *leaving_population,
                   struct HAND_bbox_values *HAND_bbox_vals, float percentile,
                   map_float_t *flood_probability_map, const struct FloodInputs *flood_inputs,

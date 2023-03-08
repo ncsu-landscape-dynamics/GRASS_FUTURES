@@ -10,6 +10,8 @@ class TestPGA(TestCase):
     output = "pga_output"
     result = "result"
     potential_test = "data/potential_test.csv"
+    output_demand = "data/output_demand_file.csv"
+    output_development_pressure = "output_development_pressure"
 
     @classmethod
     def setUpClass(cls):
@@ -109,6 +111,9 @@ class TestPGA(TestCase):
         cls.runModule(
             "r.mapcalc", expression="acapacity = rand(-100, 100) * 0.01", seed=1
         )
+        cls.runModule(
+            "r.mapcalc", expression="urban_2002_steered = if (urban_2002 == 0, -1, 0)"
+        )
 
     @classmethod
     def tearDownClass(cls):
@@ -138,14 +143,21 @@ class TestPGA(TestCase):
                 "flood_probability",
                 "acapacity",
                 "basin",
+                "urban_2002_steered",
                 cls.result,
             ],
         )
         cls.del_temp_region()
         gs.try_remove(cls.potential_test)
+        gs.try_remove(cls.output_demand)
 
     def tearDown(self):
-        self.runModule("g.remove", flags="f", type="raster", name=self.output)
+        self.runModule(
+            "g.remove",
+            flags="f",
+            type="raster",
+            name=[self.output, self.output_development_pressure],
+        )
 
     def test_pga_run(self):
         """Test if results is in expected limits"""
@@ -339,6 +351,40 @@ class TestPGA(TestCase):
             response_stddev=0.1,
             output=self.output,
         )
+
+    def test_pga_run_steering(self):
+        """Test if results is in expected limits"""
+        for i in range(0, 7):
+            self.assertModule(
+                "r.futures.simulation",
+                developed="urban_2002_steered" if i == 0 else self.output,
+                development_pressure="devpressure"
+                if i == 0
+                else self.output_development_pressure,
+                compactness_mean=0.4,
+                compactness_range=0.05,
+                discount_factor=0.1,
+                patch_sizes="data/patches.txt",
+                predictors=["slope", "lakes_dist_km", "streets_dist_km"],
+                n_dev_neighbourhood=15,
+                devpot_params="data/potential.csv",
+                random_seed=1,
+                num_neighbors=4,
+                seed_search="random",
+                development_pressure_approach="gravity",
+                gamma=1.5,
+                scaling_factor=1,
+                subregions="zipcodes",
+                demand="data/demand.csv" if i == 0 else self.output_demand,
+                output=self.output,
+                flags="r",
+                output_development_pressure=self.output_development_pressure,
+                output_demand=self.output_demand,
+                num_steps=1,
+                steering_step=i,
+                verbose=True,
+                overwrite=True,
+            )
 
 
 if __name__ == "__main__":

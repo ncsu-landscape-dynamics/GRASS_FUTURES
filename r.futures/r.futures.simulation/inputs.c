@@ -35,7 +35,7 @@
 int get_developed_val_from_step(int step, bool abandon)
 {
     if (abandon)
-        return -step - 2;
+        return -step - 1;
     else
         return step + 1;
 }
@@ -104,10 +104,10 @@ void initialize_incentive(struct Potential *potential_info, float exponent)
  */
 void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                         struct SegmentMemory segment_info, map_int_t *region_map,
-                        map_int_t *reverse_region_map,
+                        map_int_t *reverse_region_map, map_int_t *internal_region_map,
                         map_int_t *potential_region_map,
                         map_int_t *HUC_map, map_float_t *max_flood_probability_map,
-                        map_int_t *DDF_region_map)
+                        map_int_t *DDF_region_map, bool steering)
 {
     int row, col;
     int rows, cols;
@@ -275,10 +275,22 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
         for (col = 0; col < cols; col++) {
             isnull = false;
             /* developed */
-            /* undeveloped 0 -> -1, developed 1 -> 0 */
             if (!Rast_is_null_value(&((CELL *) developed_row)[col], CELL_TYPE)) {
                 c = ((CELL *) developed_row)[col];
-                ((CELL *) developed_row)[col] = c - 1;
+                if (steering) {
+                    if (!segments->use_climate) {
+                        /* undeveloped -1 -> -1000 */
+                        if (c == -1)
+                            ((CELL *) developed_row)[col] = DEV_TYPE_UNDEVELOPED;
+                    }
+                }
+                /* undeveloped 0 -> -1000, developed 1 -> 0 */
+                else {
+                    if (c == 0)
+                        ((CELL *) developed_row)[col] = DEV_TYPE_UNDEVELOPED;
+                    else
+                        ((CELL *) developed_row)[col] = c - 1;
+                }
             }
             else
                 isnull = true;
@@ -288,6 +300,7 @@ void read_input_rasters(struct RasterInputs inputs, struct Segments *segments,
                 region_pindex = map_get_int(region_map, c);
                 if (!region_pindex) {
                     map_set_int(region_map, c, count_regions);
+                    map_set_int(internal_region_map, c, count_regions);
                     map_set_int(reverse_region_map, count_regions, c);
                     region_index = count_regions;
                     count_regions++;
@@ -568,11 +581,12 @@ void read_predictors(struct RasterInputs inputs, struct Segments *segments,
 
 
 static int _read_demand_file(FILE *fp, const char *separator,
-                             float **table, int *demand_years,
-                             map_int_t *region_map)
+                             float ***table, struct ilist **header,
+                             int n_years, int *demand_years,
+                             map_int_t *region_map, map_int_t *reverse_region_map)
 {
 
-    size_t buflen = 4000;
+    size_t buflen = 35000;
     char buf[buflen];
     // read in the first row (header)
     if (G_getl2(buf, buflen, fp) == 0)
@@ -589,13 +603,27 @@ static int _read_demand_file(FILE *fp, const char *separator,
     if (ntokens == 0)
         G_fatal_error("No columns in the header row");
 
-    struct ilist *ids = G_new_ilist();
+    *header = G_new_ilist();
     int count;
     // skip first column which does not contain id of the region
     unsigned i;
+    int count_regions = map_nitems(region_map);
     for (i = 1; i < ntokens; i++) {
         G_chop(tokens[i]);
-        G_ilist_add(ids, atoi(tokens[i]));
+        int region_ID = atoi(tokens[i]);
+        G_ilist_add(*header, region_ID);
+        /* include subregions outside of subregion map too */
+        int *idx = map_get_int(region_map, region_ID);
+        if (!idx) {
+            map_set_int(region_map, region_ID, count_regions);
+            map_set_int(reverse_region_map, count_regions, region_ID);
+            count_regions++;
+        }
+    }
+    /* once we know how big the table is, allocate it */
+    *table = (float **) G_malloc(map_nitems(region_map) * sizeof(float *));
+    for (unsigned i = 0; i < map_nitems(region_map); i++) {
+        (*table)[i] = (float *) G_malloc(n_years * sizeof(float));
     }
 
     int years = 0;
@@ -613,22 +641,22 @@ static int _read_demand_file(FILE *fp, const char *separator,
         demand_years[years] = atoi(tokens[0]);
         for (unsigned i = 1; i < ntokens; i++) {
             // skip first column which is the year which we ignore
-            int *idx = map_get_int(region_map, ids->value[count]);
+            int *idx = map_get_int(region_map, (*header)->value[count]);
             if (idx) {
                 G_chop(tokens[i]);
-                table[*idx][years] = atof(tokens[i]);
+                (*table)[*idx][years] = atof(tokens[i]);
             }
             count++;
         }
         // each line is a year
         years++;
     }
-    G_free_ilist(ids);
     G_free_tokens(tokens);
     return years;
 }
 
-void read_demand_file(struct Demand *demandInfo, map_int_t *region_map)
+void read_demand_file(struct Demand *demandInfo, map_int_t *region_map,
+                      map_int_t *reverse_region_map)
 {
     FILE *fp_cell = NULL, *fp_population = NULL;
     if ((fp_cell = fopen(demandInfo->cells_filename, "r")) == NULL)
@@ -658,13 +686,9 @@ void read_demand_file(struct Demand *demandInfo, map_int_t *region_map)
     }
 
     demandInfo->years = (int *) G_malloc(countlines * sizeof(int));
-    demandInfo->cells_table = (float **) G_malloc(map_nitems(region_map) * sizeof(float *));
-    for (unsigned i = 0; i < map_nitems(region_map); i++) {
-        demandInfo->cells_table[i] = (float *) G_malloc(countlines * sizeof(float));
-    }
     int num_years = _read_demand_file(fp_cell, demandInfo->separator,
-                                      demandInfo->cells_table,
-                                      demandInfo->years, region_map);
+                                      &(demandInfo->cells_table), &(demandInfo->cells_header),
+                                      countlines, demandInfo->years, region_map, reverse_region_map);
     demandInfo->max_subregions = map_nitems(region_map);
     demandInfo->max_steps = num_years;
     G_verbose_message("Number of steps in area demand file: %d", num_years);
@@ -672,13 +696,9 @@ void read_demand_file(struct Demand *demandInfo, map_int_t *region_map)
 
     if (demandInfo->has_population) {
         int *years2 = (int *) G_malloc(countlines * sizeof(int));
-        demandInfo->population_table = (float **) G_malloc(map_nitems(region_map) * sizeof(float *));
-        for (unsigned i = 0; i < map_nitems(region_map); i++) {
-            demandInfo->population_table[i] = (float *) G_malloc(countlines * sizeof(float));
-        }
         int num_years2 = _read_demand_file(fp_population, demandInfo->separator,
-                                          demandInfo->population_table,
-                                          years2, region_map);
+                                           &(demandInfo->population_table), &(demandInfo->population_header),
+                                           countlines, years2, region_map, reverse_region_map);
         // check files for consistency
         if (num_years != num_years2)
             G_fatal_error(_("Area and population demand files (<%s> and <%s>) "
@@ -1164,6 +1184,8 @@ void read_flood_file(struct FloodInputs *flood_inputs)
     /* read to get length and checks */
     i = 0;
     while (G_getl2(buf, buflen, fp)) {
+        if (buf[0] == '\0')
+            continue;
         // process each column in row
         tokens = G_tokenize2(buf, flood_inputs->separator, td);
         ntokens = G_number_of_tokens(tokens);

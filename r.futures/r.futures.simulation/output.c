@@ -23,6 +23,7 @@
 
 #include "output.h"
 #include "inputs.h"
+#include "map.h"
 
 
 static void create_timestamp(int year, struct TimeStamp* timestamp)
@@ -73,9 +74,9 @@ char *name_for_step(const char *basename, const int step, const int nsteps)
  * \param year_from year to put as timestamp
  * \param year_to if > 0 it is end year of timestamp interval
  * \param nsteps total number of steps (needed for color table)
- * \param contains_abandoned If true, represent undeveloped areas as NULLS, and
- *        shift values <= -2 (abandoned) by +1 to represent in absolute value
- *        step when they were abandoned.
+ * \param contains_abandoned If false, undeveloped areas represented internally as -1000
+ *        are changed on output to -1, otherwise -1000 is kept on output
+ *        with -1 to -nsteps representing the step in abs value when px was abandoned
  */
 void output_developed_step(SEGMENT *developed_segment, const char *name,
                            int year_from, int year_to, int nsteps, bool contains_abandoned)
@@ -103,13 +104,9 @@ void output_developed_step(SEGMENT *developed_segment, const char *name,
             if (Rast_is_c_null_value(&developed)) {
                 continue;
             }
-            if (contains_abandoned) {
-                if (developed < DEV_TYPE_UNDEVELOPED) {
-                    developed += 1;
-                }
-                else if (developed == DEV_TYPE_UNDEVELOPED) {
-                    continue;
-                }
+            if (!contains_abandoned) {
+                if (developed == DEV_TYPE_UNDEVELOPED)
+                    developed = -1;
             }
             out_row[col] = developed;
         }
@@ -122,14 +119,18 @@ void output_developed_step(SEGMENT *developed_segment, const char *name,
     // TODO: the map max is 36 for 36 steps, it is correct?
 
     if (contains_abandoned) {
+        val1 = DEV_TYPE_UNDEVELOPED;
+        val2 = DEV_TYPE_UNDEVELOPED;
+        Rast_add_c_color_rule(&val1, 180, 255, 160, &val2, 180, 255, 160,
+                              &colors);
         val1 = -nsteps;
         val2 = -1;
         Rast_add_c_color_rule(&val1, 230, 163, 255, &val2, 60, 0, 80,
                               &colors);
-     }
+    }
     else {
-        val1 = DEV_TYPE_UNDEVELOPED;
-        val2 = DEV_TYPE_UNDEVELOPED;
+        val1 = -1;
+        val2 = -1;
         Rast_add_c_color_rule(&val1, 180, 255, 160, &val2, 180, 255, 160,
                               &colors);
     }
@@ -206,4 +207,45 @@ void output_step(SEGMENT *output_segment, SEGMENT *developed_segment,
 
     G_message(_("Raster map <%s> created"), name);
 
+}
+
+void output_demand_file(struct Demand *demandInfo, map_int_t *region_map,
+                        int *patch_overflow, int step)
+{
+    FILE *fp_cell = NULL;
+    if ((fp_cell = fopen(demandInfo->cells_output_filename, "w")) == NULL)
+        G_fatal_error(_("Cannot open area demand file <%s> for writing"),
+                      demandInfo->cells_output_filename);
+    fprintf(fp_cell, "year");
+    /* write region header */
+    for (int region = 0; region < demandInfo->cells_header->n_values; region++) {
+        fprintf(fp_cell, ",%d", demandInfo->cells_header->value[region]);
+    }
+    fprintf(fp_cell, "\n");
+
+    int *patch_overflow_copy = G_calloc(map_nitems(region_map), sizeof(int));
+    memcpy(patch_overflow_copy, patch_overflow, sizeof(int) * map_nitems(region_map));
+    for (int row = 0; row < demandInfo->max_steps; row++) {
+        /* write year */
+        fprintf(fp_cell, "%d", demandInfo->years[row]);
+        for (int region = 0; region < demandInfo->cells_header->n_values; region++) {
+            int *region_idx = map_get_int(region_map, demandInfo->cells_header->value[region]);
+            /* resolve patch overflow */
+            int n_to_convert = lroundf(demandInfo->cells_table[*region_idx][row]);
+
+            if ((row == step + 1) && patch_overflow_copy[*region_idx] > 0) {
+                if (n_to_convert - patch_overflow_copy[*region_idx] > 0) {
+                    n_to_convert -= patch_overflow_copy[*region_idx];
+                }
+                else {
+                    patch_overflow_copy[*region_idx] -= n_to_convert;
+                    n_to_convert = 0;
+                }
+            }
+            fprintf(fp_cell, ",%d", n_to_convert);
+        }
+        fprintf(fp_cell, "\n");
+    }
+    G_free(patch_overflow_copy);
+    fclose(fp_cell);
 }
