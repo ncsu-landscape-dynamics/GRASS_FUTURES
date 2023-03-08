@@ -40,7 +40,8 @@ cd grass
     --with-geos \
     --with-sqlite \
     --with-fftw \
-    --with-netcdf
+    --with-netcdf \
+    --without-pdal
 
 make
 make install
